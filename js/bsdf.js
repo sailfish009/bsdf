@@ -12,7 +12,7 @@ function utf8encode(mix) {
     var iz = mix.length;
     var rv = [];
     for (var i = 0; i < iz; ++i) {
-        c = mix.charCodeAt(i);
+        var c = mix.charCodeAt(i);
         if (c < 0x80) { // ASCII(0x00 ~ 0x7f)
             rv.push(c & 0x7f);
         } else if (c < 0x0800) {
@@ -31,7 +31,7 @@ function utf8decode(buf) {
     var iz = buf.length - 1;
     var ary = [];
     for (var i = -1; i < iz; ) {
-        c = buf[++i]; // lead byte
+        var c = buf[++i]; // lead byte
         ary.push(c < 0x80 ? c : // ASCII(0x00 ~ 0x7f)
                 c < 0xe0 ? ((c & 0x1f) <<  6 | (buf[++i] & 0x3f)) :
                             ((c & 0x0f) << 12 | (buf[++i] & 0x3f) << 6
@@ -53,7 +53,7 @@ function ByteBuilder() {
 
     // Create text encoder / decoder
     var text_encode, text_decode;
-    if (window.TextEncoder) {
+    if (typeof TextEncoder !== 'undefined') {
         var x = new TextEncoder('utf-8');
         text_encode = x.encode.bind(x);
     } else {
@@ -179,7 +179,7 @@ function BytesReader(buf) {
 
     // Create text encoder / decoder
     var text_encode, text_decode;
-    if (window.TextDecoder) {
+    if (typeof TextDecoder !== 'undefined') {
         var x = new TextDecoder('utf-8');
         text_decode = x.decode.bind(x);
     } else {
@@ -327,3 +327,6 @@ function bsdf_decode(buf) {
     var f = BytesReader(buf);
     return decode_object(f);
 }
+
+// For Node.js
+module.exports = {bsdf_encode, bsdf_decode};

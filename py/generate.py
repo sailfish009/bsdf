@@ -1,7 +1,7 @@
 # Copyright (c) 2011-2017, Almar Klein
 
 """
-Create random dictionaries to test data formats such as ssdf, bsdf, zon.
+Create random dictionaries.
 """
 
 import os
