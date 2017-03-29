@@ -1,3 +1,6 @@
+# This package
+data/rand*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

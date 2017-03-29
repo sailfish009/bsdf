@@ -8,12 +8,9 @@ Note that JSON is partly implemented in C from Python 3.x.
 import os
 import sys
 import json
-import random
-import string
 from time import perf_counter
 #from time import time as perf_counter  # legacy py
 
-from generate import random_dict
 
 # === BSDF
 import bsdf as lib
@@ -31,45 +28,36 @@ import bsdf as lib
 # lib.loads = lib.unpackb
 
 
-TYPES = 'None', 'bool', 'int', 'float', 'dict', 'list', 'str'
+TYPES = 'None', 'bool', 'int', 'float', 'str', 'dict', 'list'
 
-def timeit(func, arg):
+def timeit(func, arg, n=1):
     t0 = perf_counter()
-    res = func(arg)
+    for i in range(n):
+        res = func(arg)
     t1 = perf_counter()
     return res, int((t1 - t0) * 1000)
 
 
-## Small ramdom dict for show
-
-d0 = d = random_dict(3, 7, 7, TYPES)
-d['aaaa'] = float('inf')
-d['aaab'] = float('nan')
-# d['x'] = list(range(100))
-
-print('----')
-print(d)
-print('----')
-print(json.dumps(d))
-print('----')
-print(lib.dumps(d))
-
-
-## Encode / decode
-
-d = random_dict(3, 10000, 10000, TYPES)
-
-r1, t1 = timeit(json.dumps, d)
-r2, t2 = timeit(lib.dumps, d)
-
-print('encoding:', t1, t2, int(100*t1/t2), '%' )
-
-d1, t1 = timeit(json.loads, r1)
-d2, t2 = timeit(lib.loads, r2)
-
-print('decoding', t1, t2, int(100*t1/t2), '%' )
-
-
-print(len(str(d1)), len(str(d2)))
-print('%0.0f%%' % (100*len(r2)/len(r1)))
-print('equal:', d1 == d2)
+for fname, n in [('rand01', 100),
+                 ('rand02', 10),
+                 ('rand03', 1),
+                 ('rand04_nulldict', 2),
+                 ('rand05_nulllist', 4)
+                 ]:
+    print('-' * 10 + ' ' + fname + ' ' + str(n))
+    d = json.load(open('../data/%s.json' % fname, 'rt', encoding='utf-8'))
+    
+    r1, t1 = timeit(json.dumps, d, n)
+    r2, t2 = timeit(lib.dumps, d, n)
+    
+    print('encoding:', t1, t2, int(100*t1/t2), '%' )
+    
+    d1, t1 = timeit(json.loads, r1, n)
+    d2, t2 = timeit(lib.loads, r2, n)
+    
+    print('decoding', t1, t2, int(100*t1/t2), '%' )
+    
+    
+    print(len(str(d1)), len(str(d2)))
+    print('%0.0f%%' % (100*len(r2)/len(r1)))
+    print('equal:', d1 == d2)

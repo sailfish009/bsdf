@@ -329,4 +329,4 @@ function bsdf_decode(buf) {
 }
 
 // For Node.js
-module.exports = {bsdf_encode, bsdf_decode};
+if (typeof module !== 'undefined') module.exports = {bsdf_encode, bsdf_decode};

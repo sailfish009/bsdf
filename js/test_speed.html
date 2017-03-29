@@ -3,10 +3,31 @@
 <head><meta charset="utf-8"><title>Test BSDF performance in browser</title></head>
 <body>
 
-<script src='../data/data03.js'></script>
+<script src='../data/rand01.js'></script>
+<script src='../data/rand02.js'></script>
+<script src='../data/rand03.js'></script>
+<script src='../data/rand04_nulldict.js'></script>
+<script src='../data/rand05_nulllist.js'></script>
+
 <script src='bsdf.js'></script>
 
+<div id="output"></div>
+
 <script>
+
+// ========== functions we need here
+
+function perf_counter() {
+    return performance.now() / 1000;
+}
+
+function write(msg) {
+    if (msg === undefined) msg = '';
+    var output = document.getElementById('output');
+    output.innerHTML += msg + '<br />';
+}
+
+// ========== Function we can share
 
 function deep_compare(d1, d2) {
     var s1 = JSON.stringify(d1);
@@ -14,49 +35,59 @@ function deep_compare(d1, d2) {
     for (var i=0; i<Math.max(s1.length, s2.length); i++) {
           if (s1[i] != s2[i]) {
               var i0 = Math.max(0, i - 10);
-              document.write('Dicts are NOT equal:')
-              document.write(s1.slice(i0, i0 + 100) + '<br />');
-              document.write(s2.slice(i0, i0 + 100) + '<br />');
+              write('Dicts are NOT equal:')
+              write(s1.slice(i0, i0 + 100));
+              write(s2.slice(i0, i0 + 100));
               return;
           }
     }
-    document.write('Hooray, dicts are equal!')
+    write('Hooray, dicts are equal!')
 }
 
-window.document.body.onload = function() {
-    console.log('document loaded')
-    
-    window.d = testdata;//JSON.parse(document.getElementById('stuff').innerHTML);
-    console.log('parsed test data. starting tests...')
-    
-    //var t0, t1, t2, r1, r2, d1, d2;
-    
-    t0 = performance.now();
-    r1 = JSON.stringify(d);
-    t1 = performance.now() - t0;
-    
-    t0 = performance.now();
-    r2 = bsdf_encode(d);
-    t2 = performance.now() - t0;
-    
-    r = Math.round;
-    document.write('encoding: ' + r(t1) + ', ' + r(t2) + ': ' + r(100 * t1/t2) + '%<br />')
-    
-    
-    t0 = performance.now();
-    d1 = JSON.parse(r1);
-    t1 = performance.now() - t0;
-    
-    t0 = performance.now();
-    d2 = bsdf_decode(r2);
-    t2 = performance.now() - t0;
-    
-    document.write('decoding: ' + r(t1) + ', ' + r(t2) + ': ' + r(100 * t1/t2) + '%<br />')
-    
-    document.write('<br />');
-    deep_compare(d1, d2);
+function main() {
+    var tests = [['rand01', 100],
+                 ['rand02', 10],
+                 ['rand03', 1],
+                 ['rand04_nulldict', 2],
+                 ['rand05_nulllist', 4],
+                 ];
 
+    for (var iter=0; iter<tests.length; iter++) {
+        var fname = tests[iter][0];
+        var n = tests[iter][1];
+        write(); write();
+        write('=== ' + fname + ' ' + n);
+
+        var d = eval(fname);
+
+        t0 = perf_counter();
+        for (var i=0; i<n; i++) { r1 = JSON.stringify(d); }
+        t1 = 1000 * (perf_counter() - t0);
+
+        t0 = perf_counter();
+        for (var i=0; i<n; i++) { r2 = bsdf_encode(d); }
+        t2 = 1000 * (perf_counter() - t0);
+
+        r = Math.round;
+        write('encoding: ' + r(t1) + ', ' + r(t2) + ': ' + r(100 * t1/t2) + '%')
+
+        t0 = perf_counter();
+        for (var i=0; i<n; i++) { d1 = JSON.parse(r1); }
+        t1 = 1000 * (perf_counter() - t0);
+
+        t0 = perf_counter();
+        for (var i=0; i<n; i++) { d2 = bsdf_decode(r2); }
+        t2 = 1000 * (perf_counter() - t0);
+
+        write('decoding: ' + r(t1) + ', ' + r(t2) + ': ' + r(100 * t1/t2) + '%')
+
+        deep_compare(d1, d2);
+    }
 }
+
+
+// ========== start
+window.document.body.onload = main;
 
 </script>
 

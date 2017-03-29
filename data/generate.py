@@ -1,15 +1,17 @@
 # Copyright (c) 2011-2017, Almar Klein
 
 """
-Create random dictionaries.
+Module for creating random dictionaries. When run as a script, popluates
+the directory with random (though repeatable) data structures.
 """
 
 import os
-import time
 import sys
+import time
+import json
 import random
 import string
-import numpy as np
+# import numpy as np
 
 # From six.py
 PY3 = sys.version_info[0] == 3
@@ -31,6 +33,9 @@ CHARS = string.printable + (unichr(169) + unichr(181) + unichr(202) +
                             unichr(1220) + unichr(1138) + unichr(1297))
 NAMECHARS = str('abcdefghijklmnopqrstuvwxyz_0123456789')
 
+JSON_TYPES = ('null', 'bool', 'int', 'float', 'str', 'list', 'dict')
+ALL_TYPES = JSON_TYPES + ('notfinite', )  # + bytes
+
 
 names = set()
 def random_name(maxn=32):
@@ -46,8 +51,8 @@ def random_name(maxn=32):
 def random_object(level, types=()):
     
     # Get what types are allowed
-    M = {'None': 1, 'bool': 2, 'int': 3, 'float': 4, 'str': 5, 'array': 6,
-         'list': 7, 'dict': 8}
+    M = {'null': 1, 'bool': 2, 'int': 3, 'float': 4, 'str': 5, 'array': 6,
+         'list': 7, 'dict': 8, 'notfinite': 9}
     if types:
         assert all(t in M for t in types)
         allowed_ids = [M[key] for key in types]
@@ -71,11 +76,15 @@ def random_object(level, types=()):
     elif id == 5:
         return random_string()
     elif id == 6:
-        return None  # random_array()
+        raise RuntimeError('no arrays yet')
     elif id == 7:
         return random_list(level, types=types)
     elif id == 8:
         return random_dict(level, types=types)
+    elif id == 9:
+        return random.sample([float(x) for x in ('nan', '+inf', '-inf')], 1)[0]
+    else:
+        assert False
 
 def random_bool():
     return random.random() > 0.5
@@ -84,7 +93,6 @@ def random_int():
     return random.randint(-2**62, 2**62)
 
 def random_float():
-    # todo: add nan and inf, but carefull; I test some things against JSON,
     # which does not support these
     return (random.random()-0.5 ) * 10000
 
@@ -134,5 +142,38 @@ def random_dict(level=8, minn=0, maxn=16, types=()):
 
 if __name__ == '__main__':
     
-    #print(random_dict())
-    print(random_dict(8, 17, 17, ['dict', 'int']))
+    # JSON compatible structures in three sizes
+    random.seed('4001')
+    d = random_dict(3, 500, 500, types=JSON_TYPES)
+    with open('rand01.json', 'wt', encoding='utf-8') as f:
+        json.dump(d, f)
+    #
+    random.seed('4002')
+    d = random_dict(4, 1000, 1000, types=JSON_TYPES)
+    with open('rand03.json', 'wt', encoding='utf-8') as f:
+        json.dump(d, f)
+    #
+    random.seed('4003')
+    d = random_dict(5, 9000, 9000, types=JSON_TYPES)
+    with open('rand03.json', 'wt', encoding='utf-8') as f:
+        json.dump(d, f)
+    
+    # A structure only of dicts and null, to test performance of core alg
+    random.seed('4004')
+    d = random_dict(4, 1000, 1000, types=('null', 'dict'))
+    with open('rand04_nulldict.json', 'wt', encoding='utf-8') as f:
+        json.dump(d, f)
+    
+    # A structure only of lists and null, to test performance of core alg
+    random.seed('4005')
+    d = random_dict(4, 1000, 1000, types=('null', 'list'))
+    with open('rand05_nulllist.json', 'wt', encoding='utf-8') as f:
+        json.dump(d, f)
+    
+    # Create corresponding js files to test in browser
+    for fname in os.listdir('.'):
+        if fname.endswith('.json'):
+            with open(fname[:-4] + 'js', 'wt', encoding='utf-8') as f:
+                f.write(fname[:-5] + '=')
+                f.write(open(fname, 'rt', encoding='utf-8').read())
+                f.write(';')
