@@ -38,11 +38,11 @@ def timeit(func, arg, n=1):
     return res, int((t1 - t0) * 1000)
 
 
-for fname, n in [('rand01', 100),
+for fname, n in [#('rand01', 100),
                  ('rand02', 10),
                  ('rand03', 1),
-                 ('rand04_nulldict', 2),
-                 ('rand05_nulllist', 4)
+                 #('rand04_nulldict', 2),
+                 #('rand05_nulllist', 4)
                  ]:
     print('-' * 10 + ' ' + fname + ' ' + str(n))
     d = json.load(open('../data/%s.json' % fname, 'rt', encoding='utf-8'))

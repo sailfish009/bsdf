@@ -241,18 +241,18 @@ function decode_object(f) {
     else if (c == 'f' || c == 'F') {return f.get_float(c); }
     else if (c == 's') { return f.get_str(); }
     else if (c == 'L') {
-        /*
+        
         var n = f.get_size();
         var value = new Array(n);
         for (var i=0; i<n; i++) {
             value[i] = decode_object(f);
         }
         return value;
-        */
-        return decode_list(f);
+        
+        //return decode_list(f);
     }
     else if (c == 'D') {
-        /*
+        
         var n = f.get_size();
         var value = {};
         for (var i=0; i<n; i++) {
@@ -260,59 +260,11 @@ function decode_object(f) {
             value[key] = decode_object(f);
         }
         return value;
-        */
-        return decode_dict(f);
+        
+        //return decode_dict(f);
     }
     else { throw "Invalid value specifier at pos " + f.get_pos() + ": " + JSON.stringify(c); }
 }
-
-function decode_list(f) {
-
-    var n = f.get_size();
-    var value = new Array(n);
-    for (var i=0; i<n; i++) {
-        var val;
-
-        var c = f.get_char();
-        if (c == 'N') { val = null; }
-        else if (c == 'n') { val = false; }
-        else if (c == 'y') { val = true; }
-        else if (c == 'i' || c == 'I') { val = f.get_int(c); }
-        else if (c == 'f' || c == 'F') { val = f.get_float(c); }
-        else if (c == 's') { val = f.get_str(); }
-        else if (c == 'L') { val = decode_list(f); }
-        else if (c == 'D') { val = decode_dict(f); }
-        else { throw "Invalid value specifier at pos " + f.get_pos() + ": " + JSON.stringify(c); }
-
-        value[i] = val;
-    }
-    return value;
-}
-
-function decode_dict(f) {
-
-    var n = f.get_size();
-    var value = {};
-    for (var i=0; i<n; i++) {
-        var key = f.get_str();
-        var val;
-
-        var c = f.get_char();
-        if (c == 'N') { val = null; }
-        else if (c == 'n') { val = false; }
-        else if (c == 'y') { val = true; }
-        else if (c == 'i' || c == 'I') { val = f.get_int(c); }
-        else if (c == 'f' || c == 'F') { val = f.get_float(c); }
-        else if (c == 's') { val = f.get_str(); }
-        else if (c == 'L') { val = decode_list(f); }
-        else if (c == 'D') { val = decode_dict(f); }
-        else { throw "Invalid value specifier at pos " + f.get_pos() + ": " + JSON.stringify(c); }
-
-        value[key] = val;
-    }
-    return value;
-}
-
 
 // ==================
 
