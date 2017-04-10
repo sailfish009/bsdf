@@ -15,6 +15,9 @@ The encoder and decoder for the Binary Structured Data Format (BSDF).
 
 import sys
 import struct
+import zlib
+import bz2
+import hashlib
 
 spack = struct.pack
 strunpack = struct.unpack
@@ -43,85 +46,130 @@ def make_encoder():
     
     _floatstr = float.__repr__
     spack = struct.pack
-    # lencode = lambda x: spack('>BQ', 255, x)
+    lencode = lambda x: spack('>B', x) if x < 255 else spack('>BQ', 255, x)
 
     
-    def encode_object(write, value):
+    def encode_object(ctx, value, converter_id=None):
+        
+        if converter_id is not None:
+            # ctx.converter_use[converter_id] = True
+            bb = converter_id.encode('utf-8')  # todo: assert that's smaller than 256 bytes
+            converter_patch = lencode(len(bb)) + bb
+            x = lambda i: i.upper() + converter_patch
+        else:
+            x = lambda i: i
         
         if value is None:
-            write(b'N')
+            ctx.write(x(b'v'))  # V for void
         elif value is True:
-            write(b'y')
+            ctx.write(x(b'y'))  # Y for yes
         elif value is False:
-            write(b'n')
+            ctx.write(x(b'n'))  # N for no
         elif isinstance(value, integer_types):
             if 0 <= value <= 255:
-                write(b'B' + spack('>B', value))
+                ctx.write(x(b'u') + spack('B', value))  # U for uint8
             #elif -2147483647 <= value <= 2147483647:
             #    return b'i' + spack('>i', value)
             else:
-                write(b'q' + spack('>q', value))
+                ctx.write(x(b'i') + spack('>q', value))  # I for int
         elif isinstance(value, float):
-            write(b'd' + spack('>d', value))
+            ctx.write(x(b'd') + spack('>d', value))  # D for double
+            # todo: allow 32bit float via arg
         elif isinstance(value, string_types):
             bb = value.encode('utf-8')
-            write(b's' + lencode(len(bb)))
-            write(bb)
-        
-        # elif isinstance(value, dict):
-        #     encode_dict(write, value)
-        # elif isinstance(value, (list, tuple)):
-        #     encode_list(write, value)
-        
+            ctx.write(x(b's') + lencode(len(bb)))  # S for str
+            ctx.write(bb)
+        elif isinstance(value, bytes):
+            # todo: many things to decide for binary
+            # - what compression to support?
+            # - do we include a hash? of raw or compressed data?
+            # - dp we also byte-align for compressed data?
+            if ctx.compression == b'\x00':
+                bb = value
+            elif ctx.compression == b'x01':
+                bb = zlib.compress(value)
+            elif ctx.compression == b'\x01':
+                bb = bz2.compress(value)
+            else:
+                assert False, 'Unknown compression identifier'
+            ctx.write(b'b')  # B for blob
+            ctx.write(spack('B', ctx.compression))
+            ctx.write(lencode(len(bb)))
+            ctx.write(lencode(len(value)))
+            if ctx.makehash:
+                ctx.write(b'\xff' + hashlib.md5(value).digest())
+            else:
+                ctx.write(b'\x00')
+            i = ctx.tell() + 1
+            ctx.write(spack('>B'. i % 8))  # padding for byte alignment
+            ctx.write(bb)
+        elif isinstance(value, (list, tuple)):
+            ctx.write(x(b'l') + lencode(len(value)))  # L for list
+            for v in value:
+                encode_object(ctx, v)
         elif isinstance(value, dict):
-            write(b'D' + lencode(len(value)))
+            ctx.write(x(b'm') + lencode(len(value)))  # M for mapping
             for key, v in value.items():
                 assert key.isidentifier()
                 #yield ' ' * indent + key
                 name_b = key.encode()
-                write(lencode(len(name_b)))
-                write(name_b)
-                encode_object(write, v)
-        elif isinstance(value, (list, tuple)):
-            write(b'L' + lencode(len(value)))
-            for v in value:
-                encode_object(write, v)
-    
+                ctx.write(lencode(len(name_b)))
+                ctx.write(name_b)
+                encode_object(ctx, v)
         else:
-            # We do not know            
-            data = 'Null'
-            tmp = repr(value)
-            if len(tmp) > 64:
-                tmp = tmp[:64] + '...'
-            if name is not None:
-                print("BSDF: %s is unknown object: %s" %  (name, tmp))
+            # Try if the value is of a type we know
+            x = ctx.converters_index.get(value.__class__, None)
+            # Maybe its a subclass of a type we know
+            if x is None:
+                for cls, x in ctx.converters_index.items():
+                    if isinstance(value, cls):
+                        break
+                else:
+                    x = None
+            # Success or fail
+            if x is not None:
+                converter_id2, converter_func = x
+                if converter_id == converter_id2:
+                    raise RuntimeError('Circular recursion in converter funcs!')
+                encode_object(ctx, converter_func(ctx, value), converter_id2)
             else:
-                print("BSDF: unknown object: %s" % tmp)
+                t = ('Class %r is not a valid base BSDF type, nor is it '
+                     'handled by a converter.')
+                raise TypeError(t % value.__class__.__name__)
     
-   
     return encode_object
 
-
+   
 
 encode = make_encoder()
 
 from io import BytesIO
 
-def saves(d):
+def saves(ob, converters=None, compression=0):
     f = BytesIO()
-    # f.write(b'BSDF')
-    # f.write(struct.pack('<B', 2))
-    # f.write(struct.pack('<B', 0))
+    f.write(b'BSDF')
+    f.write(struct.pack('>B', 2))
+    f.write(struct.pack('>B', 0))
     
-    encode(f.write, d)
+    # Prepare converters
+    f.converters = converters or {}
+    f.converters_index = {}
+    for key in f.converters:
+        cls, func = f.converters[key]
+        f.converters_index[cls] = key, func
+    
+    # prepare compression
+    f.compression = compression
+    
+    encode(f, ob)
+    
     return f.getvalue()
-    #return b''.join(encode(d))
-    #f = BytesIO()
-    #encode(d, f)
-    #return f.getvalue()
 
 
 dumps = saves  # json compat
+
+def make_encoder2():
+    return saves
 
 
 
@@ -130,64 +178,83 @@ dumps = saves  # json compat
 
 
 
-def decode_object(f):
+def decode_object(ctx):
 
     # Get value
-    c = f.read(1)
-    if c == b'N':
-        return None
+    char = ctx.read(1)
+    c = char.lower()
+    
+    # Concersion (uppercase value identifiers signify converted values)
+    if char != c:
+        n = strunpack('>B', ctx.read(1))[0]
+        if n == 255:
+            n = strunpack('>Q', ctx.read(8))[0]
+        converter_id = ctx.read(n).decode('utf-8')
+    else:
+        converter_id = None
+    
+    if c == b'v':
+        value = None
     elif c == b'y':
-        return True
+        value = True
     elif c == b'n':
-        return False
-    elif c == b'B':
-        return strunpack('>B', f.read(1))[0]
+        value = False
+    elif c == b'b':
+        value = strunpack('>B', ctx.read(1))[0]
     elif c == b'i':
-        return strunpack('>i', f.read(4))[0]
-    elif c == b'q':
-        return strunpack('>q', f.read(8))[0]
+        value = strunpack('>q', ctx.read(8))[0]
+    elif c == b'f':
+        value = strunpack('>f', ctx.read(4))[0]
     elif c == b'd':
-        return strunpack('>d', f.read(8))[0]
+        value = strunpack('>d', ctx.read(8))[0]
     elif c == b's':
-        n_s = strunpack('>B', f.read(1))[0]
+        n_s = strunpack('>B', ctx.read(1))[0]
         if n_s == 255:
-            n_s = strunpack('>Q', f.read(8))[0]
-        return f.read(n_s).decode()
-    
-    # elif c == b'D':
-    #     yield name, dict(decode_dict(f))
-    # elif c == b'L':
-    #     yield name, list(decode_list(f))
-    
-    elif c == b'D':
+            n_s = strunpack('>Q', ctx.read(8))[0]
+        value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
+    elif c == b'l':
+        n = strunpack('>B', ctx.read(1))[0]
+        if n == 255:
+            n = strunpack('>Q', ctx.read(8))[0]
+        value = [decode_object(ctx) for i in range(n)]
+    elif c == b'm':
         value = dict()
-        n = strunpack('>B', f.read(1))[0]
+        n = strunpack('>B', ctx.read(1))[0]
         if n == 255:
-            n = strunpack('>Q', f.read(8))[0]
+            n = strunpack('>Q', ctx.read(8))[0]
         for i in range(n):
-            n_name = strunpack('>B', f.read(1))[0]
+            n_name = strunpack('>B', ctx.read(1))[0]
             if n_name == 255:
-                n_name = strunpack('>Q', f.read(8))[0]
+                n_name = strunpack('>Q', ctx.read(8))[0]
             assert n_name > 0
-            name = f.read(n_name).decode()
-            value[name] = decode_object(f)
-        return value
-    elif c == b'L':
-        n = strunpack('>B', f.read(1))[0]
-        if n == 255:
-            n = strunpack('>Q', f.read(8))[0]
-        return [decode_object(f) for i in range(n)]
-    
+            name = ctx.read(n_name).decode()
+            value[name] = decode_object(ctx)
     else:
         raise RuntimeError('Parse error')
-
-
-def loads(bb):
-    f = BytesIO(bb)
-    #assert f.read(1) == b'D'
-    #return dict(decode_dict(f))
-    return decode_object(f)
     
-    #d, bb = decode_dict(bb[1:])
-    #assert not bb
-    #return d
+    # Convert value if we have a converter for it
+    if converter_id is not None:
+        converter = ctx.converters.get(converter_id, None)
+        if converter is not None:
+            value = converter(ctx, value)
+        else:
+            print('no converter found for %r' % converter_id)
+    
+    return value
+
+
+def loads(bb, converters=None):
+    
+    f = BytesIO(bb)
+    
+    f.converters = converters or {}
+    
+    assert f.read(4) == b'BSDF'
+    assert strunpack('>B', f.read(1))[0] == 2  # major version should be 2
+    assert strunpack('>B', f.read(1))[0] <= 0  # minor version should be smaller than ours
+    
+    return decode_object(f)
+
+
+def make_decoder2():
+    return loads

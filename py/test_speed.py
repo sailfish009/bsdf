@@ -8,7 +8,7 @@ Note that JSON is partly implemented in C from Python 3.x.
 import os
 import sys
 import json
-from time import perf_counter
+from time import perf_counter, sleep
 #from time import time as perf_counter  # legacy py
 
 
@@ -30,10 +30,16 @@ import bsdf as lib
 
 TYPES = 'None', 'bool', 'int', 'float', 'str', 'dict', 'list'
 
-def timeit(func, arg, n=1):
+def mehfunc(x):
+    if isinstance(x, type):
+        print('.')
+    # sleep(0.0001)
+    return x
+
+def timeit(func, arg, n=1, **kwargs):
     t0 = perf_counter()
     for i in range(n):
-        res = func(arg)
+        res = func(arg, **kwargs)
     t1 = perf_counter()
     return res, int((t1 - t0) * 1000)
 
@@ -47,7 +53,7 @@ for fname, n in [#('rand01', 100),
     print('-' * 10 + ' ' + fname + ' ' + str(n))
     d = json.load(open('../data/%s.json' % fname, 'rt', encoding='utf-8'))
     
-    r1, t1 = timeit(json.dumps, d, n)
+    r1, t1 = timeit(json.dumps, d)
     r2, t2 = timeit(lib.dumps, d, n)
     
     print('encoding:', t1, t2, int(100*t1/t2), '%' )
