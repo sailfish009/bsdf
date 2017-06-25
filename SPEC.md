@@ -25,13 +25,15 @@ and more compact storage (for the tree, not so much of the data blobs).
 * Provides direct access to blobs via file object for lazy loading or
   efficient updating.
 * Provides a way to stream binary data (via a blob at the end of the
-  file that can be appended to without problems).
+  file that can simply be appended to).
 
 
 ## The format
 
 * 4 Identifier bytes: ASCII "BSDF", equivalent to an uint32 1112753222 big endian
   or 1178882882 little endian.
+* Two variable size unsigned integers indicating major and minor version
+  numbers. Currently 2 and 0.
 * 1 or 9 bytes: size of converter names block.
 * the data
 * N strings (see below) of converter names.
@@ -90,11 +92,12 @@ Binary data is encoded as follows:
 * data_size: the size of the blob when decompressed, in bytes. If compression
   is off, it must be equal to used_size.
 * Optonal checksum: a single byte 0x00 means no hash, a byte 0xFF means that
-  there is, and is followed by a 16-byte md5 hash of the use (compressed) bytes.
+  there is, and is followed by a 16-byte md5 hash of the used (compressed) bytes.
 * Byte alignment indicator: a uint8 number (0-7) indicating the number of bytes
   to skip before the data starts. 
 * Empty space: n empty bytes, as indicated by the byte alignment indicator.
-* The binary blob,
+* The binary blob, used_size bytes.
+* Empty space, allocated_size - used_size bytes.
 
 TODO: there should be a possibity to end the file with a variable size
 block for streaming.
@@ -110,4 +113,4 @@ type.
 
 Mappings consists of the identifier 'm', followed by a size item that represents
 the length of the mapping `n`. After that, `n` items follow, each time a combination of
-a string that represents the key (a size + data), and the value itself.
+a string that represents the key (a size + utf-8 encoded string), and the value itself.

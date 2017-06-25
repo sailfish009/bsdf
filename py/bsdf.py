@@ -5,7 +5,6 @@
 The encoder and decoder for the Binary Structured Data Format (BSDF).
 """
 
-# todo: versioning
 # todo: binary data
 # todo: references
 # todo: replacements / extension
@@ -23,11 +22,38 @@ spack = struct.pack
 strunpack = struct.unpack
 
 
+# Versioning. The version_info applies to the implementation. The major
+# and minor numbers are equal to the file format itself. The major
+# number if increased when backward incompatible changes are introduced.
+# An implementation must raise an exception when the file being read
+# has a higher major version. The minor number when new backward
+# compatible features are introduced. An implementation must display a
+# warning when the file being read has a higher minor version. The patch
+# version is increased for fixes and improving of the implementation.
+version_info = 2, 0, 0
+format_version = version_info[:2]
+__version__ = '.'.join(str(i) for i in version_info)
+
+
+
 def lencode(x):
     if x < 255:
         return spack('>B', x)
     else:
         return spack('>BQ', 255, x)
+
+# WASM uses this:
+def unsigned_leb128_encode(value):
+    bb = []  # ints, really
+    while True:
+        byte = value & 0x7F
+        value >>= 7
+        if value != 0:
+            byte = byte | 0x80
+        bb.append(byte)
+        if value == 0:
+            break
+    return bytes(bb)
 
 
 def make_encoder():
@@ -148,8 +174,8 @@ from io import BytesIO
 def saves(ob, converters=None, compression=0):
     f = BytesIO()
     f.write(b'BSDF')
-    f.write(struct.pack('>B', 2))
-    f.write(struct.pack('>B', 0))
+    f.write(struct.pack('>B', format_version[0]))
+    f.write(struct.pack('>B', format_version[1]))
     
     # Prepare converters
     f.converters = converters or {}
@@ -249,9 +275,20 @@ def loads(bb, converters=None):
     
     f.converters = converters or {}
     
-    assert f.read(4) == b'BSDF'
-    assert strunpack('>B', f.read(1))[0] == 2  # major version should be 2
-    assert strunpack('>B', f.read(1))[0] <= 0  # minor version should be smaller than ours
+    # Check magic string
+    if f.read(4) != b'BSDF':
+        raise RuntimeError('This does not look a BSDF file.')
+    
+    # Check version
+    major_version = strunpack('>B', f.read(1))[0]
+    minor_version = strunpack('>B', f.read(1))[0]
+    file_version = '%i.%i' % (major_version, minor_version)
+    if major_version != format_version[0]:  # major version should be 2
+        t = 'Warning: reading file with higher major version (%s) than the implemntation (%s).'
+        raise RuntimeError(t % (__version__, file_version))
+    if minor_version > format_version[1]:  # minor version should be smaller than ours
+        t = 'Warning: reading file with higher minor version (%s) than the implemntation (%s).'
+        print(t % (__version__, file_version))
     
     return decode_object(f)
 
