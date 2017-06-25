@@ -22,6 +22,7 @@ and more compact storage (for the tree, not so much of the data blobs).
 * Uses data types that are widely supported in most languages.
 * Provides a mechanism to easily convert to/from special data types,
   with minimal effect on performance.
+* Data can be read and written without seek operations.
 * Provides direct access to blobs via file object for lazy loading or
   efficient updating.
 * Provides a way to stream binary data (via a blob at the end of the
@@ -77,8 +78,9 @@ come in two flavours:
 
 ### strings
 
-String values consists of a size item (1 or 9 bytes), followed by the
-bytes that represents the UTF-8 encoded string.
+String values are identified by 's', and consists of a size item (1 or
+9 bytes), followed by the bytes that represents the UTF-8 encoded
+string.
 
 ### blobs
 

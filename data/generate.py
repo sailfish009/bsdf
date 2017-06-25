@@ -150,7 +150,7 @@ if __name__ == '__main__':
     #
     random.seed('4002')
     d = random_dict(4, 1000, 1000, types=JSON_TYPES)
-    with open('rand03.json', 'wt', encoding='utf-8') as f:
+    with open('rand02.json', 'wt', encoding='utf-8') as f:
         json.dump(d, f)
     #
     random.seed('4003')

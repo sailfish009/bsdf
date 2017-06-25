@@ -42,18 +42,7 @@ def lencode(x):
     else:
         return spack('>BQ', 255, x)
 
-# WASM uses this:
-def unsigned_leb128_encode(value):
-    bb = []  # ints, really
-    while True:
-        byte = value & 0x7F
-        value >>= 7
-        if value != 0:
-            byte = byte | 0x80
-        bb.append(byte)
-        if value == 0:
-            break
-    return bytes(bb)
+SIZE_INF = 2**56
 
 
 def make_encoder():
@@ -85,6 +74,9 @@ def make_encoder():
         else:
             x = lambda i: i
         
+        # todo: can I get rid of this? It takes time also when not streaming
+        ctx.last_value = value
+        
         if value is None:
             ctx.write(x(b'v'))  # V for void
         elif value is True:
@@ -105,6 +97,22 @@ def make_encoder():
             bb = value.encode('utf-8')
             ctx.write(x(b's') + lencode(len(bb)))  # S for str
             ctx.write(bb)
+        elif isinstance(value, (list, tuple)):
+            if value is ctx.stream_ob:
+                ctx.write(x(b'l') + lencode(SIZE_INF))  # L for list
+            else:
+                ctx.write(x(b'l') + lencode(len(value)))  # L for list
+            for v in value:
+                encode_object(ctx, v)
+        elif isinstance(value, dict):
+            ctx.write(x(b'm') + lencode(len(value)))  # M for mapping
+            for key, v in value.items():
+                assert key.isidentifier()
+                #yield ' ' * indent + key
+                name_b = key.encode()
+                ctx.write(lencode(len(name_b)))
+                ctx.write(name_b)
+                encode_object(ctx, v)
         elif isinstance(value, bytes):
             # todo: many things to decide for binary
             # - what compression to support?
@@ -129,19 +137,6 @@ def make_encoder():
             i = ctx.tell() + 1
             ctx.write(spack('>B'. i % 8))  # padding for byte alignment
             ctx.write(bb)
-        elif isinstance(value, (list, tuple)):
-            ctx.write(x(b'l') + lencode(len(value)))  # L for list
-            for v in value:
-                encode_object(ctx, v)
-        elif isinstance(value, dict):
-            ctx.write(x(b'm') + lencode(len(value)))  # M for mapping
-            for key, v in value.items():
-                assert key.isidentifier()
-                #yield ' ' * indent + key
-                name_b = key.encode()
-                ctx.write(lencode(len(name_b)))
-                ctx.write(name_b)
-                encode_object(ctx, v)
         else:
             # Try if the value is of a type we know
             x = ctx.converters_index.get(value.__class__, None)
@@ -173,6 +168,11 @@ from io import BytesIO
 
 def saves(ob, converters=None, compression=0):
     f = BytesIO()
+    save(f, ob, converters, compression)
+    return f.getvalue()
+
+
+def save(f, ob, converters=None, compression=0, stream=None):
     f.write(b'BSDF')
     f.write(struct.pack('>B', format_version[0]))
     f.write(struct.pack('>B', format_version[1]))
@@ -184,12 +184,32 @@ def saves(ob, converters=None, compression=0):
         cls, func = f.converters[key]
         f.converters_index[cls] = key, func
     
+    # Prepare streaming
+    f.stream_ob = None
+    res = None
+    if stream is not None:
+        if isinstance(stream, list):
+            if stream:
+                raise ValueError('Streaming list must be initially empty.')
+            f.stream_ob = stream
+            f.stream_ob_encountered = False
+            res = lambda x: encode(f, x)
+        else:
+            raise TypeError('Can only stream with lists for now.')
+    
     # prepare compression
     f.compression = compression
     
     encode(f, ob)
     
-    return f.getvalue()
+    # Verify that stream object was at the end
+    if f.stream_ob is not None:
+        if f.last_value is not f.stream_ob:
+            raise ValueError('The stream object must be the last object to be encoded.')
+    
+    return res
+    
+   
 
 
 dumps = saves  # json compat
@@ -210,8 +230,10 @@ def decode_object(ctx):
     char = ctx.read(1)
     c = char.lower()
     
-    # Concersion (uppercase value identifiers signify converted values)
-    if char != c:
+    # Conversion (uppercase value identifiers signify converted values)
+    if not char:
+        raise EOFError()
+    elif char != c:
         n = strunpack('>B', ctx.read(1))[0]
         if n == 255:
             n = strunpack('>Q', ctx.read(8))[0]
@@ -225,7 +247,7 @@ def decode_object(ctx):
         value = True
     elif c == b'n':
         value = False
-    elif c == b'b':
+    elif c == b'u':
         value = strunpack('>B', ctx.read(1))[0]
     elif c == b'i':
         value = strunpack('>q', ctx.read(8))[0]
@@ -242,7 +264,15 @@ def decode_object(ctx):
         n = strunpack('>B', ctx.read(1))[0]
         if n == 255:
             n = strunpack('>Q', ctx.read(8))[0]
-        value = [decode_object(ctx) for i in range(n)]
+        if n == SIZE_INF:
+            value = []
+            try:
+                while True:
+                    value.append(decode_object(ctx))
+            except EOFError:
+                pass
+        else:
+            value = [decode_object(ctx) for i in range(n)]
     elif c == b'm':
         value = dict()
         n = strunpack('>B', ctx.read(1))[0]
