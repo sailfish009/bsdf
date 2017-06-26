@@ -60,9 +60,8 @@ def make_encoder():
         _intstr = lambda i: str(i).rstrip('L')
     
     _floatstr = float.__repr__
-    spack = struct.pack
-    lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
-
+    # spack = struct.pack
+    # lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
     
     def encode_object(ctx, value, converter_id=None):
         
@@ -86,8 +85,6 @@ def make_encoder():
         elif isinstance(value, integer_types):
             if 0 <= value <= 255:
                 ctx.write(x(b'u') + spack('B', value))  # U for uint8
-            #elif -2147483647 <= value <= 2147483647:
-            #    return b'i' + spack('<i', value)
             else:
                 ctx.write(x(b'i') + spack('<q', value))  # I for int
         elif isinstance(value, float):
@@ -235,8 +232,7 @@ def decode_object(ctx):
         raise EOFError()
     elif char != c:
         n = strunpack('<B', ctx.read(1))[0]
-        if n == 255:
-            n = strunpack('<Q', ctx.read(8))[0]
+        if n == 255: n = strunpack('<Q', ctx.read(8))[0]
         converter_id = ctx.read(n).decode('utf-8')
     else:
         converter_id = None
@@ -257,13 +253,11 @@ def decode_object(ctx):
         value = strunpack('<d', ctx.read(8))[0]
     elif c == b's':
         n_s = strunpack('<B', ctx.read(1))[0]
-        if n_s == 255:
-            n_s = strunpack('<Q', ctx.read(8))[0]
+        if n_s == 255: n_s = strunpack('<Q', ctx.read(8))[0]
         value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
     elif c == b'l':
         n = strunpack('<B', ctx.read(1))[0]
-        if n == 255:
-            n = strunpack('<Q', ctx.read(8))[0]
+        if n == 255: n = strunpack('<Q', ctx.read(8))[0]
         if n == SIZE_INF:
             value = []
             try:
@@ -276,12 +270,10 @@ def decode_object(ctx):
     elif c == b'm':
         value = dict()
         n = strunpack('<B', ctx.read(1))[0]
-        if n == 255:
-            n = strunpack('<Q', ctx.read(8))[0]
+        if n == 255: n = strunpack('<Q', ctx.read(8))[0]
         for i in range(n):
             n_name = strunpack('<B', ctx.read(1))[0]
-            if n_name == 255:
-                n_name = strunpack('<Q', ctx.read(8))[0]
+            if n_name == 255: n_name = strunpack('<Q', ctx.read(8))[0]
             assert n_name > 0
             name = ctx.read(n_name).decode()
             value[name] = decode_object(ctx)
