@@ -5,9 +5,7 @@
 The encoder and decoder for the Binary Structured Data Format (BSDF).
 """
 
-# todo: references
 # todo: replacements / extension
-# todo: efficient updating -> get access to pos in file
 # todo: streaming blob
 # todo: schema validation
 
@@ -16,6 +14,7 @@ import struct
 import zlib
 import bz2
 import hashlib
+from io import BytesIO
 
 spack = struct.pack
 strunpack = struct.unpack
@@ -46,8 +45,6 @@ def lencode(x):
     #     return spack('<BI', 252, x)
     else:
         return spack('<BQ', 253, x)
-
-SIZE_INF = 2**53
 
 
 def make_encoder():
@@ -151,7 +148,6 @@ def make_encoder():
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
-                #ctx.write(x(b'l') + lencode(SIZE_INF))  # L for list
                 ctx.write(x(b'l') + spack('<BQ', 255, 0))  # L for list
             else:
                 assert False, 'only ListStream is supported'
@@ -188,8 +184,6 @@ def make_encoder():
 
 encode = make_encoder()
 
-from io import BytesIO
-
 def saves(ob, converters=None, compression=0):
     f = BytesIO()
     save(f, ob, converters, compression)
@@ -221,46 +215,6 @@ def save(f, ob, converters=None, compression=0, make_hashes=False, stream=None):
     if f.stream is not None:
         if f.stream.start_pos != f.tell():
             raise ValueError('The stream object must be the last object to be encoded.')
-
-
-class BaseStream(object):
-    pass
-
-
-class ListStream(BaseStream):
-    
-    def __init__(self):
-        self.f = None
-        self.start_pos = 0
-        self.count = 0
-    
-    def _activate(self, file):
-        if self.f is not None:  # This could happen if present twice in the ob
-            raise RuntimeError('Stream object cnanot be activated twice?')
-        self.f = file
-        self.start_pos = self.f.tell()
-    
-    def append(self, item):
-        if self.f is None:
-            raise RuntimeError('List streamer is not ready for streaming yet.')
-        encode(self.f, item, None)
-        self.count += 1
-    
-    def close(self):
-        # todo: prevent breaking things when used for reading!
-        if self.f is None:
-            raise RuntimeError('List streamer is not opened yet.')
-        i = self.f.tell()
-        self.f.seek(self.start_pos - 8)
-        self.f.write(spack('<Q', self.count))
-        # todo: set first size byte to 254 to indicate a closed stream?
-        self.f.seek(i)
-    
-    def get_next(self):
-        # todo: prevent mixing write/read ops, or is that handy in a+?
-        # This raises EOFError at some point.
-        return decode_object(self.f)
-
 
 
 dumps = saves  # json compat
@@ -417,6 +371,48 @@ def make_decoder2():
     return loads
 
 
+## Streaming and blob-files
+
+
+class BaseStream(object):
+    pass
+
+
+class ListStream(BaseStream):
+    
+    def __init__(self):
+        self.f = None
+        self.start_pos = 0
+        self.count = 0
+    
+    def _activate(self, file):
+        if self.f is not None:  # This could happen if present twice in the ob
+            raise RuntimeError('Stream object cnanot be activated twice?')
+        self.f = file
+        self.start_pos = self.f.tell()
+    
+    def append(self, item):
+        if self.f is None:
+            raise RuntimeError('List streamer is not ready for streaming yet.')
+        encode(self.f, item, None)
+        self.count += 1
+    
+    def close(self):
+        # todo: prevent breaking things when used for reading!
+        if self.f is None:
+            raise RuntimeError('List streamer is not opened yet.')
+        i = self.f.tell()
+        self.f.seek(self.start_pos - 8)
+        self.f.write(spack('<Q', self.count))
+        # todo: set first size byte to 254 to indicate a closed stream?
+        self.f.seek(i)
+    
+    def get_next(self):
+        # todo: prevent mixing write/read ops, or is that handy in a+?
+        # This raises EOFError at some point.
+        return decode_object(self.f)
+
+
 class BlobProxy(object):
     # only for uncompressed blobs
     # For now, this does not allow re-sizing blobs (within the allocated size)
@@ -448,3 +444,7 @@ class BlobProxy(object):
         if self.f.tell() + n > self.end_pos:
             raise IndexError('Read beyond blob boundaries.')
         return self.f.read(n)
+
+
+## Standard convertors
+
