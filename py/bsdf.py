@@ -63,7 +63,7 @@ def make_encoder():
     # spack = struct.pack
     # lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
     
-    def encode_object(ctx, value, converter_id=None):
+    def encode_object(ctx, value, stream_ob, converter_id=None):
         
         if converter_id is not None:
             # ctx.converter_use[converter_id] = True
@@ -72,9 +72,6 @@ def make_encoder():
             x = lambda i: i.upper() + converter_patch
         else:
             x = lambda i: i
-        
-        # todo: can I get rid of this? It takes time also when not streaming
-        ctx.last_value = value
         
         if value is None:
             ctx.write(x(b'v'))  # V for void
@@ -95,12 +92,9 @@ def make_encoder():
             ctx.write(x(b's') + lencode(len(bb)))  # S for str
             ctx.write(bb)
         elif isinstance(value, (list, tuple)):
-            if value is ctx.stream_ob:
-                ctx.write(x(b'l') + lencode(SIZE_INF))  # L for list
-            else:
-                ctx.write(x(b'l') + lencode(len(value)))  # L for list
+            ctx.write(x(b'l') + lencode(len(value)))  # L for list
             for v in value:
-                encode_object(ctx, v)
+                encode_object(ctx, v, stream_ob)
         elif isinstance(value, dict):
             ctx.write(x(b'm') + lencode(len(value)))  # M for mapping
             for key, v in value.items():
@@ -109,7 +103,7 @@ def make_encoder():
                 name_b = key.encode()
                 ctx.write(lencode(len(name_b)))
                 ctx.write(name_b)
-                encode_object(ctx, v)
+                encode_object(ctx, v, stream_ob)
         elif isinstance(value, bytes):
             # todo: many things to decide for binary
             # - what compression to support?
@@ -134,6 +128,18 @@ def make_encoder():
             i = ctx.tell() + 1
             ctx.write(spack('<B'. i % 8))  # padding for byte alignment
             ctx.write(bb)
+        elif isinstance(value, BaseStream):
+            # Initialize the stream
+            if isinstance(value, ListStream):
+                ctx.write(x(b'l') + lencode(SIZE_INF))  # L for list
+            else:
+                assert False, 'only ListStream is supported'
+            # Mark this as *the* stream, and activate the stream.
+            # The save() function verifies this is the last written object.
+            if ctx.stream is not None:
+                raise RuntimeError('Can only have one stream per file.')
+            ctx.stream = value
+            value._activate(ctx)
         else:
             # Try if the value is of a type we know
             x = ctx.converters_index.get(value.__class__, None)
@@ -149,7 +155,7 @@ def make_encoder():
                 converter_id2, converter_func = x
                 if converter_id == converter_id2:
                     raise RuntimeError('Circular recursion in converter funcs!')
-                encode_object(ctx, converter_func(ctx, value), converter_id2)
+                encode_object(ctx, converter_func(ctx, value), stream_ob, converter_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
                      'handled by a converter.')
@@ -182,31 +188,49 @@ def save(f, ob, converters=None, compression=0, stream=None):
         f.converters_index[cls] = key, func
     
     # Prepare streaming
-    f.stream_ob = None
-    res = None
-    if stream is not None:
-        if isinstance(stream, list):
-            if stream:
-                raise ValueError('Streaming list must be initially empty.')
-            f.stream_ob = stream
-            f.stream_ob_encountered = False
-            res = lambda x: encode(f, x)
-        else:
-            raise TypeError('Can only stream with lists for now.')
+    f.stream = None
     
     # prepare compression
     f.compression = compression
     
-    encode(f, ob)
+    last_value = encode(f, ob, stream)
     
-    # Verify that stream object was at the end
-    if f.stream_ob is not None:
-        if f.last_value is not f.stream_ob:
+    # Verify that stream object was at the end, and add initial elements
+    if f.stream is not None:
+        if f.stream.start_pos != f.tell():
             raise ValueError('The stream object must be the last object to be encoded.')
+
+
+class BaseStream(object):
+    pass
+
+
+class ListStream(BaseStream):
     
-    return res
+    def __init__(self):
+        self.f = None
+        self.start_pos = 0
+        self.count = 0
     
-   
+    def _activate(self, file):
+        if self.f is not None:  # This could happen if present twice in the ob
+            raise RuntimeError('Stream object cnanot be activated twice?')
+        self.f = file
+        self.start_pos = self.f.tell()
+    
+    def append(self, item):
+        if self.f is None:
+            raise RuntimeError('List streamer is not ready for streaming yet.')
+        encode(self.f, item, None)
+        self.count += 1
+    
+    def close(self):
+        if self.f is None:
+            raise RuntimeError('List streamer is not opened yet.')
+        i = self.f.tell()
+        self.f.seek(self.start_pos - 8)
+        self.f.write(spack('<Q', self.count))
+        self.f.seek(i)
 
 
 dumps = saves  # json compat
