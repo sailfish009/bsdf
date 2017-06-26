@@ -38,9 +38,9 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 def lencode(x):
     if x < 255:
-        return spack('>B', x)
+        return spack('<B', x)
     else:
-        return spack('>BQ', 255, x)
+        return spack('<BQ', 255, x)
 
 SIZE_INF = 2**56
 
@@ -61,7 +61,7 @@ def make_encoder():
     
     _floatstr = float.__repr__
     spack = struct.pack
-    lencode = lambda x: spack('>B', x) if x < 255 else spack('>BQ', 255, x)
+    lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
 
     
     def encode_object(ctx, value, converter_id=None):
@@ -87,11 +87,11 @@ def make_encoder():
             if 0 <= value <= 255:
                 ctx.write(x(b'u') + spack('B', value))  # U for uint8
             #elif -2147483647 <= value <= 2147483647:
-            #    return b'i' + spack('>i', value)
+            #    return b'i' + spack('<i', value)
             else:
-                ctx.write(x(b'i') + spack('>q', value))  # I for int
+                ctx.write(x(b'i') + spack('<q', value))  # I for int
         elif isinstance(value, float):
-            ctx.write(x(b'd') + spack('>d', value))  # D for double
+            ctx.write(x(b'd') + spack('<d', value))  # D for double
             # todo: allow 32bit float via arg
         elif isinstance(value, string_types):
             bb = value.encode('utf-8')
@@ -135,7 +135,7 @@ def make_encoder():
             else:
                 ctx.write(b'\x00')
             i = ctx.tell() + 1
-            ctx.write(spack('>B'. i % 8))  # padding for byte alignment
+            ctx.write(spack('<B'. i % 8))  # padding for byte alignment
             ctx.write(bb)
         else:
             # Try if the value is of a type we know
@@ -174,8 +174,8 @@ def saves(ob, converters=None, compression=0):
 
 def save(f, ob, converters=None, compression=0, stream=None):
     f.write(b'BSDF')
-    f.write(struct.pack('>B', format_version[0]))
-    f.write(struct.pack('>B', format_version[1]))
+    f.write(struct.pack('<B', format_version[0]))
+    f.write(struct.pack('<B', format_version[1]))
     
     # Prepare converters
     f.converters = converters or {}
@@ -234,9 +234,9 @@ def decode_object(ctx):
     if not char:
         raise EOFError()
     elif char != c:
-        n = strunpack('>B', ctx.read(1))[0]
+        n = strunpack('<B', ctx.read(1))[0]
         if n == 255:
-            n = strunpack('>Q', ctx.read(8))[0]
+            n = strunpack('<Q', ctx.read(8))[0]
         converter_id = ctx.read(n).decode('utf-8')
     else:
         converter_id = None
@@ -248,22 +248,22 @@ def decode_object(ctx):
     elif c == b'n':
         value = False
     elif c == b'u':
-        value = strunpack('>B', ctx.read(1))[0]
+        value = strunpack('<B', ctx.read(1))[0]
     elif c == b'i':
-        value = strunpack('>q', ctx.read(8))[0]
+        value = strunpack('<q', ctx.read(8))[0]
     elif c == b'f':
-        value = strunpack('>f', ctx.read(4))[0]
+        value = strunpack('<f', ctx.read(4))[0]
     elif c == b'd':
-        value = strunpack('>d', ctx.read(8))[0]
+        value = strunpack('<d', ctx.read(8))[0]
     elif c == b's':
-        n_s = strunpack('>B', ctx.read(1))[0]
+        n_s = strunpack('<B', ctx.read(1))[0]
         if n_s == 255:
-            n_s = strunpack('>Q', ctx.read(8))[0]
+            n_s = strunpack('<Q', ctx.read(8))[0]
         value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
     elif c == b'l':
-        n = strunpack('>B', ctx.read(1))[0]
+        n = strunpack('<B', ctx.read(1))[0]
         if n == 255:
-            n = strunpack('>Q', ctx.read(8))[0]
+            n = strunpack('<Q', ctx.read(8))[0]
         if n == SIZE_INF:
             value = []
             try:
@@ -275,13 +275,13 @@ def decode_object(ctx):
             value = [decode_object(ctx) for i in range(n)]
     elif c == b'm':
         value = dict()
-        n = strunpack('>B', ctx.read(1))[0]
+        n = strunpack('<B', ctx.read(1))[0]
         if n == 255:
-            n = strunpack('>Q', ctx.read(8))[0]
+            n = strunpack('<Q', ctx.read(8))[0]
         for i in range(n):
-            n_name = strunpack('>B', ctx.read(1))[0]
+            n_name = strunpack('<B', ctx.read(1))[0]
             if n_name == 255:
-                n_name = strunpack('>Q', ctx.read(8))[0]
+                n_name = strunpack('<Q', ctx.read(8))[0]
             assert n_name > 0
             name = ctx.read(n_name).decode()
             value[name] = decode_object(ctx)
@@ -310,8 +310,8 @@ def loads(bb, converters=None):
         raise RuntimeError('This does not look a BSDF file.')
     
     # Check version
-    major_version = strunpack('>B', f.read(1))[0]
-    minor_version = strunpack('>B', f.read(1))[0]
+    major_version = strunpack('<B', f.read(1))[0]
+    minor_version = strunpack('<B', f.read(1))[0]
     file_version = '%i.%i' % (major_version, minor_version)
     if major_version != format_version[0]:  # major version should be 2
         t = 'Warning: reading file with higher major version (%s) than the implemntation (%s).'
