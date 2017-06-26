@@ -33,34 +33,22 @@ and more compact storage (for the tree, not so much of the data blobs).
 
 * 4 Identifier bytes: ASCII "BSDF", equivalent to an uint32 1112753222 big endian
   or 1178882882 little endian.
-* Two variable size unsigned integers indicating major and minor version
-  numbers. Currently 2 and 0.
-* 1 or 9 bytes: size of converter names block.
+* Two variable size unsigned integers (uint8 in practice) indicating major and
+  minor version numbers. Currently 2 and 0.
 * the data
-* N strings (see below) of converter names.
-* end blob
 
-Each data value is identified using a 1 byte character, followed by an optional
-converted index, and the data (if applicable).
-
-If the identifier is a capital letter (smaller than ASCII 95), it means
-that it's a value to be converted. If so, the next item is a size (1
-or 9 bytes) representing the converter index.
+Each data value is identified using a 1 byte character. If this
+identifier is a capital letter (smaller than ASCII 95), it means that
+it's a value to be converted. If so, the next item is a string (see
+below for its encoding) representing the converter name. Next is the
+data itself.
 
 ### Encoding of size
 
-The size of lists, mappings and the number of elements in the converter block
-are encoded as follows: if the size is smaller than 255, a single byte (uint8)
-is used. Otherwise, the first byte is 255, and the next 8 bytes represent
+The size of lists, mappings and blob sizes are encoded as follows: if
+the size is smaller than 251, a single byte (uint8)
+is used. Otherwise, the first byte is 253, and the next 8 bytes represent
 the size using an unsigned 64bit integer (little endian).
-
-A value of 2**53 (9007199254740992) is used to represent infinity. This is the
-top of the range of integer numbers that can be precisely represented using a
-float64. This is used for streams.
-
-Note that even if the first byte is 255, the second 8-byte number might still
-be smaller than 255 (e.g. for values written as streams which were "closed").
-
 
 ### null, false, true
 
@@ -120,3 +108,14 @@ type.
 Mappings consists of the identifier 'm', followed by a size item that represents
 the length of the mapping `n`. After that, `n` items follow, each time a combination of
 a string that represents the key (a size + utf-8 encoded string), and the value itself.
+
+
+## Streaming
+
+Streams allow data to be written and read in a "lazy" fashion. This is
+currenly only supported for lists. Objects that are "streaming" must always be
+the last object in the file (except for its sub items).
+
+Streams are identified by the size encoding which starts with 255 rather
+than 253, followed by an unsigned 64 bit integer. TODO: closed versus
+open streams.

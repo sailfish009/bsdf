@@ -5,7 +5,6 @@
 The encoder and decoder for the Binary Structured Data Format (BSDF).
 """
 
-# todo: streamed reading
 # todo: binary data
 # todo: references
 # todo: replacements / extension
@@ -38,8 +37,14 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 
 def lencode(x):
+    # We could support 16 bit and 32 bit as well, but the gain is low, since
+    # 9 bytes for collections with over 250 elements is marginal anyway.
     if x <= 250:
         return spack('<B', x)
+    # elif x < 65536:
+    #     return spack('<BH', 251, x)
+    # elif x < 4294967296:
+    #     return spack('<BI', 252, x)
     else:
         return spack('<BQ', 253, x)
 
@@ -233,6 +238,7 @@ class ListStream(BaseStream):
         i = self.f.tell()
         self.f.seek(self.start_pos - 8)
         self.f.write(spack('<Q', self.count))
+        # todo: set first size byte to 254 to indicate a closed stream?
         self.f.seek(i)
     
     def get_next(self):
