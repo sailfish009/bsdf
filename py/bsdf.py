@@ -123,9 +123,17 @@ def make_encoder():
             # Write hearder
             ctx.write(b'b')  # B for blob
             ctx.write(spack('B', ctx.compression))
-            ctx.write(lencode(len(compressed) + extra_space))  # allocated_size
-            ctx.write(lencode(len(compressed)))  # used_size
-            ctx.write(lencode(len(value)))  # data_size
+            # Write sizes - write at least in a size that allows resizing
+            allocated_size = len(compressed) + extra_space
+            if allocated_size <= 250 and ctx.compression == 0:
+                ctx.write(spack('<B', allocated_size))  # allocated_size
+                ctx.write(spack('<B', len(compressed)))  # used_size
+                ctx.write(lencode(len(value)))  # data_size
+            else:
+                ctx.write(spack('<BQ', 253, allocated_size))  # allocated_size
+                ctx.write(spack('<BQ', 253, len(compressed)))  # used_size
+                ctx.write(spack('<BQ', 253, len(value)))  # data_size
+            # Hash for data validation
             if ctx.make_hashes:
                 ctx.write(b'\xff' + hashlib.md5(compressed).digest())
             else:
@@ -343,20 +351,26 @@ def decode_object(ctx):
         alignment = strunpack('<B', ctx.read(1))[0]
         ctx.read(alignment)
         # Read data and drop extra data
-        compressed = ctx.read(used_size)
-        ctx.read(allocated_size - used_size)
-        # Validate and decompress
-        if has_checksum and checksum != hashlib.md5(compressed).digest():
-            raise RuntimeError('Checksum of binary blob is a mismatch, '
-                               'data may be corrupted.') 
-        if compression == 0:
-            value = compressed
-        elif compression == 1:
-            value = zlib.decompress(compressed)
-        elif compression == 2:
-            value = bz2.decompress(compressed)
+        if compression == 0 and ctx.blob_as_file:
+            value = BlobProxy(ctx, used_size, allocated_size)
+            ctx.seek(value.start_pos + allocated_size)
+            #return value
+            # todo: is this still convertable?
         else:
-            raise RuntimeError('Invalid compression option %i' % compression)
+            compressed = ctx.read(used_size)
+            ctx.read(allocated_size - used_size)
+            # Validate and decompress
+            if has_checksum and checksum != hashlib.md5(compressed).digest():
+                raise RuntimeError('Checksum of binary blob is a mismatch, '
+                                'data may be corrupted.') 
+            if compression == 0:
+                value = compressed
+            elif compression == 1:
+                value = zlib.decompress(compressed)
+            elif compression == 2:
+                value = bz2.decompress(compressed)
+            else:
+                raise RuntimeError('Invalid compression option %i' % compression)
     else:
         raise RuntimeError('Parse error')
     
@@ -371,7 +385,7 @@ def decode_object(ctx):
     return value
 
 
-def loads(bb, converters=None, stream=False):
+def loads(bb, converters=None, stream=False, blob_as_file=False):
     
     f = BytesIO(bb)
     
@@ -394,9 +408,43 @@ def loads(bb, converters=None, stream=False):
     
     # stream?
     f.want_stream = stream
+    f.blob_as_file = blob_as_file
     
     return decode_object(f)
 
 
 def make_decoder2():
     return loads
+
+
+class BlobProxy(object):
+    # only for uncompressed blobs
+    # For now, this does not allow re-sizing blobs (within the allocated size)
+    # but this can be added later.
+    
+    def __init__(self, f, used_size, allocated_size):
+        self.f = f
+        self.used_size = used_size
+        self.allocated_size = allocated_size
+        self.start_pos = f.tell()
+        self.end_pos = self.start_pos + used_size
+    
+    def seek(self, p):
+        if p < 0:
+            p = self.end_pos - p
+        if p < 0 or p > self.used_size:
+            raise IndexError('Seek beyond blob boundaries.')
+        self.f.seek(self.start_pos + p)
+        
+    def tell(self):
+        self.f.tell() - self.start_pos
+    
+    def write(self, bb):
+        if sellf.f.tell() + len(bb) > self.end_pos:
+            raise IndexError('Write beyond blob boundaries.')
+        return self.f.write(bb)
+    
+    def read(self, n):
+        if self.f.tell() + n > self.end_pos:
+            raise IndexError('Read beyond blob boundaries.')
+        return self.f.read(n)
