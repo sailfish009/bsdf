@@ -5,6 +5,7 @@
 The encoder and decoder for the Binary Structured Data Format (BSDF).
 """
 
+# todo: streamed reading
 # todo: binary data
 # todo: references
 # todo: replacements / extension
@@ -37,12 +38,12 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 
 def lencode(x):
-    if x < 255:
+    if x <= 250:
         return spack('<B', x)
     else:
-        return spack('<BQ', 255, x)
+        return spack('<BQ', 253, x)
 
-SIZE_INF = 2**56
+SIZE_INF = 2**53
 
 
 def make_encoder():
@@ -131,7 +132,8 @@ def make_encoder():
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
-                ctx.write(x(b'l') + lencode(SIZE_INF))  # L for list
+                #ctx.write(x(b'l') + lencode(SIZE_INF))  # L for list
+                ctx.write(x(b'l') + spack('<BQ', 255, 0))  # L for list
             else:
                 assert False, 'only ListStream is supported'
             # Mark this as *the* stream, and activate the stream.
@@ -225,12 +227,19 @@ class ListStream(BaseStream):
         self.count += 1
     
     def close(self):
+        # todo: prevent breaking things when used for reading!
         if self.f is None:
             raise RuntimeError('List streamer is not opened yet.')
         i = self.f.tell()
         self.f.seek(self.start_pos - 8)
         self.f.write(spack('<Q', self.count))
         self.f.seek(i)
+    
+    def get_next(self):
+        # todo: prevent mixing write/read ops, or is that handy in a+?
+        # This raises EOFError at some point.
+        return decode_object(self.f)
+
 
 
 dumps = saves  # json compat
@@ -241,8 +250,6 @@ def make_encoder2():
 
 
 ## Decoder
-
-
 
 
 def decode_object(ctx):
@@ -256,7 +263,7 @@ def decode_object(ctx):
         raise EOFError()
     elif char != c:
         n = strunpack('<B', ctx.read(1))[0]
-        if n == 255: n = strunpack('<Q', ctx.read(8))[0]
+        if n == 253: n = strunpack('<Q', ctx.read(8))[0]
         converter_id = ctx.read(n).decode('utf-8')
     else:
         converter_id = None
@@ -277,27 +284,33 @@ def decode_object(ctx):
         value = strunpack('<d', ctx.read(8))[0]
     elif c == b's':
         n_s = strunpack('<B', ctx.read(1))[0]
-        if n_s == 255: n_s = strunpack('<Q', ctx.read(8))[0]
+        if n_s == 253: n_s = strunpack('<Q', ctx.read(8))[0]
         value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
     elif c == b'l':
         n = strunpack('<B', ctx.read(1))[0]
-        if n == 255: n = strunpack('<Q', ctx.read(8))[0]
-        if n == SIZE_INF:
-            value = []
-            try:
-                while True:
-                    value.append(decode_object(ctx))
-            except EOFError:
-                pass
+        if n == 253:
+            n = strunpack('<Q', ctx.read(8))[0]
+        elif n == 255:
+            n = strunpack('<Q', ctx.read(8))[0]  # zero if not closed
+            if ctx.want_stream:
+                value = ListStream()
+                value._activate(ctx)
+            else:
+                value = []
+                try:
+                    while True:
+                        value.append(decode_object(ctx))
+                except EOFError:
+                    pass
         else:
             value = [decode_object(ctx) for i in range(n)]
     elif c == b'm':
         value = dict()
         n = strunpack('<B', ctx.read(1))[0]
-        if n == 255: n = strunpack('<Q', ctx.read(8))[0]
+        if n == 253: n = strunpack('<Q', ctx.read(8))[0]
         for i in range(n):
             n_name = strunpack('<B', ctx.read(1))[0]
-            if n_name == 255: n_name = strunpack('<Q', ctx.read(8))[0]
+            if n_name == 253: n_name = strunpack('<Q', ctx.read(8))[0]
             assert n_name > 0
             name = ctx.read(n_name).decode()
             value[name] = decode_object(ctx)
@@ -315,7 +328,7 @@ def decode_object(ctx):
     return value
 
 
-def loads(bb, converters=None):
+def loads(bb, converters=None, stream=False):
     
     f = BytesIO(bb)
     
@@ -335,6 +348,9 @@ def loads(bb, converters=None):
     if minor_version > format_version[1]:  # minor version should be smaller than ours
         t = 'Warning: reading file with higher minor version (%s) than the implemntation (%s).'
         print(t % (__version__, file_version))
+    
+    # stream?
+    f.want_stream = stream
     
     return decode_object(f)
 

@@ -52,11 +52,15 @@ or 9 bytes) representing the converter index.
 The size of lists, mappings and the number of elements in the converter block
 are encoded as follows: if the size is smaller than 255, a single byte (uint8)
 is used. Otherwise, the first byte is 255, and the next 8 bytes represent
-the size using a 64bit float.
+the size using an unsigned 64bit integer (little endian).
 
-It might seem odd to use a floating point number to represent an
-integer. The reason is that not all languages support 64 bit numbers ...
-mmmm but we can do some bitshifting and whatnot to make it work...
+A value of 2**53 (9007199254740992) is used to represent infinity. This is the
+top of the range of integer numbers that can be precisely represented using a
+float64. This is used for streams.
+
+Note that even if the first byte is 255, the second 8-byte number might still
+be smaller than 255 (e.g. for values written as streams which were "closed").
+
 
 ### null, false, true
 
