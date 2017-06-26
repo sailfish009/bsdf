@@ -5,7 +5,6 @@
 The encoder and decoder for the Binary Structured Data Format (BSDF).
 """
 
-# todo: binary data
 # todo: references
 # todo: replacements / extension
 # todo: efficient updating -> get access to pos in file
@@ -111,29 +110,36 @@ def make_encoder():
                 ctx.write(name_b)
                 encode_object(ctx, v, stream_ob)
         elif isinstance(value, bytes):
-            # todo: many things to decide for binary
-            # - what compression to support?
-            # - do we include a hash? of raw or compressed data?
-            # - dp we also byte-align for compressed data?
-            if ctx.compression == b'\x00':
-                bb = value
-            elif ctx.compression == b'x01':
-                bb = zlib.compress(value)
-            elif ctx.compression == b'\x01':
-                bb = bz2.compress(value)
+            # Preparations
+            if ctx.compression == 0:
+                compressed = value
+            elif ctx.compression == 1:
+                compressed = zlib.compress(value)
+            elif ctx.compression == 2:
+                compressed = bz2.compress(value)
             else:
                 assert False, 'Unknown compression identifier'
+            extra_space = 0  # how to determine this?
+            # Write hearder
             ctx.write(b'b')  # B for blob
             ctx.write(spack('B', ctx.compression))
-            ctx.write(lencode(len(bb)))
-            ctx.write(lencode(len(value)))
-            if ctx.makehash:
-                ctx.write(b'\xff' + hashlib.md5(value).digest())
+            ctx.write(lencode(len(compressed) + extra_space))  # allocated_size
+            ctx.write(lencode(len(compressed)))  # used_size
+            ctx.write(lencode(len(value)))  # data_size
+            if ctx.make_hashes:
+                ctx.write(b'\xff' + hashlib.md5(compressed).digest())
             else:
                 ctx.write(b'\x00')
-            i = ctx.tell() + 1
-            ctx.write(spack('<B'. i % 8))  # padding for byte alignment
-            ctx.write(bb)
+            # Byte alignment (only for uncompressed data)
+            if ctx.compression == 0:
+                alignment = (ctx.tell() + 1) % 8  # add one for the byte we are about to write
+                ctx.write(spack('<B', alignment))  # padding for byte alignment
+                ctx.write(bytes(alignment))
+            else:
+                ctx.write(spack('<B', 0))
+            # The actual data and extra space
+            ctx.write(compressed)
+            ctx.write(bytes(extra_space))
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
@@ -182,7 +188,7 @@ def saves(ob, converters=None, compression=0):
     return f.getvalue()
 
 
-def save(f, ob, converters=None, compression=0, stream=None):
+def save(f, ob, converters=None, compression=0, make_hashes=False, stream=None):
     f.write(b'BSDF')
     f.write(struct.pack('<B', format_version[0]))
     f.write(struct.pack('<B', format_version[1]))
@@ -199,6 +205,7 @@ def save(f, ob, converters=None, compression=0, stream=None):
     
     # prepare compression
     f.compression = compression
+    f.make_hashes = make_hashes
     
     last_value = encode(f, ob, stream)
     
@@ -320,6 +327,36 @@ def decode_object(ctx):
             assert n_name > 0
             name = ctx.read(n_name).decode()
             value[name] = decode_object(ctx)
+    elif c == b'b':
+        # Read blob header data (5 to 42 bytes)
+        compression = strunpack('<B', ctx.read(1))[0]
+        allocated_size = strunpack('<B', ctx.read(1))[0]
+        if allocated_size == 253: allocated_size = strunpack('<Q', ctx.read(8))[0]
+        used_size = strunpack('<B', ctx.read(1))[0]
+        if used_size == 253: used_size = strunpack('<Q', ctx.read(8))[0]
+        data_size = strunpack('<B', ctx.read(1))[0]
+        if data_size == 253: data_size = strunpack('<Q', ctx.read(8))[0]
+        has_checksum = strunpack('<B', ctx.read(1))[0]
+        if has_checksum:
+            checksum = ctx.read(16)
+        # Skip alignment
+        alignment = strunpack('<B', ctx.read(1))[0]
+        ctx.read(alignment)
+        # Read data and drop extra data
+        compressed = ctx.read(used_size)
+        ctx.read(allocated_size - used_size)
+        # Validate and decompress
+        if has_checksum and checksum != hashlib.md5(compressed).digest():
+            raise RuntimeError('Checksum of binary blob is a mismatch, '
+                               'data may be corrupted.') 
+        if compression == 0:
+            value = compressed
+        elif compression == 1:
+            value = zlib.decompress(compressed)
+        elif compression == 2:
+            value = bz2.decompress(compressed)
+        else:
+            raise RuntimeError('Invalid compression option %i' % compression)
     else:
         raise RuntimeError('Parse error')
     
