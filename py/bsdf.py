@@ -107,44 +107,13 @@ def make_encoder():
                 ctx.write(name_b)
                 encode_object(ctx, v, stream_ob)
         elif isinstance(value, bytes):
-            # Preparations
-            if ctx.compression == 0:
-                compressed = value
-            elif ctx.compression == 1:
-                compressed = zlib.compress(value)
-            elif ctx.compression == 2:
-                compressed = bz2.compress(value)
-            else:
-                assert False, 'Unknown compression identifier'
-            extra_space = 0  # how to determine this?
-            # Write hearder
             ctx.write(b'b')  # B for blob
-            ctx.write(spack('B', ctx.compression))
-            # Write sizes - write at least in a size that allows resizing
-            allocated_size = len(compressed) + extra_space
-            if allocated_size <= 250 and ctx.compression == 0:
-                ctx.write(spack('<B', allocated_size))  # allocated_size
-                ctx.write(spack('<B', len(compressed)))  # used_size
-                ctx.write(lencode(len(value)))  # data_size
-            else:
-                ctx.write(spack('<BQ', 253, allocated_size))  # allocated_size
-                ctx.write(spack('<BQ', 253, len(compressed)))  # used_size
-                ctx.write(spack('<BQ', 253, len(value)))  # data_size
-            # Hash for data validation
-            if ctx.make_hashes:
-                ctx.write(b'\xff' + hashlib.md5(compressed).digest())
-            else:
-                ctx.write(b'\x00')
-            # Byte alignment (only for uncompressed data)
-            if ctx.compression == 0:
-                alignment = (ctx.tell() + 1) % 8  # add one for the byte we are about to write
-                ctx.write(spack('<B', alignment))  # padding for byte alignment
-                ctx.write(bytes(alignment))
-            else:
-                ctx.write(spack('<B', 0))
-            # The actual data and extra space
-            ctx.write(compressed)
-            ctx.write(bytes(extra_space))
+            blob = Blob(value, compression=ctx.compression,
+                        use_checksum=ctx.use_checksum)
+            blob._to_file(ctx)
+        elif isinstance(value, Blob):
+            ctx.write(b'b')  # B for blob
+            value._to_file(ctx)
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
@@ -190,7 +159,7 @@ def saves(ob, converters=None, compression=0):
     return f.getvalue()
 
 
-def save(f, ob, converters=None, compression=0, make_hashes=False, stream=None):
+def save(f, ob, converters=None, compression=0, use_checksum=False, stream=None):
     f.write(b'BSDF')
     f.write(struct.pack('<B', format_version[0]))
     f.write(struct.pack('<B', format_version[1]))
@@ -207,7 +176,7 @@ def save(f, ob, converters=None, compression=0, make_hashes=False, stream=None):
     
     # prepare compression
     f.compression = compression
-    f.make_hashes = make_hashes
+    f.use_checksum = use_checksum
     
     last_value = encode(f, ob, stream)
     
@@ -290,41 +259,7 @@ def decode_object(ctx):
             name = ctx.read(n_name).decode()
             value[name] = decode_object(ctx)
     elif c == b'b':
-        # Read blob header data (5 to 42 bytes)
-        compression = strunpack('<B', ctx.read(1))[0]
-        allocated_size = strunpack('<B', ctx.read(1))[0]
-        if allocated_size == 253: allocated_size = strunpack('<Q', ctx.read(8))[0]
-        used_size = strunpack('<B', ctx.read(1))[0]
-        if used_size == 253: used_size = strunpack('<Q', ctx.read(8))[0]
-        data_size = strunpack('<B', ctx.read(1))[0]
-        if data_size == 253: data_size = strunpack('<Q', ctx.read(8))[0]
-        has_checksum = strunpack('<B', ctx.read(1))[0]
-        if has_checksum:
-            checksum = ctx.read(16)
-        # Skip alignment
-        alignment = strunpack('<B', ctx.read(1))[0]
-        ctx.read(alignment)
-        # Read data and drop extra data
-        if compression == 0 and ctx.blob_as_file:
-            value = BlobProxy(ctx, used_size, allocated_size)
-            ctx.seek(value.start_pos + allocated_size)
-            #return value
-            # todo: is this still convertable?
-        else:
-            compressed = ctx.read(used_size)
-            ctx.read(allocated_size - used_size)
-            # Validate and decompress
-            if has_checksum and checksum != hashlib.md5(compressed).digest():
-                raise RuntimeError('Checksum of binary blob is a mismatch, '
-                                'data may be corrupted.') 
-            if compression == 0:
-                value = compressed
-            elif compression == 1:
-                value = zlib.decompress(compressed)
-            elif compression == 2:
-                value = bz2.decompress(compressed)
-            else:
-                raise RuntimeError('Invalid compression option %i' % compression)
+        value = Blob(ctx)
     else:
         raise RuntimeError('Parse error')
     
@@ -413,19 +348,108 @@ class ListStream(BaseStream):
         return decode_object(self.f)
 
 
-class BlobProxy(object):
-    # only for uncompressed blobs
+class Blob(object):
+    """ Object to represent a blob of bytes. When used to write a BSDF file,
+    it's a wrapper for bytes plus properties like what compression to apply.
+    When used to read a BSDF file, it can be used to read the data lazily, and
+    also modify the data if reading in 'a+' mode and the blob is not compressed.
+    """
+    
     # For now, this does not allow re-sizing blobs (within the allocated size)
     # but this can be added later.
     
-    def __init__(self, f, used_size, allocated_size):
-        self.f = f
-        self.used_size = used_size
-        self.allocated_size = allocated_size
+    def __init__(self, f, compression=0, extra_size=0, use_checksum=False):
+        if isinstance(f, bytes):
+            self.f = None
+            self.compressed = self._from_bytes(f, compression)
+            self.compression = compression
+            self.allocated_size = self.used_size + extra_size
+            self.use_checksum = use_checksum
+        else:
+            self.f = f
+            self.compressed = None
+            self._from_file(f)
+            self._modified = False
+    
+    def _from_bytes(self, value, compression):
+        """ When used to wrap bytes in a blob.
+        """
+        if compression == 0:
+            compressed = value
+        elif compression == 1:
+            compressed = zlib.compress(value)
+        elif compression == 2:
+            compressed = bz2.compress(value)
+        else:
+            assert False, 'Unknown compression identifier'
+        
+        self.data_size = len(value)
+        self.used_size = len(compressed)
+        return compressed
+    
+    def _to_file(self, f):
+        """ Called by encoder to write the blob to a file.
+        """
+        # Write sizes - write at least in a size that allows resizing
+        if self.allocated_size <= 250 and self.compression == 0:
+            f.write(spack('<B', self.allocated_size))
+            f.write(spack('<B', self.used_size))
+            f.write(lencode(self.data_size))
+        else:
+            f.write(spack('<BQ', 253, self.allocated_size))
+            f.write(spack('<BQ', 253, self.used_size))
+            f.write(spack('<BQ', 253, self.data_size))
+        # Compression and checksum
+        f.write(spack('B', self.compression))
+        if self.use_checksum:
+            f.write(b'\xff' + hashlib.md5(self.compressed).digest())
+        else:
+            f.write(b'\x00')
+        # Byte alignment (only for uncompressed data)
+        if self.compression == 0:
+            alignment = (f.tell() + 1) % 8  # add one for the byte we are about to write
+            f.write(spack('<B', alignment))  # padding for byte alignment
+            f.write(bytes(alignment))
+        else:
+            f.write(spack('<B', 0))
+        # The actual data and extra space
+        f.write(self.compressed)
+        f.write(bytes(self.allocated_size - self.used_size))
+    
+    def _from_file(self, f):
+        """ Used when a blob is read by the decoder.
+        """
+        # Read blob header data (5 to 42 bytes)
+        # Size
+        allocated_size = strunpack('<B', f.read(1))[0]
+        if allocated_size == 253: allocated_size = strunpack('<Q', f.read(8))[0]
+        used_size = strunpack('<B', f.read(1))[0]
+        if used_size == 253: used_size = strunpack('<Q', f.read(8))[0]
+        data_size = strunpack('<B', f.read(1))[0]
+        if data_size == 253: data_size = strunpack('<Q', f.read(8))[0]
+        # Compression and checksum
+        compression = strunpack('<B', f.read(1))[0]
+        has_checksum = strunpack('<B', f.read(1))[0]
+        if has_checksum:
+            checksum = f.read(16)
+        # Skip alignment
+        alignment = strunpack('<B', f.read(1))[0]
+        f.read(alignment)
+        
         self.start_pos = f.tell()
         self.end_pos = self.start_pos + used_size
-    
+        f.seek(self.start_pos + allocated_size)
+        
+        self.alignment = alignment
+        self.compression = compression
+        self.checksum = checksum if has_checksum else None
+        self.used_size = used_size
+        self.allocated_size = allocated_size
+        self.data_size = data_size
+        
     def seek(self, p):
+        if self.f is None:
+            raise RuntimeError('Cannot seek in a blob that is not created by the BSDF decoder.')
         if p < 0:
             p = self.end_pos - p
         if p < 0 or p > self.used_size:
@@ -433,17 +457,54 @@ class BlobProxy(object):
         self.f.seek(self.start_pos + p)
         
     def tell(self):
+        if self.f is None:
+            raise RuntimeError('Cannot tell in a blob that is not created by the BSDF decoder.')
         self.f.tell() - self.start_pos
     
     def write(self, bb):
-        if sellf.f.tell() + len(bb) > self.end_pos:
+        if self.f is None:
+            raise RuntimeError('Cannot write in a blob that is not created by the BSDF decoder.')
+        if self.compression:
+            raise IndexError('Cannot arbitrarily write in compressed blob.')
+        if self.f.tell() + len(bb) > self.end_pos:
             raise IndexError('Write beyond blob boundaries.')
+        self._modified = True
         return self.f.write(bb)
     
     def read(self, n):
+        if self.f is None:
+            raise RuntimeError('Cannot read in a blob that is not created by the BSDF decoder.')
+        if self.compression:
+            raise IndexError('Cannot arbitrarily read in compressed blob.')
         if self.f.tell() + n > self.end_pos:
             raise IndexError('Read beyond blob boundaries.')
         return self.f.read(n)
+    
+    def get_bytes(self):
+        if self.compressed is not None:
+            compressed = self.compressed
+        else:
+            self.seek(0)
+            compressed = self.f.read(self.used_size)
+        if self.compression == 0:
+            value = compressed
+        elif self.compression == 1:
+            value = zlib.decompress(compressed)
+        elif self.compression == 2:
+            value = bz2.decompress(compressed)
+        else:
+            raise RuntimeError('Invalid compression option %i' % compression)
+        return value
+    
+    def close(self):
+        """ Reset the checksum if present.
+        """
+        # or ... should the presence of a checksum mean that data is proteced?
+        if self.checksum is not None and self._modified:
+            self.seek(0)
+            compressed = self.f.read(self.used_size)
+            self.f.seek(self.start_pos - self.alignment - 16)
+            self.f.write(hashlib.md5(compressed).digest())
 
 
 ## Standard convertors
