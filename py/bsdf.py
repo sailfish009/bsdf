@@ -33,6 +33,7 @@ format_version = version_info[:2]
 __version__ = '.'.join(str(i) for i in version_info)
 
 
+## The BSDF class
 
 def lencode(x):
     # We could support 16 bit and 32 bit as well, but the gain is low, since
@@ -46,26 +47,72 @@ def lencode(x):
     else:
         return spack('<BQ', 253, x)
 
+# From six.py
+if sys.version_info[0] >= 3:
+    string_types = str
+    integer_types = int
+    small_types = type(None), bool, int, float, str
+    _intstr = int.__str__
+else:
+    string_types = basestring  # noqa
+    integer_types = (int, long)  # noqa
+    small_types = type(None), bool, int, long, float, basestring
+    _intstr = lambda i: str(i).rstrip('L')
 
-def make_encoder():
+_floatstr = float.__repr__
+# spack = struct.pack
+# lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
+
+
+# todo: darn how to name this :/
+class BsdfDencoder(object):
+    """ An encoder and decoder in one.
+    """
     
-    # From six.py
-    if sys.version_info[0] >= 3:
-        string_types = str
-        integer_types = int
-        small_types = type(None), bool, int, float, str
-        _intstr = int.__str__
-    else:
-        string_types = basestring  # noqa
-        integer_types = (int, long)  # noqa
-        small_types = type(None), bool, int, long, float, basestring
-        _intstr = lambda i: str(i).rstrip('L')
+    def __init__(self, *converters):
+        self._encode_converters = {}
+        self._decode_converters = {}
+        for converter in converters:
+            self.add_converter(*converter)
     
-    _floatstr = float.__repr__
-    # spack = struct.pack
-    # lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
+    def add_converter(self, name, cls, encoder, decoder):
+        
+        # Check classes
+        if isinstance(cls, (tuple, list)):
+            clss = cls
+        else:
+            clss = [cls]
+        for cls in clss:
+            if not isinstance(cls, type):
+                raise TypeError('Converter classes must be types.')
+        
+        # Check inputs
+        if not isinstance(name, str):
+            raise TypeError('Converter name must be str.')
+        if not callable(encoder):
+            raise TypeError('Converter encoder must be a callable.')
+        if not callable(decoder):
+            raise TypeError('Converter decoder must be a callable.')
+        
+        # Check if we already have it
+        if name in self._decode_converters:
+            logger.warn('Overwriting encoder "%s", consider removing first' % name)
+        
+        # Store
+        for cls in clss:
+            self._encode_converters[cls] = name, encoder
+        self._decode_converters[name] = decoder
     
-    def encode_object(ctx, value, stream_ob, converter_id=None):
+    def remove_converter(self, name):
+        if not isinstance(name, str):
+            raise TypeError('Converter name must be str.')
+        if name in self._decode_converters:
+            self._decode_converters.pop(name)
+        for cls in list(self._encode_converters.keys()):
+            if self._encode_converters[cls][0] == name:
+                self._encode_converters.pop(cls)
+    
+    def encode(self, ctx, value, stream_ob, converter_id=None):
         
         if converter_id is not None:
             # ctx.converter_use[converter_id] = True
@@ -96,7 +143,7 @@ def make_encoder():
         elif isinstance(value, (list, tuple)):
             ctx.write(x(b'l') + lencode(len(value)))  # L for list
             for v in value:
-                encode_object(ctx, v, stream_ob)
+                self.encode(ctx, v, stream_ob)
         elif isinstance(value, dict):
             ctx.write(x(b'm') + lencode(len(value)))  # M for mapping
             for key, v in value.items():
@@ -105,7 +152,7 @@ def make_encoder():
                 name_b = key.encode()
                 ctx.write(lencode(len(name_b)))
                 ctx.write(name_b)
-                encode_object(ctx, v, stream_ob)
+                self.encode(ctx, v, stream_ob)
         elif isinstance(value, bytes):
             ctx.write(b'b')  # B for blob
             blob = Blob(value, compression=ctx.compression,
@@ -128,10 +175,10 @@ def make_encoder():
             value._activate(ctx)
         else:
             # Try if the value is of a type we know
-            x = ctx.converters_index.get(value.__class__, None)
+            x = self._encode_converters.get(value.__class__, None)
             # Maybe its a subclass of a type we know
             if x is None:
-                for cls, x in ctx.converters_index.items():
+                for cls, x in self._encode_converters.items():
                     if isinstance(value, cls):
                         break
                 else:
@@ -141,169 +188,140 @@ def make_encoder():
                 converter_id2, converter_func = x
                 if converter_id == converter_id2:
                     raise RuntimeError('Circular recursion in converter funcs!')
-                encode_object(ctx, converter_func(ctx, value), stream_ob, converter_id2)
+                self.encode(ctx, converter_func(ctx, value), stream_ob, converter_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
-                     'handled by a converter.')
+                        'handled by a converter.')
                 raise TypeError(t % value.__class__.__name__)
     
-    return encode_object
-
-   
-
-encode = make_encoder()
-
-def saves(ob, converters=None, compression=0):
-    f = BytesIO()
-    save(f, ob, converters, compression)
-    return f.getvalue()
-
-
-def save(f, ob, converters=None, compression=0, use_checksum=False, stream=None):
-    f.write(b'BSDF')
-    f.write(struct.pack('<B', format_version[0]))
-    f.write(struct.pack('<B', format_version[1]))
+    def decode(self, ctx):
     
-    # Prepare converters
-    f.converters = converters or {}
-    f.converters_index = {}
-    for key in f.converters:
-        cls, func = f.converters[key]
-        f.converters_index[cls] = key, func
-    
-    # Prepare streaming
-    f.stream = None
-    
-    # prepare compression
-    f.compression = compression
-    f.use_checksum = use_checksum
-    
-    last_value = encode(f, ob, stream)
-    
-    # Verify that stream object was at the end, and add initial elements
-    if f.stream is not None:
-        if f.stream.start_pos != f.tell():
-            raise ValueError('The stream object must be the last object to be encoded.')
-
-
-dumps = saves  # json compat
-
-def make_encoder2():
-    return saves
-
-
-
-## Decoder
-
-
-def decode_object(ctx):
-
-    # Get value
-    char = ctx.read(1)
-    c = char.lower()
-    
-    # Conversion (uppercase value identifiers signify converted values)
-    if not char:
-        raise EOFError()
-    elif char != c:
-        n = strunpack('<B', ctx.read(1))[0]
-        if n == 253: n = strunpack('<Q', ctx.read(8))[0]
-        converter_id = ctx.read(n).decode('utf-8')
-    else:
-        converter_id = None
-    
-    if c == b'v':
-        value = None
-    elif c == b'y':
-        value = True
-    elif c == b'n':
-        value = False
-    elif c == b'u':
-        value = strunpack('<B', ctx.read(1))[0]
-    elif c == b'i':
-        value = strunpack('<q', ctx.read(8))[0]
-    elif c == b'f':
-        value = strunpack('<f', ctx.read(4))[0]
-    elif c == b'd':
-        value = strunpack('<d', ctx.read(8))[0]
-    elif c == b's':
-        n_s = strunpack('<B', ctx.read(1))[0]
-        if n_s == 253: n_s = strunpack('<Q', ctx.read(8))[0]
-        value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
-    elif c == b'l':
-        n = strunpack('<B', ctx.read(1))[0]
-        if n == 253:
-            n = strunpack('<Q', ctx.read(8))[0]
-        elif n == 255:
-            n = strunpack('<Q', ctx.read(8))[0]  # zero if not closed
-            if ctx.want_stream:
-                value = ListStream()
-                value._activate(ctx)
+        # Get value
+        char = ctx.read(1)
+        c = char.lower()
+        
+        # Conversion (uppercase value identifiers signify converted values)
+        if not char:
+            raise EOFError()
+        elif char != c:
+            n = strunpack('<B', ctx.read(1))[0]
+            if n == 253: n = strunpack('<Q', ctx.read(8))[0]
+            converter_id = ctx.read(n).decode('utf-8')
+        else:
+            converter_id = None
+        
+        if c == b'v':
+            value = None
+        elif c == b'y':
+            value = True
+        elif c == b'n':
+            value = False
+        elif c == b'u':
+            value = strunpack('<B', ctx.read(1))[0]
+        elif c == b'i':
+            value = strunpack('<q', ctx.read(8))[0]
+        elif c == b'f':
+            value = strunpack('<f', ctx.read(4))[0]
+        elif c == b'd':
+            value = strunpack('<d', ctx.read(8))[0]
+        elif c == b's':
+            n_s = strunpack('<B', ctx.read(1))[0]
+            if n_s == 253: n_s = strunpack('<Q', ctx.read(8))[0]
+            value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
+        elif c == b'l':
+            n = strunpack('<B', ctx.read(1))[0]
+            if n == 253:
+                n = strunpack('<Q', ctx.read(8))[0]
+            elif n == 255:
+                n = strunpack('<Q', ctx.read(8))[0]  # zero if not closed
+                if ctx.want_stream:
+                    value = ListStream()
+                    value._activate(ctx)
+                else:
+                    value = []
+                    try:
+                        while True:
+                            value.append(self.decode(ctx))
+                    except EOFError:
+                        pass
             else:
-                value = []
-                try:
-                    while True:
-                        value.append(decode_object(ctx))
-                except EOFError:
-                    pass
+                value = [self.decode(ctx) for i in range(n)]
+        elif c == b'm':
+            value = dict()
+            n = strunpack('<B', ctx.read(1))[0]
+            if n == 253: n = strunpack('<Q', ctx.read(8))[0]
+            for i in range(n):
+                n_name = strunpack('<B', ctx.read(1))[0]
+                if n_name == 253: n_name = strunpack('<Q', ctx.read(8))[0]
+                assert n_name > 0
+                name = ctx.read(n_name).decode()
+                value[name] = self.decode(ctx)
+        elif c == b'b':
+            value = Blob(ctx)
         else:
-            value = [decode_object(ctx) for i in range(n)]
-    elif c == b'm':
-        value = dict()
-        n = strunpack('<B', ctx.read(1))[0]
-        if n == 253: n = strunpack('<Q', ctx.read(8))[0]
-        for i in range(n):
-            n_name = strunpack('<B', ctx.read(1))[0]
-            if n_name == 253: n_name = strunpack('<Q', ctx.read(8))[0]
-            assert n_name > 0
-            name = ctx.read(n_name).decode()
-            value[name] = decode_object(ctx)
-    elif c == b'b':
-        value = Blob(ctx)
-    else:
-        raise RuntimeError('Parse error')
+            raise RuntimeError('Parse error')
+        
+        # Convert value if we have a converter for it
+        if converter_id is not None:
+            converter = self._decode_converters.get(converter_id, None)
+            if converter is not None:
+                value = converter(ctx, value)
+            else:
+                print('no converter found for %r' % converter_id)
+        
+        return value
     
-    # Convert value if we have a converter for it
-    if converter_id is not None:
-        converter = ctx.converters.get(converter_id, None)
-        if converter is not None:
-            value = converter(ctx, value)
-        else:
-            print('no converter found for %r' % converter_id)
+    def saves(self, ob, compression=0):
+        f = BytesIO()
+        self.save(f, ob, compression=compression)
+        return f.getvalue()
     
-    return value
-
-
-def loads(bb, converters=None, stream=False, blob_as_file=False):
     
-    f = BytesIO(bb)
+    def save(self, f, ob, compression=0, use_checksum=False, stream=None):
+        f.write(b'BSDF')
+        f.write(struct.pack('<B', format_version[0]))
+        f.write(struct.pack('<B', format_version[1]))
+        
+        # Prepare streaming
+        f.stream = None
+        
+        # prepare compression
+        f.compression = compression
+        f.use_checksum = use_checksum
+        
+        last_value = self.encode(f, ob, stream)
+        
+        # Verify that stream object was at the end, and add initial elements
+        if f.stream is not None:
+            if f.stream.start_pos != f.tell():
+                raise ValueError('The stream object must be the last object to be encoded.')
     
-    f.converters = converters or {}
+    def loads(self, bb, stream=False):
+        
+        f = BytesIO(bb)
+        return self.load(f, stream)
     
-    # Check magic string
-    if f.read(4) != b'BSDF':
-        raise RuntimeError('This does not look a BSDF file.')
-    
-    # Check version
-    major_version = strunpack('<B', f.read(1))[0]
-    minor_version = strunpack('<B', f.read(1))[0]
-    file_version = '%i.%i' % (major_version, minor_version)
-    if major_version != format_version[0]:  # major version should be 2
-        t = 'Warning: reading file with higher major version (%s) than the implemntation (%s).'
-        raise RuntimeError(t % (__version__, file_version))
-    if minor_version > format_version[1]:  # minor version should be smaller than ours
-        t = 'Warning: reading file with higher minor version (%s) than the implemntation (%s).'
-        print(t % (__version__, file_version))
-    
-    # stream?
-    f.want_stream = stream
-    f.blob_as_file = blob_as_file
-    
-    return decode_object(f)
-
-
-def make_decoder2():
-    return loads
+    def load(self, f,  stream=False):
+        
+        # Check magic string
+        if f.read(4) != b'BSDF':
+            raise RuntimeError('This does not look a BSDF file.')
+        
+        # Check version
+        major_version = strunpack('<B', f.read(1))[0]
+        minor_version = strunpack('<B', f.read(1))[0]
+        file_version = '%i.%i' % (major_version, minor_version)
+        if major_version != format_version[0]:  # major version should be 2
+            t = 'Warning: reading file with higher major version (%s) than the implemntation (%s).'
+            raise RuntimeError(t % (__version__, file_version))
+        if minor_version > format_version[1]:  # minor version should be smaller than ours
+            t = 'Warning: reading file with higher minor version (%s) than the implemntation (%s).'
+            print(t % (__version__, file_version))
+        
+        # stream?
+        f.want_stream = stream
+        
+        return self.decode(f)
 
 
 ## Streaming and blob-files
@@ -320,11 +338,12 @@ class ListStream(BaseStream):
         self.start_pos = 0
         self.count = 0
     
-    def _activate(self, file):
+    def _activate(self, file, decode_func):
         if self.f is not None:  # This could happen if present twice in the ob
             raise RuntimeError('Stream object cnanot be activated twice?')
         self.f = file
         self.start_pos = self.f.tell()
+        self._decode = decode_func
     
     def append(self, item):
         if self.f is None:
@@ -345,7 +364,7 @@ class ListStream(BaseStream):
     def get_next(self):
         # todo: prevent mixing write/read ops, or is that handy in a+?
         # This raises EOFError at some point.
-        return decode_object(self.f)
+        return self._decode(self.f)
 
 
 class Blob(object):
@@ -509,3 +528,14 @@ class Blob(object):
 
 ## Standard convertors
 
+
+## Initialize default encoder
+
+_default_encoder = BsdfDencoder()
+
+save = _default_encoder.save
+saves = _default_encoder.saves
+dumps = saves  # json compat
+
+loads = _default_encoder.loads
+load = _default_encoder.load
