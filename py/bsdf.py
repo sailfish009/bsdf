@@ -2,11 +2,19 @@
 # This file is freely distributed under the terms of the 2-clause BSD License.
 
 """
-The encoder and decoder for the Binary Structured Data Format (BSDF).
+Python implementation of the Binary Structured Data Format (BSDF).
+
+This implementation is relatively sophisticated; a simple BSDF serializer
+without support for streaming and lazy blob loading could be much more compact.
 """
 
-# todo: replacements / extension
-# todo: streaming blob
+# Notes on performance:
+#
+# - Utf-8 encoding/decoding is used by calling encode() decode() without
+#   arguments. Since UTF-8 is the default, we assume that this is the fastest.
+# - 
+
+# todo: blob resizing
 # todo: schema validation
 
 import sys
@@ -15,10 +23,6 @@ import zlib
 import bz2
 import hashlib
 from io import BytesIO
-
-spack = struct.pack
-strunpack = struct.unpack
-
 
 # Versioning. The version_info applies to the implementation. The major
 # and minor numbers are equal to the file format itself. The major
@@ -33,9 +37,24 @@ format_version = version_info[:2]
 __version__ = '.'.join(str(i) for i in version_info)
 
 
-## The BSDF class
+## The encoder and decoder implementation
+
+# From six.py
+if sys.version_info[0] >= 3:
+    string_types = str
+    integer_types = int
+else:
+    string_types = basestring  # noqa
+    integer_types = (int, long)  # noqa
+
+# Shorthands
+spack = struct.pack
+strunpack = struct.unpack
+
 
 def lencode(x):
+    """ Encode an unsigned integer into a variable sized blob of bytes.
+    """
     # We could support 16 bit and 32 bit as well, but the gain is low, since
     # 9 bytes for collections with over 250 elements is marginal anyway.
     if x <= 250:
@@ -47,36 +66,92 @@ def lencode(x):
     else:
         return spack('<BQ', 253, x)
 
-# From six.py
-if sys.version_info[0] >= 3:
-    string_types = str
-    integer_types = int
-    small_types = type(None), bool, int, float, str
-    _intstr = int.__str__
-else:
-    string_types = basestring  # noqa
-    integer_types = (int, long)  # noqa
-    small_types = type(None), bool, int, long, float, basestring
-    _intstr = lambda i: str(i).rstrip('L')
 
-_floatstr = float.__repr__
-# spack = struct.pack
-# lencode = lambda x: spack('<B', x) if x < 255 else spack('<BQ', 255, x)
+# Include len decoder for completeness; we've inlined it for performance.
+def lendecode(f):
+    """ Decode an unsigned integer from a file.
+    """
+    n = strunpack('<B', f.read(1))[0]
+    if n == 253: n = strunpack('<Q', f.read(8))[0]
+    return n
 
 
-# todo: darn how to name this :/
-class BsdfDencoder(object):
-    """ An encoder and decoder in one.
+class BsdfSerializer(object):
+    """ Instances of this class represent an BSDF encoder and decoder.
+    It acts as a holder for a set of converters and encoding/decoding
+    options. Use this to predefine converters and options for high
+    performant encoding/decoding. For general use, see the functions
+    in this module (save, saves, load, loads).
+    
+    This implementation of BSDF supports streaming lists (keep adding
+    to a list after writing the main file), lazy loading of blobs, and
+    in-place editing of blobs (for streams opened with a+).
+    
+    Example
+    -------
+    
+    # Setup the serializer
+    serializer = bsdf.BsdfSerializer(bsdf.complex_converter, compression=2)
+    
+    # Use it
+    bb = serializer.saves(my_object1)
+    my_object2 = serializer.loads(bb)
+    
+    Options for encoding
+    --------------------
+    
+    * compression (int or str): ``0`` or "no" for no compression (default),
+      ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
+      ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
+    * use_checksum (bool): whether to include a checksum with binary blobs.
+    * float64 (bool): Whether to write floats as 64 (default) or 32 bit.
+    
+    Options for decoding
+    --------------------
+    
+    * load_streaming (bool): if True, and the final object in the structure was
+      a stream, will make it available as a stream in the decoded object.
+    
     """
     
-    def __init__(self, *converters):
+    def __init__(self, *converters, **options):
         self._encode_converters = {}
         self._decode_converters = {}
         for converter in converters:
             self.add_converter(*converter)
+        self._parse_options(**options)
+    
+    def _parse_options(self,
+                       compression=0, use_checksum=False, float64=True,
+                       load_streaming=False):
+        
+        # Validate compression
+        if isinstance(compression, string_types):
+            compression = {'no':0, 'zlib': 1, 'bz2': 2}[compression.lower()]
+        if compression not in (0, 1, 2):
+            raise TypeError('Compression must be 0, 1, 2, '
+                            '"no", "zlib", or "bz2"')
+        self._compression = compression
+        
+        # Other encoding args
+        self._use_checksum = bool(use_checksum)
+        self._float64 = bool(float64)
+        
+        # Decoding args
+        self._load_streaming = bool(load_streaming)
+    
     
     def add_converter(self, name, cls, encoder, decoder):
+        """ Add a converter to this serializer instance, consisting of:
         
+        * name (str): a unique name for this converter (less than 251 chars).
+        * cls (type): the class to use in ``isinstance`` during encoding, or
+          a list of classes to trigger on.
+        * encoder (function): the function to encode an instance with,
+          which should return a structure of encodable objects.
+        * decoder (function): the function to decode the aforementioned
+          structure with.
+        """
         # Check classes
         if isinstance(cls, (tuple, list)):
             clss = cls
@@ -89,6 +164,8 @@ class BsdfDencoder(object):
         # Check inputs
         if not isinstance(name, str):
             raise TypeError('Converter name must be str.')
+        if not len(name) <= 250:
+            raise NameError('Converter names must be smaller than 251 chars long.')
         if not callable(encoder):
             raise TypeError('Converter encoder must be a callable.')
         if not callable(decoder):
@@ -104,6 +181,8 @@ class BsdfDencoder(object):
         self._decode_converters[name] = decoder
     
     def remove_converter(self, name):
+        """ Remove a converted by its unique name.
+        """
         if not isinstance(name, str):
             raise TypeError('Converter name must be str.')
         if name in self._decode_converters:
@@ -112,67 +191,70 @@ class BsdfDencoder(object):
             if self._encode_converters[cls][0] == name:
                 self._encode_converters.pop(cls)
     
-    def encode(self, ctx, value, stream_ob, converter_id=None):
+    def _encode(self, f, value, streams, converter_id):
+        """ Main encoder function. 
+        """
         
         if converter_id is not None:
-            # ctx.converter_use[converter_id] = True
-            bb = converter_id.encode('utf-8')  # todo: assert that's smaller than 256 bytes
+            bb = converter_id.encode()
             converter_patch = lencode(len(bb)) + bb
             x = lambda i: i.upper() + converter_patch
         else:
             x = lambda i: i
         
         if value is None:
-            ctx.write(x(b'v'))  # V for void
+            f.write(x(b'v'))  # V for void
         elif value is True:
-            ctx.write(x(b'y'))  # Y for yes
+            f.write(x(b'y'))  # Y for yes
         elif value is False:
-            ctx.write(x(b'n'))  # N for no
+            f.write(x(b'n'))  # N for no
         elif isinstance(value, integer_types):
             if 0 <= value <= 255:
-                ctx.write(x(b'u') + spack('B', value))  # U for uint8
+                f.write(x(b'u') + spack('B', value))  # U for uint8
             else:
-                ctx.write(x(b'i') + spack('<q', value))  # I for int
+                f.write(x(b'i') + spack('<q', value))  # I for int
         elif isinstance(value, float):
-            ctx.write(x(b'd') + spack('<d', value))  # D for double
-            # todo: allow 32bit float via arg
+            if self._float64:
+                f.write(x(b'd') + spack('<d', value))  # D for double
+            else:
+                f.write(x(b'f') + spack('<f', value))  # f for float
         elif isinstance(value, string_types):
-            bb = value.encode('utf-8')
-            ctx.write(x(b's') + lencode(len(bb)))  # S for str
-            ctx.write(bb)
+            bb = value.encode()
+            f.write(x(b's') + lencode(len(bb)))  # S for str
+            f.write(bb)
         elif isinstance(value, (list, tuple)):
-            ctx.write(x(b'l') + lencode(len(value)))  # L for list
+            f.write(x(b'l') + lencode(len(value)))  # L for list
             for v in value:
-                self.encode(ctx, v, stream_ob)
+                self._encode(f, v, streams, None)
         elif isinstance(value, dict):
-            ctx.write(x(b'm') + lencode(len(value)))  # M for mapping
+            f.write(x(b'm') + lencode(len(value)))  # M for mapping
             for key, v in value.items():
                 assert key.isidentifier()
                 #yield ' ' * indent + key
                 name_b = key.encode()
-                ctx.write(lencode(len(name_b)))
-                ctx.write(name_b)
-                self.encode(ctx, v, stream_ob)
+                f.write(lencode(len(name_b)))
+                f.write(name_b)
+                self._encode(f, v, streams, None)
         elif isinstance(value, bytes):
-            ctx.write(b'b')  # B for blob
-            blob = Blob(value, compression=ctx.compression,
-                        use_checksum=ctx.use_checksum)
-            blob._to_file(ctx)
+            f.write(b'b')  # B for blob
+            blob = Blob(value, compression=self._compression,
+                        use_checksum=self._use_checksum)
+            blob._to_file(f)
         elif isinstance(value, Blob):
-            ctx.write(b'b')  # B for blob
-            value._to_file(ctx)
+            f.write(b'b')  # B for blob
+            value._to_file(f)
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
-                ctx.write(x(b'l') + spack('<BQ', 255, 0))  # L for list
+                f.write(x(b'l') + spack('<BQ', 255, 0))  # L for list
             else:
                 assert False, 'only ListStream is supported'
             # Mark this as *the* stream, and activate the stream.
             # The save() function verifies this is the last written object.
-            if ctx.stream is not None:
+            if len(streams) > 0:
                 raise RuntimeError('Can only have one stream per file.')
-            ctx.stream = value
-            value._activate(ctx)
+            streams.append(value)
+            value._activate(f)
         else:
             # Try if the value is of a type we know
             x = self._encode_converters.get(value.__class__, None)
@@ -188,25 +270,27 @@ class BsdfDencoder(object):
                 converter_id2, converter_func = x
                 if converter_id == converter_id2:
                     raise RuntimeError('Circular recursion in converter funcs!')
-                self.encode(ctx, converter_func(ctx, value), stream_ob, converter_id2)
+                self._encode(f, converter_func(f, value), streams, converter_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
                         'handled by a converter.')
                 raise TypeError(t % value.__class__.__name__)
     
-    def decode(self, ctx):
-    
+    def _decode(self, f):
+        """ Main decoder function.
+        """
+        
         # Get value
-        char = ctx.read(1)
+        char = f.read(1)
         c = char.lower()
         
         # Conversion (uppercase value identifiers signify converted values)
         if not char:
             raise EOFError()
         elif char != c:
-            n = strunpack('<B', ctx.read(1))[0]
-            if n == 253: n = strunpack('<Q', ctx.read(8))[0]
-            converter_id = ctx.read(n).decode('utf-8')
+            n = strunpack('<B', f.read(1))[0]
+            if n == 253: n = strunpack('<Q', f.read(8))[0]
+            converter_id = f.read(n).decode()
         else:
             converter_id = None
         
@@ -217,47 +301,47 @@ class BsdfDencoder(object):
         elif c == b'n':
             value = False
         elif c == b'u':
-            value = strunpack('<B', ctx.read(1))[0]
+            value = strunpack('<B', f.read(1))[0]
         elif c == b'i':
-            value = strunpack('<q', ctx.read(8))[0]
+            value = strunpack('<q', f.read(8))[0]
         elif c == b'f':
-            value = strunpack('<f', ctx.read(4))[0]
+            value = strunpack('<f', f.read(4))[0]
         elif c == b'd':
-            value = strunpack('<d', ctx.read(8))[0]
+            value = strunpack('<d', f.read(8))[0]
         elif c == b's':
-            n_s = strunpack('<B', ctx.read(1))[0]
-            if n_s == 253: n_s = strunpack('<Q', ctx.read(8))[0]
-            value = ctx.read(n_s).decode('utf-8')  # todo: can we do more efficient utf-8?
+            n_s = strunpack('<B', f.read(1))[0]
+            if n_s == 253: n_s = strunpack('<Q', f.read(8))[0]
+            value = f.read(n_s).decode()
         elif c == b'l':
-            n = strunpack('<B', ctx.read(1))[0]
+            n = strunpack('<B', f.read(1))[0]
             if n == 253:
-                n = strunpack('<Q', ctx.read(8))[0]
+                n = strunpack('<Q', f.read(8))[0]
             elif n == 255:
-                n = strunpack('<Q', ctx.read(8))[0]  # zero if not closed
-                if ctx.want_stream:
+                n = strunpack('<Q', f.read(8))[0]  # zero if not closed
+                if self._load_streaming:
                     value = ListStream()
-                    value._activate(ctx)
+                    value._activate(f)
                 else:
                     value = []
                     try:
                         while True:
-                            value.append(self.decode(ctx))
+                            value.append(self._decode(f))
                     except EOFError:
                         pass
             else:
-                value = [self.decode(ctx) for i in range(n)]
+                value = [self._decode(f) for i in range(n)]
         elif c == b'm':
             value = dict()
-            n = strunpack('<B', ctx.read(1))[0]
-            if n == 253: n = strunpack('<Q', ctx.read(8))[0]
+            n = strunpack('<B', f.read(1))[0]
+            if n == 253: n = strunpack('<Q', f.read(8))[0]
             for i in range(n):
-                n_name = strunpack('<B', ctx.read(1))[0]
-                if n_name == 253: n_name = strunpack('<Q', ctx.read(8))[0]
+                n_name = strunpack('<B', f.read(1))[0]
+                if n_name == 253: n_name = strunpack('<Q', f.read(8))[0]
                 assert n_name > 0
-                name = ctx.read(n_name).decode()
-                value[name] = self.decode(ctx)
+                name = f.read(n_name).decode()
+                value[name] = self._decode(f)
         elif c == b'b':
-            value = Blob(ctx)
+            value = Blob(f)
         else:
             raise RuntimeError('Parse error')
         
@@ -265,44 +349,47 @@ class BsdfDencoder(object):
         if converter_id is not None:
             converter = self._decode_converters.get(converter_id, None)
             if converter is not None:
-                value = converter(ctx, value)
+                value = converter(f, value)
             else:
                 print('no converter found for %r' % converter_id)
         
         return value
     
-    def saves(self, ob, compression=0):
+    def saves(self, ob):
+        """ Save the given object to bytes. See ``save()`` for details.
+        """
         f = BytesIO()
-        self.save(f, ob, compression=compression)
+        self.save(f, ob)
         return f.getvalue()
     
     
-    def save(self, f, ob, compression=0, use_checksum=False, stream=None):
+    def save(self, f, ob):
+        """ Write the given object to the given file stream.
+        """
         f.write(b'BSDF')
         f.write(struct.pack('<B', format_version[0]))
         f.write(struct.pack('<B', format_version[1]))
         
-        # Prepare streaming
-        f.stream = None
+        # Prepare streaming, this list will have 0 or 1 item at the end
+        streams = []
         
-        # prepare compression
-        f.compression = compression
-        f.use_checksum = use_checksum
-        
-        last_value = self.encode(f, ob, stream)
+        self._encode(f, ob, streams, None)
         
         # Verify that stream object was at the end, and add initial elements
-        if f.stream is not None:
-            if f.stream.start_pos != f.tell():
+        if len(streams) > 0:
+            stream = streams[0]
+            if stream.start_pos != f.tell():
                 raise ValueError('The stream object must be the last object to be encoded.')
     
-    def loads(self, bb, stream=False):
-        
+    def loads(self, bb):
+        """ Load the data structure that is BSDF-encodded in the given bytes.
+        """
         f = BytesIO(bb)
-        return self.load(f, stream)
+        return self.load(f)
     
-    def load(self, f,  stream=False):
-        
+    def load(self, f):
+        """ Load a BSDF-encoded object from the given stream.
+        """
         # Check magic string
         if f.read(4) != b'BSDF':
             raise RuntimeError('This does not look a BSDF file.')
@@ -318,10 +405,7 @@ class BsdfDencoder(object):
             t = 'Warning: reading file with higher minor version (%s) than the implemntation (%s).'
             print(t % (__version__, file_version))
         
-        # stream?
-        f.want_stream = stream
-        
-        return self.decode(f)
+        return self._decode(f)
 
 
 ## Streaming and blob-files
@@ -369,7 +453,7 @@ class ListStream(BaseStream):
 
 class Blob(object):
     """ Object to represent a blob of bytes. When used to write a BSDF file,
-    it's a wrapper for bytes plus properties like what compression to apply.
+    it's a wrapper for bytes plus properties such as what compression to apply.
     When used to read a BSDF file, it can be used to read the data lazily, and
     also modify the data if reading in 'a+' mode and the blob is not compressed.
     """
@@ -528,14 +612,53 @@ class Blob(object):
 
 ## Standard convertors
 
+complex_converter = 'c', complex, lambda c: (c.real, c.imag), lambda v: complex(*v)
 
-## Initialize default encoder
 
-_default_encoder = BsdfDencoder()
+## High-level functions
 
-save = _default_encoder.save
-saves = _default_encoder.saves
+
+def saves(ob, converters=None, **options):
+    """ Save (BSDF-encode) the given object to bytes.
+    See BSDFSerializer for details.
+    """
+    converters = converters or []
+    s = BsdfSerializer(*converters, **options)
+    return s.saves(ob)
+
+
+def save(f, ob, converters=None, **options):
+    """ Save (BSDF-encode) the given object to the given file(name).
+    See BSDFSerializer for details.
+    """
+    converters = converters or []
+    s = BsdfSerializer(*converters, **options)
+    if isinstance(f, string_types):
+        with open(f, 'wb') as fp:
+            return s.save(f, ob)
+    else:
+        return s.save(f, ob)
+
+
+def loads(bb, converters=None, **options):
+    """ Load a (BSDF-encoded) structure from bytes.
+    See BSDFSerializer for details.
+    """
+    converters = converters or []
+    s = BsdfSerializer(*converters, **options)
+    return s.loads(bb)
+
+
+def load(f, converters=None, **options):
+    """ Load a (BSDF-encoded) structure from the given file(name).
+    """
+    converters = converters or []
+    s = BsdfSerializer(*converters, **options)
+    if isinstance(f, string_types):
+        with open(f, 'rb') as fp:
+            return s.load(f)
+    else:
+        return s.load(f)
+
+
 dumps = saves  # json compat
-
-loads = _default_encoder.loads
-load = _default_encoder.load
