@@ -3,7 +3,7 @@
 This document specifies a standardised set of converters; a specifification
 of how certain objects can be encoded, and how they are named.
 
-This is a work in proggress and the specifications below are subject to change.
+This is a work in progress and the specifications below are subject to change.
 The standardization of a base set of convertes should settle soonish after the
 BSDF format itself has stabalized. BSDF by itself is still useful, as one can
 easily define one's own converters. Standardizing the converters is important
@@ -20,9 +20,9 @@ to easily share data though.
 
 Questions:
     
-* Allow F-order
-* Allow stringing?
-* Probably KISS, e.g. JS has no stringing.
+* Allow F-order?
+* Allow striding?
+* Probably KISS, e.g. JS has no striding.
 
 * name: "ndarray"
 * encoding: a dict with elements:
