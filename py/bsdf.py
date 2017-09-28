@@ -111,7 +111,9 @@ class BsdfSerializer(object):
     
     * load_streaming (bool): if True, and the final object in the structure was
       a stream, will make it available as a stream in the decoded object.
-    
+    * lazy_blob (bool): if True, bytes are represented as Blob objects that can
+      be used to lazily access the data, and also overwrite the data if the
+      file is open in a+ mode.
     """
     
     def __init__(self, *converters, **options):
@@ -123,7 +125,7 @@ class BsdfSerializer(object):
     
     def _parse_options(self,
                        compression=0, use_checksum=False, float64=True,
-                       load_streaming=False):
+                       load_streaming=False, lazy_blob=False):
         
         # Validate compression
         if isinstance(compression, string_types):
@@ -139,7 +141,7 @@ class BsdfSerializer(object):
         
         # Decoding args
         self._load_streaming = bool(load_streaming)
-    
+        self._lazy_blob = bool(lazy_blob)
     
     def add_converter(self, name, cls, encoder, decoder):
         """ Add a converter to this serializer instance, consisting of:
@@ -342,6 +344,8 @@ class BsdfSerializer(object):
                 value[name] = self._decode(f)
         elif c == b'b':
             value = Blob(f)
+            if not self._lazy_blob:
+                value = value.get_bytes()
         else:
             raise RuntimeError('Parse error')
         
@@ -626,7 +630,7 @@ def saves(ob, converters=None, **options):
     s = BsdfSerializer(*converters, **options)
     return s.saves(ob)
 
-
+# todo: allow f and ob to be reversed
 def save(f, ob, converters=None, **options):
     """ Save (BSDF-encode) the given object to the given file(name).
     See BSDFSerializer for details.
@@ -635,7 +639,7 @@ def save(f, ob, converters=None, **options):
     s = BsdfSerializer(*converters, **options)
     if isinstance(f, string_types):
         with open(f, 'wb') as fp:
-            return s.save(f, ob)
+            return s.save(fp, ob)
     else:
         return s.save(f, ob)
 
@@ -656,7 +660,7 @@ def load(f, converters=None, **options):
     s = BsdfSerializer(*converters, **options)
     if isinstance(f, string_types):
         with open(f, 'rb') as fp:
-            return s.load(f)
+            return s.load(fp)
     else:
         return s.load(f)
 
