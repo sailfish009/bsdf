@@ -107,7 +107,7 @@ class BsdfSerializer(object):
       ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
       ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
     * use_checksum (bool): whether to include a checksum with binary blobs.
-    * float64 (bool): Whether to write floats as 64 (default) or 32 bit.
+    * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
     Options for decoding
     --------------------
@@ -321,9 +321,8 @@ class BsdfSerializer(object):
             value = f.read(n_s).decode()
         elif c == b'l':
             n = strunpack('<B', f.read(1))[0]
-            if n == 253:
-                n = strunpack('<Q', f.read(8))[0]
-            elif n == 255:
+            if n == 255:
+                # Streaming
                 n = strunpack('<Q', f.read(8))[0]  # zero if not closed
                 if self._load_streaming:
                     value = ListStream()
@@ -336,6 +335,8 @@ class BsdfSerializer(object):
                     except EOFError:
                         pass
             else:
+                # Normal
+                if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
                 value = [self._decode(f) for i in range(n)]
         elif c == b'm':
             value = dict()
@@ -348,9 +349,11 @@ class BsdfSerializer(object):
                 name = f.read(n_name).decode()
                 value[name] = self._decode(f)
         elif c == b'b':
-            value = Blob(f)
-            if not self._lazy_blob:
-                value = value.get_bytes()
+            if self._lazy_blob:
+                value = Blob((f, True))
+            else:
+                blob = Blob((f, False))
+                value = blob.get_bytes()
         else:
             raise RuntimeError('Parse error')
 
@@ -402,7 +405,6 @@ class BsdfSerializer(object):
         # Check magic string
         if f.read(4) != b'BSDF':
             raise RuntimeError('This does not look a BSDF file.')
-
         # Check version
         major_version = strunpack('<B', f.read(1))[0]
         minor_version = strunpack('<B', f.read(1))[0]
@@ -479,11 +481,13 @@ class Blob(object):
             self.compression = compression
             self.allocated_size = self.used_size + extra_size
             self.use_checksum = use_checksum
-        else:
-            self.f = f
+        elif isinstance(f, tuple) and len(f) == 2 and hasattr(f[0], 'read'):
+            self.f, allow_seek = f
             self.compressed = None
-            self._from_file(f)
+            self._from_file(self.f, allow_seek)
             self._modified = False
+        else:
+            raise RuntimeError('Wrong argument to create Blob.')
 
     def _from_bytes(self, value, compression):
         """ When used to wrap bytes in a blob.
@@ -502,7 +506,7 @@ class Blob(object):
         return compressed
 
     def _to_file(self, f):
-        """ Called by encoder to write the blob to a file.
+        """ Private friend method called by encoder to write a blob to a file.
         """
         # Write sizes - write at least in a size that allows resizing
         if self.allocated_size <= 250 and self.compression == 0:
@@ -530,7 +534,7 @@ class Blob(object):
         f.write(self.compressed)
         f.write(bytes(self.allocated_size - self.used_size))
 
-    def _from_file(self, f):
+    def _from_file(self, f, allow_seek):
         """ Used when a blob is read by the decoder.
         """
         # Read blob header data (5 to 42 bytes)
@@ -549,14 +553,20 @@ class Blob(object):
         # Skip alignment
         alignment = strunpack('<B', f.read(1))[0]
         f.read(alignment)
-
-        self.start_pos = f.tell()
-        self.end_pos = self.start_pos + used_size
-        f.seek(self.start_pos + allocated_size)
-
+        # Get or skip data + extra space
+        if allow_seek:
+            self.start_pos = f.tell()
+            self.end_pos = self.start_pos + used_size
+            f.seek(self.start_pos + allocated_size)
+        else:
+            self.start_pos = None
+            self.end_pos = None
+            self.compressed = f.read(used_size)
+            f.read(allocated_size - used_size)
+        # Store info
         self.alignment = alignment
         self.compression = compression
-        self.checksum = checksum if has_checksum else None
+        self.use_checksum = checksum if has_checksum else None
         self.used_size = used_size
         self.allocated_size = allocated_size
         self.data_size = data_size

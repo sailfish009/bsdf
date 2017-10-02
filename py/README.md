@@ -12,12 +12,11 @@ At this point, copy `bsdf.py` to a place where Python can find it.
 
 ## Running tests
 
-(In the commands below, the `.` can be replaced with `py` when running from
-the root of the repository.)
+(Assuming that the current directory is the root of the repo.)
 
-* Style tests: `flake8 .`
-* Unit tests: `pytest .`
-* Service tests: `python ./bsdf_test_service.py python .`
+* Style tests: `flake8 py`
+* Unit tests: `pytest py`
+* Service tests: `python py/bsdf_test_service.py py python`
 
 
 ## Maintainers
