@@ -1,6 +1,6 @@
 function result = bsdf(arg1, arg2)
 % BSDF is a binary format for serializing structured (scientific) data.
-% This is the Matlab implementation for reading and writing such 
+% This is the Matlab implementation for reading and writing such
 % data structures. Read more at https://gitlab.com/almarklein/bsdf
 %
 % Usage:
@@ -19,8 +19,8 @@ function result = bsdf(arg1, arg2)
         % filename, bytes, or object
         if isa(arg1, 'char') && sum(arg1 == sprintf('\n')) == 0
             % Load from file, exists?
-            if ~exist(arg1, 'file');  error([mfilename ': the specified file does not exist.']);  end;            
-            % Read file   
+            if ~exist(arg1, 'file');  error([mfilename ': the specified file does not exist.']);  end;
+            % Read file
             f = fopen(arg1, 'r', 'l');%, 'UTF-8');  % read / little endian
             try
                 data = load(f, VERSION);
@@ -68,9 +68,9 @@ function result = bsdf(arg1, arg2)
         
     elseif nargin == 2
         % Write to file, looks like file? Does not have to exist yet, of course
-        if ~isa(arg1, 'char') 
-             error([mfilename ': Invalid filename given.']); 
-        end        
+        if ~isa(arg1, 'char')
+             error([mfilename ': Invalid filename given.']);
+        end
         % Write to file
         f = fopen(arg1, 'w', 'l');%, 'UTF-8');  % write / little endian
         try
@@ -98,6 +98,7 @@ function write_length(f, x)
     # elif x < 4294967296:
     #     return spack('<BI', 252, x)
     else
+        fwrite(f, 253, 'uint8');
         fwrite(f, x, 'uint64');
     end
 end
@@ -144,9 +145,8 @@ function bsdf_encode(f, value)
             for i=1:length(keys)
                 key = keys{i};
                 val = value.(key);
-                key_b = uint8(key);  % this assumes ASCII keys - UTF-8 is not trivial in Matlab/Octave
-                write_length(f, length(key_b));
-                fwrite(f, key_b);
+                write_length(f, length(key));  % assume ASCII key names
+                fwrite(f, key);
                 bsdf_encode(f, val);
             end
         
@@ -158,10 +158,13 @@ function bsdf_encode(f, value)
             end
         
         case 'char'
-            fwrite(f, 's');            
-            write_length(f, length(value));
+            fwrite(f, 's');
+            write_length(f, length(value));  % In Octave, this counts #bytes not #chars
             fwrite(f, value);
-        
+            %sb = uint8(value);           
+            %write_length(f, length(sb));
+            %fwrite(f, sb);
+                
         case {'double', 'single', 'logical', 'uint8','int8','uint16', 'int16', 'uint32', 'int32'}
           
             if numel(value) == 0  % null
