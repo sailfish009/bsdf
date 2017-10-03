@@ -39,24 +39,16 @@ def setup_module(module):
     runner = 'pytest'
 
 
-def main_configure():
+def main(test_dir_, *exe_):
     """ We call this when this is run as as script. """
     global test_dir, exe, runner
     
-    if len(sys.argv) == 1:
-        print(__doc__)
-        sys.exit(1)
-    elif len(sys.argv) < 3:
-        raise RuntimeError('BSDF test service needs at least two arguments (test_dir, exe, ...)')
-    
-    # Get dir
-    test_dir = os.path.abspath(sys.argv[1])
+    # Set exe and test_dir
+    test_dir = test_dir_
+    exe = list(exe_)
     if not os.path.isdir(test_dir):
         raise RuntimeError('Not a valid directory: %r' % test_dir)
-    
-    # Get exe (can be multiple args, the service_runner is appended to it)
-    exe = list(sys.argv[2:])
-    
+
     # Find service runner
     runners = [os.path.join(test_dir, fname) for fname in os.listdir(test_dir)
             if fname.startswith('service_runner.')]
@@ -66,6 +58,17 @@ def main_configure():
         raise RuntimeError('Find multiple service runners in %s.' % test_dir)
     else:
         runner = runners[0]
+    
+    # Run tests
+    for name, func in list(globals().items()):
+        if name.startswith('test_') and callable(func):
+            print('Running service test %s ' % name, end='')
+            try:
+                func()
+            except Exception:
+                print('  Failed')
+                raise
+            print('  Passed')
 
 
 ## Helper functions
@@ -93,9 +96,10 @@ def invoke_runner(fname1, fname2):
     else:
         # Normal sub-process behavior
         p = subprocess.Popen(exe + [runner, fname1, fname2], cwd=test_dir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode != 0 or err:
+            os.replace(fname1, os.path.dirname(fname1) + '/error.' + fname1.rsplit('.')[-1])
             raise RuntimeWarning(f'{runner} failed:\n{out.decode(errors="replace")}\n{err.decode(errors="replace")}')
     
     assert os.path.isfile(fname2)
@@ -147,12 +151,6 @@ JSON_ABLE_OBJECTS = [
     dict(foo=7.2, bar=42, a=False),
     ["hello", 3, None, True, 'there', 'x'],
     
-    # Singletons
-    1,
-    3.4,
-    'hello',
-    None,
-    
     # Unicode
     dict(foo='fóó', bar='€50)', more='\'"{}$'),
     
@@ -193,7 +191,6 @@ def test_json_to_bsdf():
         compare_data(data1, data2)
 
 
-
 def test_bsdf_to_json():
     for data1 in JSON_ABLE_OBJECTS:
         
@@ -214,6 +211,20 @@ def test_bsdf_to_bsdf():
     
     # Just repeat these
     for data1 in JSON_ABLE_OBJECTS:
+        try:
+            fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+            bsdf.save(fname1, data1)
+            invoke_runner(fname1, fname2)
+            data2 = bsdf.load(fname2)
+        except Exception:
+            print(data1)
+            raise
+        finally:
+            remove(fname1, fname2)
+        compare_data(data1, data2)
+    
+    # Singletons, some JSON implementations choke on these
+    for data1 in [1, 3.4, 'hello', None]:
         try:
             fname1, fname2 = get_filenames('.bsdf', '.bsdf')
             bsdf.save(fname1, data1)
@@ -299,14 +310,14 @@ def test_bsdf_to_bsdf_random():
 
 if __name__ == '__main__':
     
-    main_configure()
+    # Process CLI arguments
+    if len(sys.argv) == 1:
+        print(__doc__)
+        sys.exit(1)
+    elif len(sys.argv) < 3:
+        raise RuntimeError('BSDF test service needs at least two arguments (test_dir, exe, ...)')
+    test_dir = os.path.abspath(sys.argv[1])
+    exe = list(sys.argv[2:])
     
-    for name, func in list(globals().items()):
-        if name.startswith('test_') and callable(func):
-            print('Running service test %s ' % name, end='')
-            try:
-                func()
-            except Exception:
-                print('  Failed')
-                raise
-            print('  Passed')
+    # Call main
+    main(test_dir, exe)

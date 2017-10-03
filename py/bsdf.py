@@ -46,7 +46,7 @@ __version__ = '.'.join(str(i) for i in version_info)
 if sys.version_info[0] >= 3:
     string_types = str
     integer_types = int
-else:
+else:  # pragma: nocov
     string_types = basestring  # noqa
     integer_types = (int, long)  # noqa
 
@@ -119,9 +119,11 @@ class BsdfSerializer(object):
       file is open in a+ mode.
     """
 
-    def __init__(self, *converters, **options):
+    def __init__(self, converters=None, **options):
         self._encode_converters = {}
         self._decode_converters = {}
+        if converters is None:
+            converters = standard_converters
         for converter in converters:
             self.add_converter(*converter)
         self._parse_options(**options)
@@ -260,7 +262,7 @@ class BsdfSerializer(object):
             if len(streams) > 0:
                 raise RuntimeError('Can only have one stream per file.')
             streams.append(value)
-            value._activate(f)
+            value._activate(f, self._encode, self._decode)
         else:
             # Try if the value is of a type we know
             x = self._encode_converters.get(value.__class__, None)
@@ -326,7 +328,7 @@ class BsdfSerializer(object):
                 n = strunpack('<Q', f.read(8))[0]  # zero if not closed
                 if self._load_streaming:
                     value = ListStream()
-                    value._activate(f)
+                    value._activate(f, self._encode, self._decode)
                 else:
                     value = []
                     try:
@@ -435,17 +437,18 @@ class ListStream(BaseStream):
         self.start_pos = 0
         self.count = 0
 
-    def _activate(self, file, decode_func):
+    def _activate(self, file, encode_func, decode_func):
         if self.f is not None:  # This could happen if present twice in the ob
             raise RuntimeError('Stream object cnanot be activated twice?')
         self.f = file
         self.start_pos = self.f.tell()
+        self._encode = encode_func
         self._decode = decode_func
 
     def append(self, item):
         if self.f is None:
             raise RuntimeError('List streamer is not ready for streaming yet.')
-        save(self.f, item, None)  # todo: this was encode, is save() correct?
+        self._encode(self.f, item, [self], None)  # todo: this was encode, is save() correct?
         self.count += 1
 
     def close(self):
@@ -637,10 +640,14 @@ class Blob(object):
 
 # %% Standard convertors
 
-complex_converter = ('c', complex,
-                     lambda c: (c.real, c.imag),
-                     lambda v: complex(*v)
+complex_converter = ('c',
+                     complex,
+                     lambda ctx, c: (c.real, c.imag),
+                     lambda ctx, v: complex(*v)
                      )
+
+
+standard_converters = [complex_converter]
 
 
 # %% High-level functions
@@ -650,8 +657,7 @@ def saves(ob, converters=None, **options):
     """ Save (BSDF-encode) the given object to bytes.
     See BSDFSerializer for details.
     """
-    converters = converters or []
-    s = BsdfSerializer(*converters, **options)
+    s = BsdfSerializer(converters, **options)
     return s.saves(ob)
 
 
@@ -660,8 +666,7 @@ def save(f, ob, converters=None, **options):
     """ Save (BSDF-encode) the given object to the given file(name).
     See BSDFSerializer for details.
     """
-    converters = converters or []
-    s = BsdfSerializer(*converters, **options)
+    s = BsdfSerializer(converters, **options)
     if isinstance(f, string_types):
         with open(f, 'wb') as fp:
             return s.save(fp, ob)
@@ -673,16 +678,14 @@ def loads(bb, converters=None, **options):
     """ Load a (BSDF-encoded) structure from bytes.
     See BSDFSerializer for details.
     """
-    converters = converters or []
-    s = BsdfSerializer(*converters, **options)
+    s = BsdfSerializer(converters, **options)
     return s.loads(bb)
 
 
 def load(f, converters=None, **options):
     """ Load a (BSDF-encoded) structure from the given file(name).
     """
-    converters = converters or []
-    s = BsdfSerializer(*converters, **options)
+    s = BsdfSerializer(converters, **options)
     if isinstance(f, string_types):
         with open(f, 'rb') as fp:
             return s.load(fp)

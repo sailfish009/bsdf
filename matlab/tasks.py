@@ -13,6 +13,9 @@ def call(*cmd):
 
 
 @task
-def test_service(ctx):
-    """ Run BSDF tests using the test service. """
-    call('python', '../py/bsdf_test_service.py', '.', 'octave-cli')
+def test_shared(ctx, exe='octave-cli'):
+    """ Run BSDF tests using the shared test service. """
+    sys.path.insert(0, os.path.join(this_dir, '..', 'py'))
+    import bsdf_test_service
+    bsdf_test_service.main(this_dir, exe)
+    #call('python', '../py/bsdf_test_service.py', '.', 'octave-cli')

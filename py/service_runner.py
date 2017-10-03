@@ -19,7 +19,7 @@ assert not os.path.isfile(fname2)
 
 # Read data
 if fname1.endswith('.json'):
-    with open(fname1, 'rt') as f:
+    with open(fname1, 'rt', encoding='utf-8') as f:
         data = json.load(f)
 elif fname1.endswith('.bsdf'):
     data = bsdf.load(fname1)
@@ -28,7 +28,7 @@ else:
 
 # Write data
 if fname2.endswith('.json'):
-    with open(fname2, 'wt') as f:
+    with open(fname2, 'wt', encoding='utf-8') as f:
         json.dump(data, f)
 elif fname2.endswith('.bsdf'):
     bsdf.save(fname2, data)
