@@ -126,7 +126,10 @@ def get_filenames(ext1, ext2):
 
 def remove(*filenames):
     for fname in filenames:
-        os.remove(fname)
+        try:
+            os.remove(fname)
+        except Exception:
+            pass
 
 
 ## The tests
@@ -142,7 +145,13 @@ JSON_ABLE_OBJECTS = [
     # # Basics
     [1,2,3, 4.2, 5.6, 6.001],
     dict(foo=7.2, bar=42, a=False),
-    ["hello", 3, None, False, 'there', 'x'],
+    ["hello", 3, None, True, 'there', 'x'],
+    
+    # Singletons
+    1,
+    3.4,
+    'hello',
+    None,
     
     # Unicode
     dict(foo='fóó', bar='€50)', more='\'"{}$'),
@@ -156,28 +165,33 @@ JSON_ABLE_OBJECTS = [
 ]
 
 
+def compare_data(data1, data2):
+    # assert data1 == data2
+    if data1 == data2:
+        print('.', end='')
+        sys.stdout.flush()
+    else:
+        print('data1:', data1)
+        print('data2:', data2)
+        assert data1 == data2
+
+
 def test_json_to_bsdf():
     
     for data1 in JSON_ABLE_OBJECTS:
     
-        fname1, fname2 = get_filenames('.json', '.bsdf')
         try:
+            fname1, fname2 = get_filenames('.json', '.bsdf')
             json_save(fname1, data1)
             invoke_runner(fname1, fname2)
             data2 = bsdf.load(fname2)
-            remove(fname1, fname2)
         except Exception:
             print(data1)
             raise
-        
-        # assert data1 == data2
-        if data1 == data2:
-            print('.', end='')
-            sys.stdout.flush()
-        else:
-            print('data1:', data1)
-            print('data2:', data2)
-            assert data1 == data2
+        finally:
+            remove(fname1, fname2)
+        compare_data(data1, data2)
+
 
 
 def test_bsdf_to_json():
@@ -188,27 +202,97 @@ def test_bsdf_to_json():
             bsdf.save(fname1, data1)
             invoke_runner(fname1, fname2)
             data2 = json_load(fname2)
-            remove(fname1, fname2)
         except Exception:
             print(data1)
             raise
-        
-        # assert data1 == data2
-        if data1 == data2:
-            print('.', end='')
-            sys.stdout.flush()
-        else:
-            print('data1:', data1)
-            print('data2:', data2)
-            assert data1 == data2
+        finally:
+            remove(fname1, fname2)
+        compare_data(data1, data2)
 
 
 def test_bsdf_to_bsdf():
-    pass
+    
+    # Just repeat these
+    for data1 in JSON_ABLE_OBJECTS:
+        try:
+            fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+            bsdf.save(fname1, data1)
+            invoke_runner(fname1, fname2)
+            data2 = bsdf.load(fname2)
+        except Exception:
+            print(data1)
+            raise
+        finally:
+            remove(fname1, fname2)
+        compare_data(data1, data2)
+    
+    # Use float32 for encoding floats
+    try:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data1 = [1,2,3, 4.2, 5.6, 6.001]
+        bsdf.save(fname1, data1, float64=False)
+        invoke_runner(fname1, fname2)
+        data2 = bsdf.load(fname2)
+    except Exception:
+        print(data1)
+        raise
+    finally:
+        remove(fname1, fname2)
+    assert data1 != data2
+    assert all([(abs(d1-d2) < 0.001) for d1, d2 in zip(data1, data2)])
+    
+    # Test conversion using complex number
+    try:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data1 = 3 + 4j
+        bsdf.save(fname1, data1)
+        invoke_runner(fname1, fname2)
+        data2 = bsdf.load(fname2)
+    except Exception:
+        print(data1)
+        raise
+    finally:
+        remove(fname1, fname2)
+    assert isinstance(data2, complex)
+    assert data1 == data2
+    
+    # Test bytes / blobs
+    # We do not test compression in shared tests, since its not a strict requirement
+    for data1 in [[3, 4, b'', b'x', b'yyy', 5],
+                  [5, 6, bsdf.Blob(b'foo', compression=0, extra_size=20, use_checksum=False), 7],
+                  [5, 6, bsdf.Blob(b'foo', compression=0, extra_size=10, use_checksum=True), 7],
+                 ]:
+        try:
+            fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+            bsdf.save(fname1, data1)
+            invoke_runner(fname1, fname2)
+            data2 = bsdf.load(fname2)
+        except Exception:
+            print(data1)
+            raise
+        finally:
+            remove(fname1, fname2)
+        # Compare, but turn blobs into bytes
+        data1 = [x.get_bytes() if isinstance(x, bsdf.Blob) else x for x in data1]
+        compare_data(data1, data2)
+    
+    # Test unclosed stream
+    s = bsdf.ListStream()
+    data1 = [3, 4, 5, s]
+    #
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    with open(fname1, 'wb') as f:
+        bsdf.save(f, data1)
+        s.append(6)
+        s.append(7)
+    invoke_runner(fname1, fname2)
+    data2 = bsdf.load(fname2)
+    assert data2 == [3, 4, 5, [6, 7]]
 
 
 def test_bsdf_to_bsdf_random():
-    pass
+    
+   pass
 
 
 ## Run the tests
