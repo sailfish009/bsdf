@@ -62,7 +62,7 @@ def main(test_dir_, *exe_):
     # Run tests
     for name, func in list(globals().items()):
         if name.startswith('test_') and callable(func):
-            print('Running service test %s ' % name, end='')
+            print('Running service test %s %s ' % (os.path.basename(test_dir), name), end='')
             try:
                 func()
             except Exception:
@@ -210,7 +210,7 @@ def test_bsdf_to_json():
 def test_bsdf_to_bsdf():
     
     # Just repeat these
-    for data1 in JSON_ABLE_OBJECTS:
+    for data1 in JSON_ABLE_OBJECTS[:-1]:
         try:
             fname1, fname2 = get_filenames('.bsdf', '.bsdf')
             bsdf.save(fname1, data1)
@@ -252,7 +252,7 @@ def test_bsdf_to_bsdf():
     assert data1 != data2
     assert all([(abs(d1-d2) < 0.001) for d1, d2 in zip(data1, data2)])
     
-    # Test conversion using complex number
+    # Test converters using complex number
     try:
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data1 = 3 + 4j
@@ -266,6 +266,21 @@ def test_bsdf_to_bsdf():
         remove(fname1, fname2)
     assert isinstance(data2, complex)
     assert data1 == data2
+    
+    # Deal with unknown converters by leaving data through
+    myconverter = 'test.foo', threading.Thread, lambda ctx, v: [7, 42], lambda ctx, v: None
+    data1 = ['hi', threading.Thread(), 'there']
+    try:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        bsdf.save(fname1, data1, [myconverter])
+        invoke_runner(fname1, fname2)
+        data2 = bsdf.load(fname2)
+    except Exception:
+        print(data1)
+        raise
+    finally:
+        remove(fname1, fname2)
+    assert data2 == ['hi', [7, 42], 'there']
     
     # Test bytes / blobs
     # We do not test compression in shared tests, since its not a strict requirement

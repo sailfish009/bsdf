@@ -1,4 +1,4 @@
-function result = bsdf(arg1, arg2)
+function result = bsdf(arg1, arg2, converters)
 % BSDF is a binary format for serializing structured (scientific) data.
 % This is the Matlab implementation for reading and writing such
 % data structures. Read more at https://gitlab.com/almarklein/bsdf
@@ -166,26 +166,9 @@ function bsdf_encode(f, value)
             %fwrite(f, sb);
                 
         case {'double', 'single', 'logical', 'uint8','int8','uint16', 'int16', 'uint32', 'int32'}
-          
-            if numel(value) == 0  % null
-                fwrite(f, 'v');
-            elseif numel(value) == 1  % scalar
-                if strcmp(class(value), 'double')
-                    fwrite(f, 'd');
-                    fwrite(f, value, 'float64');
-                elseif strcmp(class(value), 'single')
-                    fwrite(f, 'f');
-                    fwrite(f, value, 'float32');
-                elseif strcmp(class(value), 'uint8')
-                    fwrite(f, 'u');
-                    fwrite(f, value, 'uint8');
-                else
-                    fwrite(f, 'i');
-                    fwrite(f, value, 'int64');
-                end
             
-            elseif strcmp(class(value), 'uint8') && equals(size(value), [1, numel(value)])
-                % blob
+            if strcmp(class(value), 'uint8') && ndims(value) == 2 && size(value)(2) == numel(value)
+                % blob (at the top to grab all uint8 instances (also empty and 1-length bytes)
                 extra_size = 0;
                 compression = 0; 
                 compressed = value;
@@ -203,26 +186,54 @@ function bsdf_encode(f, value)
                 if compression == 0
                     alignment = mod(ftell(f) + 1, 8)  # +1 for the byte about to write
                     fwrite(f, alignment, 'uint8');
-                    fwrite(f, zeros(alignment, 0), 'uint8');
+                    fwrite(f, zeros(alignment, 1), 'uint8');
                 end
                 fwrite(f, value, 'uint8');
-                fwrite(f, zeros(extra_size, 0), 'uint8');
+                fwrite(f, zeros(extra_size, 1), 'uint8');
+            
+            elseif numel(value) == 0  % null
+                fwrite(f, 'v');
+            elseif numel(value) == 1  % scalar
+                if iscomplex(value)  % Standard converter: complex
+                    fwrite(f, 'L');  % "This is a special list", next is its type
+                    converter_id = 'c';
+                    write_length(f, length(converter_id));
+                    fwrite(f, converter_id);                    
+                    write_length(f, 2);
+                    bsdf_encode(f, double(real(value)));
+                    bsdf_encode(f, double(imag(value)));
+                elseif strcmp(class(value), 'double')
+                    fwrite(f, 'd');
+                    fwrite(f, value, 'float64');
+                elseif strcmp(class(value), 'single')
+                    fwrite(f, 'f');
+                    fwrite(f, value, 'float32');
+                elseif strcmp(class(value), 'uint8')
+                    fwrite(f, 'u');
+                    fwrite(f, value, 'uint8');
+                else
+                    fwrite(f, 'i');
+                    fwrite(f, value, 'int64');
+                end
              
             else  % array
-                error([mfilename ': arrays are not yet supported.']);
+                error([mfilename ': arrays are not yet supported (' class(value) ' ' mat2str(size(value)) ')']);
             end
     end      
 end
 
 
 function value = bsdf_decode(f)
-    the_char = fread(f, 1, 'char');
+    the_char = char(fread(f, 1, 'uint8'));
     c = lower(the_char);
     
     if numel(the_char) == 0
         error('bsdf:eof', 'end of file');
     elseif ~isequal(c, the_char)
-        error('cannot do custom data yet');
+        n = fread(f, 1, 'uint8');
+        converter_id = char(fread(f, n, 'uint8')');
+    else
+        converter_id = '';
     end
     
     if c == 'v'
@@ -303,25 +314,32 @@ function value = bsdf_decode(f)
         compressed = fread(f, used_size, '*uint8');
         % Decompress
         if compression == 0
-            value = compressed;
+            value = compressed';
         elseif compression == 1
             import com.mathworks.mlwidgets.io.InterruptibleStreamCopier
             a = java.io.ByteArrayInputStream(compressed);
             b = java.util.zip.InflaterInputStream(a);
             isc = InterruptibleStreamCopier.getInterruptibleStreamCopier;
-            c = java.io.ByteArrayOutputStream;
-            isc.copyStream(b, c);        
-            value = typecast(c.toByteArray, 'uint8')';
+            cc = java.io.ByteArrayOutputStream;
+            isc.copyStream(b, cc);        
+            value = typecast(cc.toByteArray, 'uint8')';
         elseif compression == 2
             error([mfilename ': bz2 compression not supported.']);
         else
             error([mfilename ': unsupported compression.']);
-        end
+        end        
         % Skip extra space
         fread(f, allocated_size - used_size, '*uint8');
     else
-        error([mfilename ': unknown data type ' c]);
+        error([mfilename ': unknown data type ' c ' ' converter_id]);
     end
     
-    % todo: Convert value
+    % Convert value if we can
+    if converter_id
+        if converter_id == 'c'
+            value = complex(value{1}, value{2});
+        else
+            % slicently ignore ...
+        end
+    end
 end

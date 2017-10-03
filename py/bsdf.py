@@ -298,7 +298,7 @@ class BsdfSerializer(object):
             raise EOFError()
         elif char != c:
             n = strunpack('<B', f.read(1))[0]
-            if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
+            # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - we enforce this
             converter_id = f.read(n).decode()
         else:
             converter_id = None
