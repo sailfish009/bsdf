@@ -61,7 +61,6 @@ def test_all_types_simple():
     for key in s1:
         assert type(s1[key]) == type(s2[key])
 
-
 def test_loaders_and_savers():
     
     # load and save is already tested above and in many other places

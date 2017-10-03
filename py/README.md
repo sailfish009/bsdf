@@ -10,13 +10,9 @@ bsdf_test_service.py.
 At this point, copy `bsdf.py` to a place where Python can find it.
 
 
-## Running tests
+## Development
 
-(Assuming that the current directory is the root of the repo.)
-
-* Style tests: `flake8 py`
-* Unit tests: `pytest py`
-* Service tests: `python py/bsdf_test_service.py py python`
+Run `invoke -l` in this directory for available tasks (like tests).
 
 
 ## Maintainers
