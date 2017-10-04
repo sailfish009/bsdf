@@ -42,10 +42,9 @@ def random_name(maxn=32):
     name = ''
     while not (name and name not in names):
         n = random.randrange(0, maxn)
-        name = random.choice(NAMECHARS[:-10])
+        name = random.choice(NAMECHARS[:-11])
         name += ''.join(random.sample(NAMECHARS,n))
-        if name.startswith('__'):
-            name = 'x' + name
+        assert name[0] not in '_0123456789'
     return name
 
 def random_object(level, types=()):
@@ -120,7 +119,7 @@ def random_list(level, maxn=16, types=()):
     for i in range(n):
         # Get value
         items.append(random_object(level, types) )
-    if random.random() > 0.5:
+    if True: # random.random() > 0.5: -> this would break comparisons
         return items
     else:
         return tuple(items)

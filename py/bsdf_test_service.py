@@ -21,11 +21,17 @@ import os
 import sys
 import time
 import json
+import random
 import tempfile
 import threading
 import subprocess
 
 import bsdf  # the current script is next to this module
+
+# Import module to generate random data structures
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '_data')))
+import generate
+sys.path.pop(0)
 
 
 ## Setup
@@ -50,7 +56,7 @@ def main(test_dir_, *exe_):
     
     # Run tests
     for name, func in list(globals().items()):
-        if name.startswith('test_') and callable(func):
+        if name.startswith('test_') and callable(func) and 'random' in name:
             print('Running service test %s %s ' % (exe_name, name), end='')
             try:
                 func()
@@ -241,6 +247,13 @@ def test_bsdf_to_bsdf():
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
     
+    # Special values
+    for data1 in [float('nan'), float('inf'), float('-inf')]:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
+        #compare_data(data1, data2)
+        assert str(data1) == str(data2)  # because nan != nan
+    
     # Use float32 for encoding floats
     fname1, fname2 = get_filenames('.bsdf', '.bsdf')
     data1 = [1,2,3, 4.2, 5.6, 6.001]
@@ -313,7 +326,27 @@ def test_bsdf_to_bsdf():
 
 def test_bsdf_to_bsdf_random():
     
-   pass
+    # we want pytest to be repeatable
+    if exe_name == 'pytest':
+        return
+    
+    # Process a few random dicts
+    for iter in range(8):
+        random.seed(time.time())
+        
+        data1 = generate.random_dict(6, maxn=100, types=generate.JSON_TYPES)
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
+        compare_data(data1, data2)
+    
+    # Process a few random lists
+    for iter in range(8):
+        random.seed(time.time())
+        
+        data1 = generate.random_list(6, maxn=100, types=generate.JSON_TYPES)
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
+        compare_data(data1, data2)
 
 
 ## Run the tests
