@@ -46,7 +46,7 @@ __version__ = '.'.join(str(i) for i in version_info)
 if sys.version_info[0] >= 3:
     string_types = str
     integer_types = int
-else:  # pragma: nocov
+else:  # pragma: no cover
     string_types = basestring  # noqa
     integer_types = (int, long)  # noqa
 
