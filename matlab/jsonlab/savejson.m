@@ -156,11 +156,25 @@ if(~isempty(filename))
 	    fid = fopen(filename, 'wb');
 	    fwrite(fid,json);
     else
-	    fid = fopen(filename, 'wt');
-	    fwrite(fid,json,'char');
+	    fid = fopen_utf8(filename, 'w');
+	    fwrite(fid,json,'*char');
     end
     fclose(fid);
 end
+
+%%-------------------------------------------------------------------------
+function f = fopen_utf8(filename, mode)
+    % Version of fopen to open a file in utf8 little endian.
+    persistent IS_OCTAVE;
+    if isempty(IS_OCTAVE)
+        IS_OCTAVE = (exist ("OCTAVE_VERSION", "builtin") > 0);
+    end
+    
+    if IS_OCTAVE
+        f = fopen(filename, mode, 'l');  % Octave uses UTF-8 by default
+    else
+        f = fopen(filename, mode, 'l', 'utf-8');
+    end
 
 %%-------------------------------------------------------------------------
 function txt=obj2json(name,item,level,varargin)

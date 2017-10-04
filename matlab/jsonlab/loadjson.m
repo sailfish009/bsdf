@@ -66,15 +66,7 @@ global pos index_esc isoct arraytoken
 if(regexp(fname,'^\s*(?:\[.*\])|(?:\{.*\})\s*$','once'))
    string=fname;
 elseif(exist(fname,'file'))
-   try
-       string = fileread(fname);
-   catch
-       try
-           string = urlread(['file://',fname]);
-       catch
-           string = urlread(['file://',fullfile(pwd,fname)]);
-       end
-   end
+  string = fileread_utf8(fname);  
 else
    error('input file does not exist');
 end
@@ -143,6 +135,22 @@ function object = parse_object(inStr, esc, varargin)
 
 %%-------------------------------------------------------------------------
 
+function text = fileread_utf8(filename)
+    % Version of fopen to open a file in utf8 little endian.
+    persistent IS_OCTAVE;
+    if isempty(IS_OCTAVE)
+        IS_OCTAVE = (exist ("OCTAVE_VERSION", "builtin") > 0);
+    end
+    
+    if IS_OCTAVE
+        f = fopen(filename, 'r', 'l');  % Octave uses UTF-8 by default
+    else
+        f = fopen(filename, 'r', 'l', 'utf-8');
+    end
+    text = fread(f, '*char')';
+
+%%-------------------------------------------------------------------------
+    
 function object = parse_array(inStr, esc, varargin) % JSON array is written in row-major order
     global pos isoct
     parse_char(inStr, '[');
