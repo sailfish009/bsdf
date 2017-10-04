@@ -11,6 +11,13 @@ Differs per implementation, but in general the `bsdf.xx` file can be included
 in your project.
 
 
+## Implementations
+
+* The [Python implementation](py) in the form of [bsdf.py](bsdf.py).
+* The [Matlab / Octave implementation](matlab) in the form of [bsdf.m](bsdf.m).
+* The [JavaScript implementation](js) in the form of [bsdf.js](bsdf.js).
+
+
 ## Minimal BSDF implementation
 
 A minimal BSDF implementation must suport:

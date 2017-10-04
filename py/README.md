@@ -7,7 +7,7 @@ bsdf_test_service.py.
 
 ## Installation
 
-At this point, copy `bsdf.py` to a place where Python can find it.
+At this point, copy [bsdf.py](bsdf.py) to a place where Python can find it.
 
 
 ## Development

@@ -3,14 +3,13 @@ Test the main ...
 """
 
 import os
-
+import tempfile
 from pytest import raises
 
 import bsdf
 
-
-tempfilename = os.path.join(bsdf.__file__, '..', '..', 'data', 'tempfile.bsdf')
-tempfilename = os.path.abspath(tempfilename)
+tempfilename = os.path.join(tempfile.gettempdir(), 'bsdf_tests', 'tempfile.bsdf')
+os.makedirs(os.path.dirname(tempfilename), exist_ok=True)
 
 
 class StrictReadFile:

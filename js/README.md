@@ -5,7 +5,7 @@ It is a "lite" implementation, without support for e.g. streaming.
 
 ## Installation
 
-Include `bsdf.js` in your project.
+Include [bsdf.js](bsdf.js) in your project.
 
 
 ## Running tests
