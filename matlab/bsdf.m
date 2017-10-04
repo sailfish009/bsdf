@@ -213,106 +213,113 @@ function bsdf_encode(f, value, opt)
   
     % todo: convert ...
     
-    switch class(value)
-       
-        case 'struct'
-            fwrite(f, 'm');
-            keys = fieldnames(value);
-            write_length(f, length(keys));
-            for i=1:length(keys)
-                key = keys{i};
-                val = value.(key);
-                write_length(f, length(key));  % assume ASCII key names
-                fwrite(f, key);
-                bsdf_encode(f, val, opt);
-            end
+    if isa(value, 'struct')
+        fwrite(f, 'm');
+        keys = fieldnames(value);
+        write_length(f, length(keys));
+        for i=1:length(keys)
+            key = keys{i};
+            val = value.(key);
+            write_length(f, length(key));  % assume ASCII key names
+            fwrite(f, key);
+            bsdf_encode(f, val, opt);
+        end
+
+    elseif isa(value, 'cell')
+        fwrite(f, 'l');            
+        write_length(f, length(value));
+        for i=1:length(value)
+            bsdf_encode(f, value{i}, opt);
+        end
+
+    elseif isa(value, 'char')
+        fwrite(f, 's');
+        value_b = string_encode(value);
+        write_length(f, length(value_b));
+        fwrite(f, value_b);
+    
+    elseif isa(value, 'logical')
+        if value; fwrite(f, 'y'); else; fwrite(f, 'n'); end
+    
+    elseif isa(value, 'uint8') && numel(value) == max(size(value))
+        % blob (at the top to grab all uint8 instances (also empty and 1-length bytes)
+        extra_size = 0;
+        compression = opt.compression;
+        if compression == 0  % No compression
+            compressed = value;
+        elseif compression == 1
+            % Use java to do zlib compression
+            ff = java.io.ByteArrayOutputStream();
+            g = java.util.zip.DeflaterOutputStream(ff);    
+            g.write(value);
+            g.close();
+            % get the result from java
+            compressed = typecast(ff.toByteArray(), 'uint8');
+            ff.close();
+        elseif compression == 2
+            error('BSDF: bz2 compression (2) is not yet supported.');
+        else
+            error('BSDF: invalid compression');
+        end
+        data_size = numel(value);
+        used_size = numel(compressed);
+        allocated_size = used_size + extra_size;
+        % Write
+        fwrite(f, 'b');                
+        write_length(f, allocated_size);
+        write_length(f, used_size);
+        write_length(f, data_size);
+        fwrite(f, compression, 'uint8');
+        fwrite(f, 0, 'uint8');  % no checksum
+        % Byte alignment (only for uncompressed data)
+        if compression == 0
+            alignment = mod(ftell(f) + 1, 8);  % +1 for the byte about to write
+            fwrite(f, alignment, 'uint8');
+            fwrite(f, zeros(alignment, 1), 'uint8');
+        end
+        fwrite(f, compressed, 'uint8');
+        fwrite(f, zeros(extra_size, 1), 'uint8');
+    
+    elseif isa(value, 'numeric')
         
-        case 'cell'
-            fwrite(f, 'l');            
-            write_length(f, length(value));
-            for i=1:length(value)
-                bsdf_encode(f, value{i}, opt);
-            end
-        
-        case 'char'
-            fwrite(f, 's');
-            value_b = string_encode(value);
-            write_length(f, length(value_b));
-            fwrite(f, value_b);
-        
-        case {'double', 'single', 'logical', 'uint8','int8','uint16', 'int16', 'uint32', 'int32'}
-            if isa(value, 'uint8') && numel(value) == max(size(value))
-                % blob (at the top to grab all uint8 instances (also empty and 1-length bytes)
-                extra_size = 0;
-                compression = opt.compression;
-                if compression == 0  % No compression
-                    compressed = value;
-                elseif compression == 1
-                    % Use java to do zlib compression
-                    ff = java.io.ByteArrayOutputStream();
-                    g = java.util.zip.DeflaterOutputStream(ff);    
-                    g.write(value);
-                    g.close();
-                    % get the result from java
-                    compressed = typecast(ff.toByteArray(), 'uint8');
-                    ff.close();
-                elseif compression == 2
-                    error('BSDF: bz2 compression (2) is not yet supported.');
+        if numel(value) == 0  % null
+            fwrite(f, 'v');
+        elseif numel(value) == 1  % scalar
+            if ~isreal(value)  % Standard converter: complex
+                fwrite(f, 'L');  % "This is a special list", next is its type
+                converter_id = 'c';
+                write_length(f, length(converter_id));
+                fwrite(f, converter_id);                    
+                write_length(f, 2);
+                bsdf_encode(f, double(real(value)), opt);
+                bsdf_encode(f, double(imag(value)), opt);
+            elseif isa(value, 'float')
+                if opt.float64
+                    fwrite(f, 'd');
+                    fwrite(f, value, 'float64');
                 else
-                    error('BSDF: invalid compression');
-                end
-                data_size = numel(value);
-                used_size = numel(compressed);
-                allocated_size = used_size + extra_size;
-                % Write
-                fwrite(f, 'b');                
-                write_length(f, allocated_size);
-                write_length(f, used_size);
-                write_length(f, data_size);
-                fwrite(f, compression, 'uint8');
-                fwrite(f, 0, 'uint8');  % no checksum
-                % Byte alignment (only for uncompressed data)
-                if compression == 0
-                    alignment = mod(ftell(f) + 1, 8);  % +1 for the byte about to write
-                    fwrite(f, alignment, 'uint8');
-                    fwrite(f, zeros(alignment, 1), 'uint8');
-                end
-                fwrite(f, compressed, 'uint8');
-                fwrite(f, zeros(extra_size, 1), 'uint8');
-            
-            elseif numel(value) == 0  % null
-                fwrite(f, 'v');
-            elseif numel(value) == 1  % scalar
-                if ~isreal(value)  % Standard converter: complex
-                    fwrite(f, 'L');  % "This is a special list", next is its type
-                    converter_id = 'c';
-                    write_length(f, length(converter_id));
-                    fwrite(f, converter_id);                    
-                    write_length(f, 2);
-                    bsdf_encode(f, double(real(value)), opt);
-                    bsdf_encode(f, double(imag(value)), opt);
-                elseif isa(value, 'double')
-                    if opt.float64
-                        fwrite(f, 'd');
-                        fwrite(f, value, 'float64');
-                    else
-                        fwrite(f, 'f');
-                        fwrite(f, value, 'float32');
-                    end
-                elseif isa(value, 'single')
                     fwrite(f, 'f');
                     fwrite(f, value, 'float32');
-                elseif isa(value, 'uint8')
+                end
+            elseif isa(value, 'integer')
+                if value >= 0 && value < 256
                     fwrite(f, 'u');
                     fwrite(f, value, 'uint8');
                 else
                     fwrite(f, 'i');
                     fwrite(f, value, 'int64');
                 end
-             
-            else  % array
-                error([mfilename ': arrays are not yet supported (' class(value) ' ' mat2str(size(value)) ')']);
+            else
+                % Fallback, would this ever happen?
+                fwrite(f, 'd');
+                fwrite(f, value, 'float64');
             end
+
+        else  % array
+            error([mfilename ': arrays are not yet supported (' class(value) ' ' mat2str(size(value)) ')']);
+        end
+    else
+        error([mfilename ': cannot serialize ' class(value)]);
     end      
 end
 
@@ -333,17 +340,17 @@ function value = bsdf_decode(f)
     if c == 'v'
         value = [];  % null
     elseif c == 'y'
-        value = 1;
+        value = true;
     elseif c == 'n'
-        value = 0;
+        value = false;
     elseif c == 'u'
-        value = fread(f, 1, 'uint8');  % int as uint8
+        value = fread(f, 1, 'uint8=>int64');  % uint8 -> int64
     elseif c == 'i'
-        value = fread(f, 1, 'int64');  % int as int64
+        value = fread(f, 1, '*int64');  % int64 -> int64
     elseif c == 'f'
-        value = fread(f, 1, 'float32');  % float32
+        value = fread(f, 1, 'float32');  % float32 -> double
     elseif c == 'd'
-        value = fread(f, 1, 'float64');  % float64
+        value = fread(f, 1, 'float64');  % float64 -> double
     elseif c == 's'        
         n = fread(f, 1, '*uint8');
         if n == 253; n = fread(f, 1, 'uint64'); end
