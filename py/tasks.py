@@ -34,7 +34,7 @@ def test_shared(ctx, exe='python'):
     """ Run BSDF tests using the shared test service. Use --exe python34 to specify interpreter."""
     sys.path.insert(0, os.path.join(this_dir, '..', 'py'))
     import bsdf_test_service
-    bsdf_test_service.main(this_dir, exe, 'service_runner.py', '{fname1}', '{fname2}')
+    bsdf_test_service.main(this_dir, exe, 'testservice_runner.py', '{fname1}', '{fname2}')
 
 @task
 def test_shared_pytest(ctx):

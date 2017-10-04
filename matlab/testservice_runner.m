@@ -1,4 +1,4 @@
-function service_runner(fname1, fname2)
+function testservice_runner(fname1, fname2)
 % This little function gets called in a subprcess by the BSDF test service
 
 addpath('jsonlab');

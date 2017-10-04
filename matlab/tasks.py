@@ -23,10 +23,10 @@ def test_shared(ctx, octave=False, matlab=False):
         sys.exit('Choose either --octave or --matlab, not both.')
     elif octave:
         bsdf_test_service.main(this_dir, 'octave-cli', '--eval',
-                               'service_runner(\'{fname1}\', \'{fname2}\');')
+                               'testservice_runner(\'{fname1}\', \'{fname2}\');')
     elif matlab:
         bsdf_test_service.main(this_dir, 'matlab',
                                '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
-                               'service_runner(\'{fname1}\', \'{fname2}\');exit();')
+                               'testservice_runner(\'{fname1}\', \'{fname2}\');exit();')
     else:
         sys.exit('Choose either --octave or --matlab.')
