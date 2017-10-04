@@ -12,6 +12,7 @@ job_py276:
 
 job_py36:
   image: python:3.6
+  script:
     - python -v
     - pip install invoke
     - invoke py.test_style
