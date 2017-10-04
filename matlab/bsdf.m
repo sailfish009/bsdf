@@ -1,29 +1,51 @@
-function result = bsdf(arg1, arg2)
+function result = bsdf(varargin)
 % BSDF is a binary format for serializing structured (scientific) data.
-% This is the Matlab implementation for reading and writing such
-% data structures. Read more at https://gitlab.com/almarklein/bsdf
+% This is the Matlab/Octave implementation for reading and writing such
+% data structures. Read more at https://gitlab.com/almarklein/bsdf.
+%
+% This is a well tested, but relatively minimal implementation: it does
+% not (yet) support custom converters, and (zlib) compression is only
+% supported in Matlab (not Octave).
 %
 % Usage:
 %
-% data = bsdf(filename) to load data from file
-% data = bsdf(bytes) to load data from bytes
-% bsdf(filename, data) to save data to file
-% bytes = bsdf(data) to serialize data to bytes (a uint8 array)
+%     data = bsdf(filename) to load data from file
+%     data = bsdf(bytes) to load data from bytes
+%     bsdf(filename, data) to save data to file
+%     bytes = bsdf(data) to serialize data to bytes (a uint8 array)
 %
+% Options (for writing) can be provided via an extra argument,
+% which must be a struct which can contain the following fields:
+%
+%   - compression: the compression for binary blobs, 0 for raw, 1 for zlib
+%     (not available in Octave).
+%   - float64: whether to export floats as 64 bit (default) or 32 bit.
+%   - use_checksum: whether to write checksums for binary blobs, not yet
+%     implemented.
+
 % This file is freely distributed under the terms of the 2-clause BSD License.
 % Copyright (C) 2017 Almar Klein
     
     VERSION = [2, 0, 0];
     
-    if nargin == 1
+    % Get options
+    vararginn = varargin;
+    [opt, n_opt] = parse_options(vararginn(2:end));
+    opt.VERSION = VERSION;
+    nargs = nargin - n_opt * 2;
+    
+    if nargs >= 1; arg1 = varargin{1}; end
+    if nargs >= 2; arg2 = varargin{2}; end
+    
+    if nargs == 1
         % filename, bytes, or object
-        if isa(arg1, 'char') && sum(arg1 == sprintf('\n')) == 0
+        if isa(arg1, 'char') && sum(arg1 == sprintf('\n')) == 0  % newline function n/a in Octave
             % Load from file, exists?
             if ~exist(arg1, 'file');  error([mfilename ': the specified file does not exist.']);  end
             % Read file
             f = our_fopen(arg1, 'r');
             try
-                data = load(f, VERSION);
+                data = load(f, opt);
                 fclose(f);
             catch e
                 fclose(f);
@@ -31,15 +53,15 @@ function result = bsdf(arg1, arg2)
             end
             result = data;
         
-        elseif isa(arg1, 'uint8') && isequal(size(arg1), [1, numel(arg1)])
+        elseif isa(arg1, 'uint8') && numel(arg1) == max(size(arg1))
             % Load from bytes
-            f = our_fopen(Tempfile, 'w');
-            tempfilename = fname(f);
+            tempfilename = 'bsdf_temp_file.bsdf';
+            f = our_fopen(tempfilename, 'w');
             fwrite(f, arg1);
             fclose(f);
             f = our_fopen(tempfilename, 'r');
             try
-                data = load(f, VERSION);
+                data = load(f, opt);
                 fclose(f);
             catch e
                 fclose(f);
@@ -50,23 +72,23 @@ function result = bsdf(arg1, arg2)
         
         else
             % Serialize to bytes
-            f = our_fopen(Tempfile, 'w')
-            tempfilename = fname(f);
+            tempfilename = 'bsdf_temp_file.bsdf';
+            f = our_fopen(tempfilename, 'w');            
             try
-                save(f, arg1, VERSION);
+                save(f, arg1, opt);
                 fclose(f);
             catch e
                 fclose(f);
                 rethrow(e);
             end
             f = our_fopen(tempfilename, 'r');
-            bytes = fread(f, inf);
+            bytes = fread(f, inf, '*uint8');
             fclose(f);
             delete(tempfilename);
             result = bytes;
         end
         
-    elseif nargin == 2
+    elseif nargs == 2
         % Write to file, looks like file? Does not have to exist yet, of course
         if ~isa(arg1, 'char')
              error([mfilename ': Invalid filename given.']);
@@ -74,7 +96,7 @@ function result = bsdf(arg1, arg2)
         % Write to file
         f = our_fopen(arg1, 'w');
         try
-            save(f, arg2, VERSION);
+            save(f, arg2, opt);
             fclose(f);
         catch e
             fclose(f);
@@ -95,6 +117,27 @@ function r = isoctave()
         IS_OCTAVE = (exist ("OCTAVE_VERSION", "builtin") > 0);
     end
     r = IS_OCTAVE;
+end
+
+function [opt, count] = parse_options(args)
+    % Parse options into a struct
+    val = [];
+    count = 0;
+    opt = struct('compression', 0, 'float64', 1);
+    for i=1:length(args)
+        element = args{end-i+1};
+        if isa(element, 'char') && ~isempty(val)
+            opt.(element) = val;
+            val = [];
+            count = count + 1;            
+        else
+            if isempty(val)
+                val = element;
+            else
+                break;
+            end            
+        end
+    end
 end
 
 function f = our_fopen(filename, mode)
@@ -138,27 +181,27 @@ function write_length(f, x)
 end
 
 
-function save(f, ob, VERSION)
+function save(f, ob, opt)
     % Write header
     fwrite(f, [66; 83; 68; 70]);
     % Write version
-    fwrite(f, VERSION(1));
-    fwrite(f, VERSION(2));
+    fwrite(f, opt.VERSION(1));
+    fwrite(f, opt.VERSION(2));
     % Go!
-    bsdf_encode(f, ob);
+    bsdf_encode(f, ob, opt);
 end
 
 
-function ob = load(f, VERSION)
+function ob = load(f, opt)
     % Get header
     head = fread(f, 4, '*uint8');
     assert(isequal(head, [66; 83; 68; 70]), 'Not a valid BSDF file');    
     % Process version 
     major_version = fread(f, 1, '*uint8');
     minor_version = fread(f, 1, '*uint8');
-    if major_version ~= VERSION(1)
+    if major_version ~= opt.VERSION(1)
         error([mfilename ': file major version does not match implementation version.']);
-    elseif minor_version > VERSION(2)
+    elseif minor_version > opt.VERSION(2)
         warning([mfilename ': file minor version is higher than implementation.'])
     end
     % Go!
@@ -166,7 +209,7 @@ function ob = load(f, VERSION)
 end
 
 
-function bsdf_encode(f, value)
+function bsdf_encode(f, value, opt)
   
     % todo: convert ...
     
@@ -181,14 +224,14 @@ function bsdf_encode(f, value)
                 val = value.(key);
                 write_length(f, length(key));  % assume ASCII key names
                 fwrite(f, key);
-                bsdf_encode(f, val);
+                bsdf_encode(f, val, opt);
             end
         
         case 'cell'
             fwrite(f, 'l');            
             write_length(f, length(value));
             for i=1:length(value)
-                bsdf_encode(f, value{i});
+                bsdf_encode(f, value{i}, opt);
             end
         
         case 'char'
@@ -198,12 +241,26 @@ function bsdf_encode(f, value)
             fwrite(f, value_b);
         
         case {'double', 'single', 'logical', 'uint8','int8','uint16', 'int16', 'uint32', 'int32'}
-            sze = size(value);  % Matlab cannot call/index into a termporary array, poor little Matlab :( 
-            if isa(value, 'uint8') && ndims(value) == 2 && sze(2) == numel(value)
+            if isa(value, 'uint8') && numel(value) == max(size(value))
                 % blob (at the top to grab all uint8 instances (also empty and 1-length bytes)
                 extra_size = 0;
-                compression = 0; 
-                compressed = value;
+                compression = opt.compression;
+                if compression == 0  % No compression
+                    compressed = value;
+                elseif compression == 1
+                    % Use java to do zlib compression
+                    ff = java.io.ByteArrayOutputStream();
+                    g = java.util.zip.DeflaterOutputStream(ff);    
+                    g.write(value);
+                    g.close();
+                    % get the result from java
+                    compressed = typecast(ff.toByteArray(), 'uint8');
+                    ff.close();
+                elseif compression == 2
+                    error('BSDF: bz2 compression (2) is not yet supported.');
+                else
+                    error('BSDF: invalid compression');
+                end
                 data_size = numel(value);
                 used_size = numel(compressed);
                 allocated_size = used_size + extra_size;
@@ -220,7 +277,7 @@ function bsdf_encode(f, value)
                     fwrite(f, alignment, 'uint8');
                     fwrite(f, zeros(alignment, 1), 'uint8');
                 end
-                fwrite(f, value, 'uint8');
+                fwrite(f, compressed, 'uint8');
                 fwrite(f, zeros(extra_size, 1), 'uint8');
             
             elseif numel(value) == 0  % null
@@ -232,11 +289,16 @@ function bsdf_encode(f, value)
                     write_length(f, length(converter_id));
                     fwrite(f, converter_id);                    
                     write_length(f, 2);
-                    bsdf_encode(f, double(real(value)));
-                    bsdf_encode(f, double(imag(value)));
+                    bsdf_encode(f, double(real(value)), opt);
+                    bsdf_encode(f, double(imag(value)), opt);
                 elseif isa(value, 'double')
-                    fwrite(f, 'd');
-                    fwrite(f, value, 'float64');
+                    if opt.float64
+                        fwrite(f, 'd');
+                        fwrite(f, value, 'float64');
+                    else
+                        fwrite(f, 'f');
+                        fwrite(f, value, 'float32');
+                    end
                 elseif isa(value, 'single')
                     fwrite(f, 'f');
                     fwrite(f, value, 'float32');

@@ -30,3 +30,20 @@ def test_shared(ctx, octave=False, matlab=False):
                                'testservice_runner(\'{fname1}\', \'{fname2}\');exit();')
     else:
         sys.exit('Choose either --octave or --matlab.')
+
+
+
+@task
+def test_unit(ctx, octave=False, matlab=False):
+    """ Run unit tests for Matlab BSDF implementation. Use with either --octave or --matlab flag."""
+    
+    if octave and matlab:
+        sys.exit('Choose either --octave or --matlab, not both.')
+    elif octave:
+        call('octave-cli', '--eval', 'test_unit;')
+    elif matlab:
+        call('matlab',
+             '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
+             'test_unit;exit();')
+    else:
+        sys.exit('Choose either --octave or --matlab.')
