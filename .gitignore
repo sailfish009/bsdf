@@ -1,5 +1,5 @@
 # This package
-data/rand*
+_data/rand*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
