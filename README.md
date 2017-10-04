@@ -13,9 +13,9 @@ in your project.
 
 ## Implementations
 
-* The [Python implementation](py) in the form of [bsdf.py](bsdf.py).
-* The [Matlab / Octave implementation](matlab) in the form of [bsdf.m](bsdf.m).
-* The [JavaScript implementation](js) in the form of [bsdf.js](bsdf.js).
+* The [Python implementation](py) in the form of [bsdf.py](py/bsdf.py).
+* The [Matlab / Octave implementation](matlab) in the form of [bsdf.m](matlab/bsdf.m).
+* The [JavaScript implementation](js) in the form of [bsdf.js](js/bsdf.js).
 
 
 ## Minimal BSDF implementation
