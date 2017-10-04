@@ -1,0 +1,19 @@
+# This file defines the CI for the BSDF repo.
+
+# todo: py34, pypy3
+
+job_py276:
+  image: python:2.7
+  script:
+    - python -v
+    - pip install invoke
+    - invoke py.test_unit
+
+
+job_py36:
+  image: python:3.6
+    - python -v
+    - pip install invoke
+    - invoke py.test_style
+    - invoke py.test_unit
+    - invoke py.test_shared
