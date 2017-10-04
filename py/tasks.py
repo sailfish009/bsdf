@@ -14,7 +14,7 @@ def call(*cmd):
 
 
 @task
-def style(ctx):
+def test_style(ctx):
     """ Run style tests with flake8. """
     # Print nice messages when all is well; flake8 does not celebrate.
     try:

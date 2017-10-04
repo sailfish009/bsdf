@@ -134,7 +134,8 @@ class BsdfSerializer(object):
 
         # Validate compression
         if isinstance(compression, string_types):
-            compression = {'no': 0, 'zlib': 1, 'bz2': 2}[compression.lower()]
+            m = {'no': 0, 'zlib': 1, 'bz2': 2}
+            compression = m.get(compression.lower(), compression)
         if compression not in (0, 1, 2):
             raise TypeError('Compression must be 0, 1, 2, '
                             '"no", "zlib", or "bz2"')
@@ -256,11 +257,11 @@ class BsdfSerializer(object):
             if isinstance(value, ListStream):
                 f.write(x(b'l') + spack('<BQ', 255, 0))  # L for list
             else:
-                assert False, 'only ListStream is supported'
+                raise TypeError('Only ListStream is supported')
             # Mark this as *the* stream, and activate the stream.
             # The save() function verifies this is the last written object.
             if len(streams) > 0:
-                raise RuntimeError('Can only have one stream per file.')
+                raise ValueError('Can only have one stream per file.')
             streams.append(value)
             value._activate(f, self._encode, self._decode)
         else:
@@ -277,7 +278,7 @@ class BsdfSerializer(object):
             if x is not None:
                 converter_id2, converter_func = x
                 if converter_id == converter_id2:
-                    raise RuntimeError('Circular recursion in converter func!')
+                    raise ValueError('Circular recursion in converter func!')
                 self._encode(f, converter_func(f, value),
                              streams, converter_id2)
             else:
@@ -298,7 +299,7 @@ class BsdfSerializer(object):
             raise EOFError()
         elif char != c:
             n = strunpack('<B', f.read(1))[0]
-            # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - we enforce this
+            # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - noneed
             converter_id = f.read(n).decode()
         else:
             converter_id = None
@@ -358,7 +359,7 @@ class BsdfSerializer(object):
                 blob = Blob((f, False))
                 value = blob.get_bytes()
         else:
-            raise RuntimeError('Parse error')
+            raise RuntimeError('Parse error %r' % char)
 
         # Convert value if we have a converter for it
         if converter_id is not None:
@@ -449,7 +450,8 @@ class ListStream(BaseStream):
     def append(self, item):
         if self.f is None:
             raise RuntimeError('List streamer is not ready for streaming yet.')
-        self._encode(self.f, item, [self], None)  # todo: this was encode, is save() correct?
+        # todo: this was encode, is save() correct?
+        self._encode(self.f, item, [self], None)
         self.count += 1
 
     def close(self):
@@ -465,7 +467,12 @@ class ListStream(BaseStream):
     def get_next(self):
         # todo: prevent mixing write/read ops, or is that handy in a+?
         # This raises EOFError at some point.
-        return self._decode(self.f)
+        try:
+            return self._decode(self.f)
+        except EOFError:
+            raise StopIteration()
+
+        # todo: allow iterating over the stream
 
 
 class Blob(object):
