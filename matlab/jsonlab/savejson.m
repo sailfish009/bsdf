@@ -154,10 +154,10 @@ filename=jsonopt('FileName','',opt);
 if(~isempty(filename))
     if(jsonopt('SaveBinary',0,opt)==1)
 	    fid = fopen(filename, 'wb');
-	    fwrite(fid,json);
+	    fwrite(fid, json);
     else
 	    fid = fopen_utf8(filename, 'w');
-	    fwrite(fid,json,'*char');
+	    fwrite(fid, json, 'char');
     end
     fclose(fid);
 end
