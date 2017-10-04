@@ -326,6 +326,7 @@ class BsdfSerializer(object):
             if n == 255:
                 # Streaming
                 n = strunpack('<Q', f.read(8))[0]  # zero if not closed
+                # todo: if n > 0, we don't have to do the while loop
                 if self._load_streaming:
                     value = ListStream()
                     value._activate(f, self._encode, self._decode)

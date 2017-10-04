@@ -127,7 +127,7 @@ def test_loaders_and_savers_of_serializer():
 def test_encode_complex():
 
     complex_conv = 'complex', complex, lambda ctx, c: (c.real, c.imag), lambda ctx, v: complex(*v)
-    x = bsdf.BsdfSerializer(complex_conv)
+    x = bsdf.BsdfSerializer([complex_conv])
     
     a = 3 + 4j
     bb = x.saves(a)
