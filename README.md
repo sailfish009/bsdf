@@ -25,7 +25,7 @@ A minimal BSDF implementation must suport:
 * the basic data types: null, bool, int, float, string, list, map/dict.
 * uncompressed binary blobs.
 * unclosed streams (at the end of a data structure).
-* all standard converters.
+* preferably most standard converters.
 
 Implementations are encouraged to support:
 
