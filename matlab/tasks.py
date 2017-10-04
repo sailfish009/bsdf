@@ -13,9 +13,20 @@ def call(*cmd):
 
 
 @task
-def test_shared(ctx, exe='octave-cli'):
-    """ Run BSDF tests using the shared test service. """
+def test_shared(ctx, octave=False, matlab=False):
+    """ Run BSDF tests using the shared test service. Use with either --octave or --matlab flag."""
+    
     sys.path.insert(0, os.path.join(this_dir, '..', 'py'))
     import bsdf_test_service
-    bsdf_test_service.main(this_dir, exe)
-    #call('python', '../py/bsdf_test_service.py', '.', 'octave-cli')
+    
+    if octave and matlab:
+        sys.exit('Choose either --octave or --matlab, not both.')
+    elif octave:
+        bsdf_test_service.main(this_dir, 'octave-cli', '--eval',
+                               'service_runner(\'{fname1}\', \'{fname2}\');')
+    elif matlab:
+        bsdf_test_service.main(this_dir, 'matlab',
+                               '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
+                               'service_runner(\'{fname1}\', \'{fname2}\');exit();')
+    else:
+        sys.exit('Choose either --octave or --matlab.')

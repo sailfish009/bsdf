@@ -2,31 +2,28 @@
 This script provides a service to test BSDF implementations of different
 languages. It is written in Python, since BSDF's reference implementation is.
 
-To use, call ``python bsdf_test_service.py dir exe ...``, where ``dir`` is the
-directory to test. It should contain a file starting with 'service_runner.'
-(any extension) which can be run with ``exe ... service_runner.xx fname1 fname2``.
+To use, import this module and use ``main(test_dir, *exe)``. The test_dir
+will be the current directory when the command is executed. The exe is the
+command to run, which should somewhere have placeholders for ``{fname1}``
+and ``{fname2}``. The extension of these file names indicates the format
+(currently json or bsdf). The command will usually call into a script
+(written in a language of choice), which occurs repeatedly during the
+test.
 
-The service runner script (written in a language of choice) is called
-repeatedly during the test. It is given two arguments: the source file to read
-and the destination file to write. The extension of these files indicates the
-format (currently json or bsdf).
-
-This script can also be run using pytest, in which case the tests are run
+Alternatively, one can do a call in the shell:
+``python bsdf_test_service.py dir exe ...``.
+One can also run this script using pytest, in which case the tests are run
 in-process to allow establishing the test coverage. 
 
 """
 
-# todo:
-# - unicode names in dict
-# - unicode strings
-# - strings/lists/names of 251/244/255 chars
-
 import os
 import sys
+import time
 import json
 import tempfile
-import subprocess
 import threading
+import subprocess
 
 import bsdf  # the current script is next to this module
 
@@ -35,34 +32,26 @@ import bsdf  # the current script is next to this module
 
 def setup_module(module):
     """ This gets automatically called by pytest. """
-    global runner
-    runner = 'pytest'
+    global exe, exe_name
+    exe = []
+    exe_name = 'pytest'
 
 
 def main(test_dir_, *exe_):
     """ We call this when this is run as as script. """
-    global test_dir, exe, runner
+    global test_dir, exe, exe_name, runner
     
     # Set exe and test_dir
     test_dir = test_dir_
     exe = list(exe_)
+    exe_name = exe[0]
     if not os.path.isdir(test_dir):
         raise RuntimeError('Not a valid directory: %r' % test_dir)
-
-    # Find service runner
-    runners = [os.path.join(test_dir, fname) for fname in os.listdir(test_dir)
-            if fname.startswith('service_runner.')]
-    if len(runners) == 0:
-        raise RuntimeError('Need service_runner.xx in directory %s to test.' % test_dir)
-    elif len(runners) > 1:
-        raise RuntimeError('Find multiple service runners in %s.' % test_dir)
-    else:
-        runner = runners[0]
     
     # Run tests
     for name, func in list(globals().items()):
         if name.startswith('test_') and callable(func):
-            print('Running service test %s %s ' % (os.path.basename(test_dir), name), end='')
+            print('Running service test %s %s ' % (exe_name, name), end='')
             try:
                 func()
             except Exception:
@@ -78,42 +67,83 @@ def invoke_runner(fname1, fname2):
     
     assert os.path.isfile(fname1)
     
-    if runner == 'pytest':
+    if exe_name == 'pytest':
         # Shortcut to test with pytest
-        if fname1.endswith('.json'):
-            data = json_load(fname1)
-        elif fname1.endswith('.bsdf'):
-            data = bsdf.load(fname1)
-        else:
-            assert False
-        if fname2.endswith('.json'):
-            json_save(fname2, data)
-        elif fname2.endswith('.bsdf'):
-            bsdf.save(fname2, data)
-        else:
-           assert False
+        data = load(fname1)
+        save(fname2, data)
     
     else:
         # Normal sub-process behavior
-        p = subprocess.Popen(exe + [runner, fname1, fname2], cwd=test_dir,
+        exe2 = [e.format(fname1=fname1, fname2=fname2) for e in exe]
+        p = subprocess.Popen(exe2, cwd=test_dir,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode != 0 or err:
-            os.replace(fname1, os.path.dirname(fname1) + '/error.' + fname1.rsplit('.')[-1])
-            raise RuntimeWarning(f'{runner} failed:\n{out.decode(errors="replace")}\n{err.decode(errors="replace")}')
+            rename_as_error(fname1, fname2)
+            raise RuntimeWarning('{} failed:\n{}\n{}'.format(exe_name,
+                                                             out.decode(errors="replace"),
+                                                             err.decode(errors="replace")))
     
     assert os.path.isfile(fname2)
 
 
-def json_load(fname):
-    with open(fname, 'rt', encoding='utf-8') as f:
-        return json.load(f)
+def compare_data(data1, data2):
+    """ Compare the data, raise error if it fails. """
+    if data1 == data2:
+        print('.', end='')
+        sys.stdout.flush()
+    else:
+        print()
+        print('data1:', data1)
+        print('data2:', data2)
+        
+        if isinstance(data1, dict) and len(data1) > 0 and len(list(data1.keys())[0]) > 63:
+            # Oh silly Matlab, truncate keys, because Matlab does that
+            for key in list(data1.keys()):
+                data1[key[:63]] = data1[key]
+                del data1[key]
+        
+        assert data1 == data2
 
 
-def json_save(fname, data):
-    with open(fname, 'wt', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False)
+def convert_data(fname1, fname2, data1):
+    """ Convert data, by saving to fname, invoking the runner, and reading back.
+    If something goes wrong, the files are saved as error.xx, otherwiser the files
+    are cleaned up.
+    """
+    try:
+        save(fname1, data1)
+        invoke_runner(fname1, fname2)
+        data2 = load(fname2)
+        return data2
+    except Exception:
+        rename_as_error(fname1, fname2)
+        print(data1)
+        raise
+    finally:
+        remove(fname1, fname2)
 
+
+def load(fname):
+    """ Load from json or bsdf, depending on the extension. """
+    if fname.endswith('.json'):
+        with open(fname, 'rt', encoding='utf-8') as f:
+            return json.load(f)
+    elif fname.endswith('.bsdf'):
+        return bsdf.load(fname)
+    else:
+        assert False
+
+
+def save(fname, data):
+    """ Save to json or bsdf, depending on the extension. """
+    if fname.endswith('.json'):
+        with open(fname, 'wt', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+    elif fname.endswith('.bsdf'):
+        bsdf.save(fname, data)
+    else:
+        assert False
 
 _tempfilecounter = 0
 
@@ -122,13 +152,23 @@ def get_filenames(ext1, ext2):
     global _tempfilecounter
     d = os.path.join(tempfile.gettempdir(), 'bsdf_tests')
     os.makedirs(d, exist_ok=True)
-    fname1 = f'service_test_{os.getpid()}_{threading.get_ident()}_{_tempfilecounter+1}'
-    fname2 = f'service_test_{os.getpid()}_{threading.get_ident()}_{_tempfilecounter+2}'
+    fname1 = 'service_test_{}_{}_{}'.format(os.getpid(), threading.get_ident(), _tempfilecounter + 1)
+    fname2 = 'service_test_{}_{}_{}'.format(os.getpid(), threading.get_ident(), _tempfilecounter + 2)
     _tempfilecounter += 2
     return os.path.join(d, fname1 + ext1), os.path.join(d, fname2 + ext2)
 
 
+def rename_as_error(*filenames):
+    """ Rename files to error.xx. """
+    for fname in filenames:
+        try:
+            os.replace(fname, os.path.dirname(fname) + '/error.' + fname.rsplit('.')[-1])
+        except Exception:
+            pass
+
+
 def remove(*filenames):
+    """ Remove multiple filenames. """
     for fname in filenames:
         try:
             os.remove(fname)
@@ -146,10 +186,18 @@ for n in (249, 250, 251, 252, 253, 254, 255, 256, 259):
 
 
 JSON_ABLE_OBJECTS = [
-    # # Basics
+    # Basics
     [1,2,3, 4.2, 5.6, 6.001],
     dict(foo=7.2, bar=42, a=False),
     ["hello", 3, None, True, 'there', 'x'],
+    
+    # Singletons - note that some (e.g. Matlab's) json implementations have trouble having
+    # anything else than list/dict as root element, and with empty dicts/structs.
+    
+    # Some nesting
+    [3.2, {'foo': 3, 'bar': [1, 2, [3, {'x':'y'}]]}, [1, [2, [[[None], 4.9], {'spam': 'eggs'}]]], False, True],
+    [[[[[[[[[42]]]]]]]]],
+    dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=dict(x=42)))))))))))),
     
     # Unicode
     dict(foo='fóó', bar='€50)', more='\'"{}$'),
@@ -163,47 +211,19 @@ JSON_ABLE_OBJECTS = [
 ]
 
 
-def compare_data(data1, data2):
-    # assert data1 == data2
-    if data1 == data2:
-        print('.', end='')
-        sys.stdout.flush()
-    else:
-        print('data1:', data1)
-        print('data2:', data2)
-        assert data1 == data2
+def test_bsdf_to_json():
+    
+    for data1 in JSON_ABLE_OBJECTS:
+        fname1, fname2 = get_filenames('.bsdf', '.json')
+        data2 = convert_data(fname1, fname2, data1)
+        compare_data(data1, data2)
 
 
 def test_json_to_bsdf():
     
     for data1 in JSON_ABLE_OBJECTS:
-    
-        try:
-            fname1, fname2 = get_filenames('.json', '.bsdf')
-            json_save(fname1, data1)
-            invoke_runner(fname1, fname2)
-            data2 = bsdf.load(fname2)
-        except Exception:
-            print(data1)
-            raise
-        finally:
-            remove(fname1, fname2)
-        compare_data(data1, data2)
-
-
-def test_bsdf_to_json():
-    for data1 in JSON_ABLE_OBJECTS:
-        
-        try:
-            fname1, fname2 = get_filenames('.bsdf', '.json')
-            bsdf.save(fname1, data1)
-            invoke_runner(fname1, fname2)
-            data2 = json_load(fname2)
-        except Exception:
-            print(data1)
-            raise
-        finally:
-            remove(fname1, fname2)
+        fname1, fname2 = get_filenames('.json', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
 
 
@@ -211,36 +231,20 @@ def test_bsdf_to_bsdf():
     
     # Just repeat these
     for data1 in JSON_ABLE_OBJECTS[:-1]:
-        try:
-            fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-            bsdf.save(fname1, data1)
-            invoke_runner(fname1, fname2)
-            data2 = bsdf.load(fname2)
-        except Exception:
-            print(data1)
-            raise
-        finally:
-            remove(fname1, fname2)
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
     
     # Singletons, some JSON implementations choke on these
-    for data1 in [1, 3.4, 'hello', None]:
-        try:
-            fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-            bsdf.save(fname1, data1)
-            invoke_runner(fname1, fname2)
-            data2 = bsdf.load(fname2)
-        except Exception:
-            print(data1)
-            raise
-        finally:
-            remove(fname1, fname2)
+    for data1 in [None, False, True, 1, 3.4, '', 'hello', [], {}, b'', b'xx']:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
     
     # Use float32 for encoding floats
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    data1 = [1,2,3, 4.2, 5.6, 6.001]
     try:
-        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-        data1 = [1,2,3, 4.2, 5.6, 6.001]
         bsdf.save(fname1, data1, float64=False)
         invoke_runner(fname1, fname2)
         data2 = bsdf.load(fname2)
@@ -253,9 +257,9 @@ def test_bsdf_to_bsdf():
     assert all([(abs(d1-d2) < 0.001) for d1, d2 in zip(data1, data2)])
     
     # Test converters using complex number
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    data1 = 3 + 4j
     try:
-        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-        data1 = 3 + 4j
         bsdf.save(fname1, data1)
         invoke_runner(fname1, fname2)
         data2 = bsdf.load(fname2)
@@ -269,9 +273,9 @@ def test_bsdf_to_bsdf():
     
     # Deal with unknown converters by leaving data through
     myconverter = 'test.foo', threading.Thread, lambda ctx, v: [7, 42], lambda ctx, v: None
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
     data1 = ['hi', threading.Thread(), 'there']
     try:
-        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         bsdf.save(fname1, data1, [myconverter])
         invoke_runner(fname1, fname2)
         data2 = bsdf.load(fname2)
@@ -288,16 +292,7 @@ def test_bsdf_to_bsdf():
                   [5, 6, bsdf.Blob(b'foo', compression=0, extra_size=20, use_checksum=False), 7],
                   [5, 6, bsdf.Blob(b'foo', compression=0, extra_size=10, use_checksum=True), 7],
                  ]:
-        try:
-            fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-            bsdf.save(fname1, data1)
-            invoke_runner(fname1, fname2)
-            data2 = bsdf.load(fname2)
-        except Exception:
-            print(data1)
-            raise
-        finally:
-            remove(fname1, fname2)
+        data2 = convert_data(fname1, fname2, data1)
         # Compare, but turn blobs into bytes
         data1 = [x.get_bytes() if isinstance(x, bsdf.Blob) else x for x in data1]
         compare_data(data1, data2)
@@ -332,7 +327,6 @@ if __name__ == '__main__':
     elif len(sys.argv) < 3:
         raise RuntimeError('BSDF test service needs at least two arguments (test_dir, exe, ...)')
     test_dir = os.path.abspath(sys.argv[1])
-    exe = list(sys.argv[2:])
     
     # Call main
-    main(test_dir, exe)
+    main(test_dir, *sys.argv[2:])

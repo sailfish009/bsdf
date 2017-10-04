@@ -1,14 +1,10 @@
-% This little script gets called in a subprcess by the BSDF test service,
-% with the name of a source file and the name of the file that this script
-% should produce. The extensions of these files tell us what to do.
+function service_runner(fname1, fname2)
+% This little function gets called in a subprcess by the BSDF test service
 
 addpath('jsonlab');
 
-fname1 = argv(){1};
-fname2 = argv(){2};
-
 % Read in
-if strfind(fname1, '.json')  % endsWith not available in Octave
+if strfind(fname1, '.json')  % endsWith and contains are not available in Octave
     data = loadjson(fname1, 'SimplifyCell', 0, 'FastArrayParser', 0);
 elseif strfind(fname1, '.bsdf')
     data = bsdf(fname1);
