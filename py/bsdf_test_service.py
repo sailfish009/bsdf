@@ -56,7 +56,7 @@ def main(test_dir_, *exe_):
     
     # Run tests
     for name, func in list(globals().items()):
-        if name.startswith('test_') and callable(func) and 'random' in name:
+        if name.startswith('test_') and callable(func):
             print('Running service test %s %s ' % (exe_name, name), end='')
             try:
                 func()
@@ -99,17 +99,43 @@ def compare_data(data1, data2):
         print('.', end='')
         sys.stdout.flush()
     else:
-        print()
-        print('data1:', data1)
-        print('data2:', data2)
-        
+       
         if isinstance(data1, dict) and len(data1) > 0 and len(list(data1.keys())[0]) > 63:
             # Oh silly Matlab, truncate keys, because Matlab does that
             for key in list(data1.keys()):
                 data1[key[:63]] = data1[key]
                 del data1[key]
         
-        assert data1 == data2
+        if data1 != data2:
+            print()
+            print('data1:', data1)
+            print('data2:', data2)
+        
+            deep_compare(data1, data2)
+            assert data1 == data2  # just in case deep_compare has a bug
+
+
+def deep_compare(ob1, ob2):
+    """ Compare two objects deeply to produce more useful assertions. """
+    
+    # Allow subtypes, e.g. int/bool
+    #assert isinstance(ob1, type(ob2)) or isinstance(ob2, type(ob1)), 'type mismatch:\n{}\nvs\n{}'.format(ob1, ob2)
+    assert type(ob1) is type(ob2), 'type mismatch:\n{}\nvs\n{}'.format(ob1, ob2)
+    
+    if isinstance(ob1, list):
+        assert len(ob1) == len(ob2), 'list sizes dont match:\n{}\nvs\n{}'.format(ob1, ob2)
+        for sub1, sub2 in zip(ob1, ob2):
+            deep_compare(sub1, sub2)
+    elif isinstance(ob1, dict):
+        assert len(ob1) == len(ob2), 'dict sizes dont match:\n{}\nvs\n{}'.format(ob1, ob2)
+        for key1 in ob1:
+            assert key1 in ob2,  'dict key not present in dict2:\n{}\nvs\n{}'.format(key1, ob2)
+        for key2 in ob2:
+            assert key2 in ob1,  'dict key not present in dict1:\n{}\nvs\n{}'.format(key2, ob1)
+        for key in ob1:
+            deep_compare(ob1[key], ob2[key])
+    else:
+        assert ob1 == ob2, 'Values do not match:\n{}\nvs\n{}'.format(ob1, ob2)
 
 
 def convert_data(fname1, fname2, data1):
@@ -242,10 +268,11 @@ def test_bsdf_to_bsdf():
         compare_data(data1, data2)
     
     # Singletons, some JSON implementations choke on these
-    for data1 in [None, False, True, 1, 3.4, '', 'hello', [], {}, b'', b'xx']:
+    for data1 in [None, False, True,  0, 1, 0.0, 1.0, 4, 3.4, '', 'hello', [], {}, b'', b'xx']:
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
+        assert str(data1) == str(data2)  # because False != 0
     
     # Special values
     for data1 in [float('nan'), float('inf'), float('-inf')]:
