@@ -2,10 +2,12 @@
 
 # todo: py34, pypy3
 
-job_py276:
+job_py27:
   image: python:2.7
   script:
-    - python -v
+    - cd bsdf
+    - cd
+    - python --version
     - pip install invoke
     - invoke py.test_unit
 
@@ -13,7 +15,9 @@ job_py276:
 job_py36:
   image: python:3.6
   script:
-    - python -v
+    - cd bsdf
+    - cd
+    - python --version
     - pip install invoke
     - invoke py.test_style
     - invoke py.test_unit
