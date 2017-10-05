@@ -75,3 +75,19 @@ job_octave:
 
 # todo: job_js
 
+
+# ---------- Website
+
+pages:
+  stage: deploy
+  image: python:3.6
+  script:
+    - pip install invoke markdown
+    - invoke build_pages
+    - mv _pages public  # the name of the artifact matters
+  artifacts:
+    paths:
+    - public
+  only:
+    - master
+    - website
