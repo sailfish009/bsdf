@@ -6,14 +6,12 @@ Python implementation of the Binary Structured Data Format (BSDF).
 
 This implementation is relatively sophisticated; a simple BSDF serializer
 without support for streaming and lazy blob loading could be much more compact.
+
+This module has no dependencies and works on Python 2.7 and 3.4+.
 """
 
-# Notes on performance:
-#
-# - Utf-8 encoding/decoding is used by calling encode() decode() without
-#   arguments. Since UTF-8 is the default, we assume that this is the fastest.
-# -
-
+# todo: in 2020, remove six stuff, __future__ and _isidentifier
+# todo: in 2020, remove 'utf-8' args to encode/decode; it's faster
 # todo: blob resizing
 # todo: schema validation
 
@@ -22,6 +20,7 @@ from __future__ import absolute_import, division, print_function
 import bz2
 import hashlib
 import logging
+import re
 import struct
 import sys
 import zlib
@@ -45,11 +44,14 @@ __version__ = '.'.join(str(i) for i in version_info)
 # %% The encoder and decoder implementation
 
 # From six.py
-if sys.version_info[0] >= 3:
+PY3 = sys.version_info[0] >= 3
+if PY3:
     string_types = str
+    unicode_types = str
     integer_types = int
 else:  # pragma: no cover
     string_types = basestring  # noqa
+    unicode_types = unicode  # noqa
     integer_types = (int, long)  # noqa
 
 # Shorthands
@@ -79,6 +81,15 @@ def lendecode(f):
     n = strunpack('<B', f.read(1))[0]
     if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
     return n
+
+
+def _isidentifier(s):
+    """ Use of str.isidentifier() for Legacy Python, but slower.
+    """
+    # http://stackoverflow.com/questions/2544972/
+    return (isinstance(s, str) and
+            re.match(r'^\w+$', s, re.UNICODE) and
+            re.match(r'^[0-9]', s) is None)
 
 
 class BsdfSerializer(object):
@@ -207,7 +218,7 @@ class BsdfSerializer(object):
         """
 
         if converter_id is not None:
-            bb = converter_id.encode()
+            bb = converter_id.encode('UTF-8')
             converter_patch = lencode(len(bb)) + bb
             x = lambda i: i.upper() + converter_patch  # noqa
         else:
@@ -229,8 +240,8 @@ class BsdfSerializer(object):
                 f.write(x(b'd') + spack('<d', value))  # D for double
             else:
                 f.write(x(b'f') + spack('<f', value))  # f for float
-        elif isinstance(value, string_types):
-            bb = value.encode()
+        elif isinstance(value, unicode_types):
+            bb = value.encode('UTF-8')
             f.write(x(b's') + lencode(len(bb)))  # S for str
             f.write(bb)
         elif isinstance(value, (list, tuple)):
@@ -240,9 +251,12 @@ class BsdfSerializer(object):
         elif isinstance(value, dict):
             f.write(x(b'm') + lencode(len(value)))  # M for mapping
             for key, v in value.items():
-                assert key.isidentifier()
+                if PY3:
+                    assert key.isidentifier()  # faster
+                else:
+                    assert _isidentifier(key)
                 # yield ' ' * indent + key
-                name_b = key.encode()
+                name_b = key.encode('UTF-8')
                 f.write(lencode(len(name_b)))
                 f.write(name_b)
                 self._encode(f, v, streams, None)
@@ -302,7 +316,7 @@ class BsdfSerializer(object):
         elif char != c:
             n = strunpack('<B', f.read(1))[0]
             # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - noneed
-            converter_id = f.read(n).decode()
+            converter_id = f.read(n).decode('UTF-8')
         else:
             converter_id = None
 
@@ -323,7 +337,7 @@ class BsdfSerializer(object):
         elif c == b's':
             n_s = strunpack('<B', f.read(1))[0]
             if n_s == 253: n_s = strunpack('<Q', f.read(8))[0]  # noqa
-            value = f.read(n_s).decode()
+            value = f.read(n_s).decode('UTF-8')
         elif c == b'l':
             n = strunpack('<B', f.read(1))[0]
             if n == 255:
@@ -352,7 +366,7 @@ class BsdfSerializer(object):
                 n_name = strunpack('<B', f.read(1))[0]
                 if n_name == 253: n_name = strunpack('<Q', f.read(8))[0]  # noqa
                 assert n_name > 0
-                name = f.read(n_name).decode()
+                name = f.read(n_name).decode('UTF-8')
                 value[name] = self._decode(f)
         elif c == b'b':
             if self._lazy_blob:
@@ -540,12 +554,12 @@ class Blob(object):
         if self.compression == 0:
             alignment = (f.tell() + 1) % 8  # +1 for the byte about to write
             f.write(spack('<B', alignment))  # padding for byte alignment
-            f.write(bytes(alignment))
+            f.write(b'\x00' * alignment)
         else:
             f.write(spack('<B', 0))
         # The actual data and extra space
         f.write(self.compressed)
-        f.write(bytes(self.allocated_size - self.used_size))
+        f.write(b'\x00' * (self.allocated_size - self.used_size))
 
     def _from_file(self, f, allow_seek):
         """ Used when a blob is read by the decoder.

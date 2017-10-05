@@ -6,6 +6,7 @@ from __future__ import absolute_import, print_function, division
 
 import os
 import io
+import sys
 import array
 import tempfile
 
@@ -100,13 +101,13 @@ def test_all_types_simple():
               v3 = True,
               v4 = 3,
               v5 = 3.2,
-              v6 = 'a',
-              v7 = 'aa',
+              v6 = u'a',  # u-prefix is needed in Legacy Python to not be bytes
+              v7 = u'aa',
               v8 = (1, 2),
               v9 = [3, 4],
               v10 = {'a': 0, 'b': 1},
-              v11 = b'a',
-              v12 = b'aa',
+              v11 = b'b',
+              v12 = b'bb',
              )
     
     bb = bsdf.saves(s1)
@@ -120,6 +121,7 @@ def test_all_types_simple():
     assert s1 == s2
     for key in s1:
         assert type(s1[key]) == type(s2[key])
+
 
 def test_loaders_and_savers():
     
@@ -187,7 +189,7 @@ def test_loaders_and_savers_of_serializer():
 def test_compression():
     
     # Compressing makes smaller files
-    data = [1, 2, bytes(10000)]
+    data = [1, 2, b'\x00' * 10000]
     b1 = bsdf.saves(data, compression=0)
     b2 = bsdf.saves(data, compression=1)
     b3 = bsdf.saves(data, compression=2)
@@ -195,8 +197,8 @@ def test_compression():
     assert len(b1) > 10 * len(b3)
     
     # Compression can be per-object, using blobs
-    data1 = [1, 2, bytes(10000)]
-    data2 = [1, 2, bsdf.Blob(bytes(10000), compression=1)]
+    data1 = [1, 2, b'\x00' * 10000]
+    data2 = [1, 2, bsdf.Blob(b'\x00'  * 10000, compression=1)]
     b1 = bsdf.saves(data1, compression=0)
     b2 = bsdf.saves(data2, compression=0)
     assert len(b1) > 10 * len(b2)
@@ -251,14 +253,17 @@ def test_encode_complex():
 
 
 def test_encode_array():
-
+    
+    # Note, we use tostring and fromstring here for py27 compat; they are
+    # technically deprecated methods that handle bytes.
+    
     def array_encode(ctx, arr):
         return dict(typecode=str(arr.typecode),
-                    data=arr.tobytes())
+                    data=arr.tostring())
     
     def array_decode(ctx, d):
         a = array.array(d['typecode'])
-        a.frombytes(d['data'])
+        a.fromstring(d['data'])
         return a
     
     converters = [('test_array', array.array, array_encode, array_decode)]
@@ -268,7 +273,7 @@ def test_encode_array():
     a3 = [1, 2, array.array('b', [4, 2, 42]*1000)]
     bb1 = bsdf.saves(a1, converters)
     bb2 = bsdf.saves(a2, converters, compression=0)
-    bb3 = bsdf.saves(a3, converters, compression=2)
+    bb3 = bsdf.saves(a3, converters, compression=1)
     
     assert len(bb2) > len(bb1) * 10
     assert len(bb2) > len(bb3) * 10
@@ -332,9 +337,8 @@ def test_streaming2():
     """ Writing a streamed list, closing the stream. """ 
     f = io.BytesIO()
     
-    a = dict(title='test', mode='streaming')
     thelist = bsdf.ListStream()
-    a['thelist'] = thelist
+    a = [3, 4, thelist]
     
     bsdf.save(f, a)
     
@@ -350,16 +354,15 @@ def test_streaming2():
     b = bsdf.loads(bb)
     
     # However, this BSDF implementation consumes the whole stream anyway
-    assert b['thelist'] == ['hi', 0, 1, 2]
+    assert b[-1] == ['hi', 0, 1, 2]
 
 
 def test_streaming3():
     """ Reading a streamed list. """ 
     f = io.BytesIO()
     
-    a = dict(title='test', mode='streaming')
     thelist = bsdf.ListStream()
-    a['thelist'] = thelist
+    a = [3, 4, thelist]
     
     bsdf.save(f, a)
     
@@ -370,7 +373,7 @@ def test_streaming3():
     bb = f.getvalue()
     b = bsdf.loads(bb, load_streaming=True)
     
-    x = b['thelist']
+    x = b[-1]
     assert isinstance(x, bsdf.ListStream)
     
     x.get_next() == 'a'
