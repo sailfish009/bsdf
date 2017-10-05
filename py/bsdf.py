@@ -17,6 +17,8 @@ without support for streaming and lazy blob loading could be much more compact.
 # todo: blob resizing
 # todo: schema validation
 
+from __future__ import absolute_import, division, print_function
+
 import bz2
 import hashlib
 import logging

@@ -17,6 +17,8 @@ in-process to allow establishing the test coverage.
 
 """
 
+from __future__ import absolute_import, print_function, division
+
 import os
 import sys
 import time
@@ -25,6 +27,7 @@ import random
 import tempfile
 import threading
 import subprocess
+from io import open  # pypy and py27 compat
 
 import bsdf  # the current script is next to this module
 
@@ -95,6 +98,7 @@ def invoke_runner(fname1, fname2):
 
 def compare_data(data1, data2):
     """ Compare the data, raise error if it fails. """
+    
     if data1 == data2:
         print('.', end='')
         sys.stdout.flush()
