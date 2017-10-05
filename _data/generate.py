@@ -11,6 +11,8 @@ import time
 import json
 import random
 import string
+from io import open
+
 # import numpy as np
 
 # From six.py

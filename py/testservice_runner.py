@@ -7,6 +7,7 @@ should produce. The extensions of these files tell us what to do.
 import os
 import sys
 import json
+from io import open  # pypy and py27 compat
 
 import bsdf
 

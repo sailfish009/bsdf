@@ -17,12 +17,10 @@ def call(*cmd):
 def test_style(ctx):
     """ Run style tests with flake8. """
     # Print nice messages when all is well; flake8 does not celebrate.
-    try:
-        call('flake8', 'bsdf.py')
-    except SystemExit as err:
-        if err.code == 0:
-            print('No style errors found')
-        raise
+    ret_code = subprocess.call(['flake8', 'bsdf.py'], cwd=this_dir)
+    if ret_code == 0:
+        print('No style errors found')
+    sys.exit(ret_code)
 
 @task
 def test_unit(ctx):
@@ -30,7 +28,7 @@ def test_unit(ctx):
     call('pytest', '-v', '-x', '--cov', 'bsdf', '--cov-report', 'html', '.')
 
 @task
-def test_shared(ctx, exe='python'):
+def test_shared(ctx, exe=sys.executable):
     """ Run BSDF tests using the shared test service. Use --exe python34 to specify interpreter."""
     sys.path.insert(0, os.path.join(this_dir, '..', 'py'))
     import bsdf_test_service

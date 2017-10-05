@@ -2,6 +2,8 @@
 Test the main ...
 """
 
+from __future__ import absolute_import, print_function, division
+
 import os
 import io
 import array
@@ -12,7 +14,8 @@ from pytest import raises
 import bsdf
 
 tempfilename = os.path.join(tempfile.gettempdir(), 'bsdf_tests', 'tempfile.bsdf')
-os.makedirs(os.path.dirname(tempfilename), exist_ok=True)
+if not os.path.isdir(os.path.dirname(tempfilename)):
+    os.makedirs(os.path.dirname(tempfilename))
 
 
 class StrictReadFile:
@@ -288,9 +291,8 @@ def test_streaming1():
     """ Writing a streamed list. """ 
     f = io.BytesIO()
     
-    a = dict(title='test', mode='streaming')
     thelist = bsdf.ListStream()
-    a['thelist'] = thelist
+    a = [3, 4, thelist]
     
     bsdf.save(f, a)
     
@@ -303,25 +305,25 @@ def test_streaming1():
     bb = f.getvalue()
     b = bsdf.loads(bb)
     
-    assert b['thelist'] == ['hi', 0, 101, 202, 303, 404, 505, 606, 707, 808, 909, [4, 2]]
+    assert b[-1] == ['hi', 0, 101, 202, 303, 404, 505, 606, 707, 808, 909, [4, 2]]
     
     # Only ListStream
     class MyStream(bsdf.BaseStream):
         pass
     f = io.BytesIO()
-    a = dict(title='test', x=MyStream())
+    a = [3, 4, MyStream()]
     with raises(TypeError):
         bsdf.save(f, a)
     
     # Only one!
     f = io.BytesIO()
-    a = dict(title='test', x=bsdf.ListStream(), y=bsdf.ListStream())
+    a = [3, 4, bsdf.ListStream(), bsdf.ListStream()]
     with raises(ValueError):
         bsdf.save(f, a)
     
     # Stream must be at the end
     f = io.BytesIO()
-    a = [1, bsdf.ListStream(), 'last_item']
+    a = [3, 4, bsdf.ListStream(), 5]
     with raises(ValueError):
         bsdf.save(f, a)
 

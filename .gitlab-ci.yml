@@ -1,24 +1,67 @@
 # This file defines the CI for the BSDF repo.
 
-# todo: py34, pypy3
 
-job_py27:
-  image: python:2.7
+# ---------- Python
+
+# todo: job_py27:
+
+
+job_pypy:
+  image: pypy:3
   script:
-    - cd
-    - cd bsdf
+    - cd py
+    - pip install invoke pytest pytest-cov
+    #
     - python --version
-    - python3 -m pip install invoke
-    - invoke py.test_unit
+    - invoke -l
+    #
+    - invoke test-unit
+    - invoke test-shared
+
+
+job_py34:
+  image: python:3.4
+  script:
+    - cd py
+    - pip install invoke pytest pytest-cov
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke test-unit
+    - invoke test-shared
 
 
 job_py36:
   image: python:3.6
   script:
-    - cd
-    - cd bsdf
+    - cd py
+    - pip install invoke flake8 pytest pytest-cov
+    #
     - python --version
+    - invoke -l
+    #
+    - invoke test-style
+    - invoke test-unit
+    - invoke test-shared
+
+# ---------- Octave / Matlab
+
+job_octave:
+  image: almarklein/octave
+  script:
+    - cd matlab
     - pip install invoke
-    - invoke py.test_style
-    - invoke py.test_unit
-    - invoke py.test_shared
+    #
+    - python --version
+    - octave-cli --version
+    - invoke -l
+    #
+    - invoke test-unit --octave
+    - invoke test-shared --octave
+
+
+# ---------- Node / JavaScript
+
+# todo: job_js
+
