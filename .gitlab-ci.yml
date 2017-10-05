@@ -3,7 +3,17 @@
 
 # ---------- Python
 
-# todo: job_py27:
+job_py27:
+  image: pypy:2.7
+  script:
+    - cd py
+    - pip install invoke pytest pytest-cov
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke test-unit
+    #- invoke test-shared  this has issues with bytes/unicode/json
 
 
 job_pypy:

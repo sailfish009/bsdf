@@ -254,8 +254,8 @@ def test_encode_complex():
 
 def test_encode_array():
     
-    # Note, we use tostring and fromstring here for py27 compat; they are
-    # technically deprecated methods that handle bytes.
+    # Note, we use tostring and fromstring here for py27 compat;
+    # they are technically deprecated methods that handle bytes.
     
     def array_encode(ctx, arr):
         return dict(typecode=str(arr.typecode),

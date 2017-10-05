@@ -8,6 +8,8 @@ This implementation is relatively sophisticated; a simple BSDF serializer
 without support for streaming and lazy blob loading could be much more compact.
 
 This module has no dependencies and works on Python 2.7 and 3.4+.
+
+Note: on Legacy Python (Python 2.7), non-Unicode strings are encoded as bytes.
 """
 
 # todo: in 2020, remove six stuff, __future__ and _isidentifier

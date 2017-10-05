@@ -12,7 +12,7 @@ import os
 import sys
 import json
 from time import perf_counter, sleep
-#from time import time as perf_counter  # legacy py
+#from time import time as perf_counter  # py27
 
 
 # === BSDF
