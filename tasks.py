@@ -166,6 +166,10 @@ a.badge {
     background: #555;
 }
 
+span.badge_sep {
+    display: none;
+}
+
 hr {
     border: 1px solid #ace;
 }

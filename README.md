@@ -3,6 +3,7 @@
 </a>
 
 <a class='badge' href='http://almarklein.gitlab.io/bsdf'>Website / docs</a>
+<span class='badge_sep'>|</span>
 <a class='badge' href='http://gitlab.com/almarklein/bsdf'>Gitlab repo</a>
 
 
