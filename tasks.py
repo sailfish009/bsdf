@@ -100,7 +100,11 @@ def build_pages(ctx):
         text = text.replace('(bsdf.', '(%s%s/bsdf.' % (base_url, name))
         for n in pages:
             text = text.replace('(%s)' % n, '(%s.html)' % n)
+            text = text.replace('(%s.md)' % n.upper(), '(%s.html)' % n)
             text = text.replace('(%s/' % n, '(%s%s/' % (base_url, n))
+        # Insert back button
+        if name != 'index':
+            text = "<a class='badge' href='index.html'>&lt;&lt;</a>\n\n" + text
         # To markdown
         pages[name] = markdown.markdown(text)
     
@@ -125,7 +129,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <style>
 {style}
 </style>
-<hr />
 {body}
 <hr />
 <div class='footer'>© Copyright 2017, Almar Klein - BSDF lives on <a href='http://gitlab.com/almarklein/bsdf'>GitLab</a> </div>
@@ -154,6 +157,15 @@ a:hover {
     text-decoration: underline;
 }
 
+a.badge {
+    margin: 0;
+    padding: 0.1em 0.3em 0.1em 0.3em;
+    border-radius: 0.2em;
+    color: #fff;
+    font-size: 90%;
+    background: #555;
+}
+
 hr {
     border: 1px solid #ace;
 }
@@ -172,6 +184,13 @@ code {
     padding-right: 0.2em;
 }
 
+h1, h2, h3 {
+    color: #246;
+}
+
+h2 {
+    border-bottom: 1px solid #ace;
+}
 """
 
 RESET = """
