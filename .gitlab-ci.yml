@@ -83,11 +83,15 @@ pages:
   image: python:3.6
   script:
     - pip install invoke markdown
+    #
+    - python --version
+    - invoke -l
+    #
     - invoke build_pages
     - mv _pages public  # the name of the artifact matters
   artifacts:
     paths:
-    - public
+      - public
   only:
     - master
     - website
