@@ -34,12 +34,12 @@ my_object2 = serializer.loads(bb)
 
 ### class BsdfSerializer`(converters=None, **options)`
 
-Instances of this class represent an BSDF encoder and decoder.
+Instances of this class represent a BSDF encoder/decoder.
 
-It acts as a holder for a set of converters and encoding/decoding
+It acts as a placeholder for a set of converters and encoding/decoding
 options. Use this to predefine converters and options for high
-performant encoding/decoding. For general use, see the functions
-in this module (save, saves, load, loads).
+performance encoding/decoding. For general use, see the functions
+`save()`, `saveb()`, `load()`, and `loadb()`.
 
 This implementation of BSDF supports streaming lists (keep adding
 to a list after writing the main file), lazy loading of blobs, and
@@ -80,9 +80,9 @@ Add a converter to this serializer instance, consisting of:
 Remove a converted by its unique name.
 
 
-#### method saves`(ob)`
+#### method saveb`(ob)`
 
-Save the given object to bytes. See ``save()`` for details.
+Save the given object to bytes.
 
 
 #### method save`(f, ob)`
@@ -90,9 +90,9 @@ Save the given object to bytes. See ``save()`` for details.
 Write the given object to the given file stream.
 
 
-#### method loads`(bb)`
+#### method loadb`(bb)`
 
-Load the data structure that is BSDF-encodded in the given bytes.
+Load the data structure that is BSDF-encoded in the given bytes.
 
 
 #### method load`(f)`
@@ -101,27 +101,28 @@ Load a BSDF-encoded object from the given stream.
 
 
 ##
-### function load`(f, converters=None, **options)`
+### function saveb`(ob, converters=None, **options)`
 
-Load a (BSDF-encoded) structure from the given file(name).
+Save (BSDF-encode) the given object to bytes.
+See `BSDFSerializer` for details on converters and options.
 
 
 ### function save`(f, ob, converters=None, **options)`
 
-Save (BSDF-encode) the given object to the given file(name).
-See BSDFSerializer for details.
+Save (BSDF-encode) the given object to the given filename or
+file object. See` BSDFSerializer` for details on converters and options.
 
 
-### function loads`(bb, converters=None, **options)`
+### function loadb`(bb, converters=None, **options)`
 
 Load a (BSDF-encoded) structure from bytes.
-See BSDFSerializer for details.
+See `BSDFSerializer` for details on converters and options.
 
 
-### function saves`(ob, converters=None, **options)`
+### function load`(f, converters=None, **options)`
 
-Save (BSDF-encode) the given object to bytes.
-See BSDFSerializer for details.
+Load a (BSDF-encoded) structure from the given filename or file object.
+See `BSDFSerializer` for details on converters and options.
 
 
 

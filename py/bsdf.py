@@ -692,7 +692,7 @@ standard_converters = [complex_converter]
 
 def saveb(ob, converters=None, **options):
     """ Save (BSDF-encode) the given object to bytes.
-    See BSDFSerializer for details on converters and options.
+    See `BSDFSerializer` for details on converters and options.
     """
     s = BsdfSerializer(converters, **options)
     return s.saveb(ob)
@@ -701,7 +701,7 @@ def saveb(ob, converters=None, **options):
 # todo: allow f and ob to be reversed
 def save(f, ob, converters=None, **options):
     """ Save (BSDF-encode) the given object to the given filename or
-    file object. See BSDFSerializer for details on converters and options.
+    file object. See` BSDFSerializer` for details on converters and options.
     """
     s = BsdfSerializer(converters, **options)
     if isinstance(f, string_types):
@@ -713,14 +713,15 @@ def save(f, ob, converters=None, **options):
 
 def loadb(bb, converters=None, **options):
     """ Load a (BSDF-encoded) structure from bytes.
-    See BSDFSerializer for details.
+    See `BSDFSerializer` for details on converters and options.
     """
     s = BsdfSerializer(converters, **options)
     return s.loadb(bb)
 
 
 def load(f, converters=None, **options):
-    """ Load a (BSDF-encoded) structure from the given file(name).
+    """ Load a (BSDF-encoded) structure from the given filename or file object.
+    See `BSDFSerializer` for details on converters and options.
     """
     s = BsdfSerializer(converters, **options)
     if isinstance(f, string_types):

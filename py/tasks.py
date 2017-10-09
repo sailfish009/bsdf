@@ -77,7 +77,7 @@ def _get_reference():
     
     parts = []
     
-    for ob in (bsdf.BsdfSerializer, bsdf.load, bsdf.save, bsdf.loadb, bsdf.saveb):
+    for ob in (bsdf.BsdfSerializer, bsdf.saveb, bsdf.save, bsdf.loadb,  bsdf.load):
         
         sig = str(inspect.signature(ob))
         if isinstance(ob, type):
