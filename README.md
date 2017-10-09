@@ -18,15 +18,20 @@ many programming languages. However, the format allows implementations
 to support powerful mechanics such as lazy loading of binary data, and
 streamed reading/writing.
 
+Implementations currently exist for multiple languages. Each implementation is
+[well-tested](https://gitlab.com/almarklein/bsdf/pipelines) to ensure compatibility.
+
+
 ## Format
 
 BSDF supports 8 base types: null, booleans, integers, floats, strings/text,
 (heterogenous) lists, mappings (i.e. dictionaries), and binary blobs. Integers
 and floats represent 64 bit numbers, but can be encoded using less
 bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
-checksums, and can be resized. BSDF has an efficient extension mechanism
-by which other types of data can be serialized with user-defined
-converter functions.
+checksums, and can be resized.
+
+BSDF has an efficient extension mechanism by which other types of data
+can be serialized with user-defined converter functions.
 
 BSDF is a binary format; by giving up on human readability, we were able to
 make BSDF simple, compact and fast. See the [full specification](SPEC.md), or
@@ -41,3 +46,16 @@ how it [compares](COMPARISON.md) to other formats.
 
 Implementations for other languages are planned. BSDF is designed to be easy
 to implement; perhaps you want to [contribute](CONTRIBUTING.md)?
+
+
+## Installation
+
+See the specific implementations for detailed installation instructions.
+Most implementations consist of a single file.
+
+
+## License
+
+In principal, all implementations in the BSDF repository use the
+2-clause BSD license (see LICENSE for details), unless otherwise
+specified. All code is liberally licensed (BSD- or MIT-like).
