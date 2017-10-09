@@ -1,19 +1,36 @@
-<a href="https://gitlab.com/almarklein/bsdf/commits/master">
+<a href="https://gitlab.com/almarklein/bsdf/pipelines">
 <img alt="pipeline status" align='right' src="https://gitlab.com/almarklein/bsdf/badges/master/pipeline.svg" />
 </a>
 
 <a class='badge' href='http://almarklein.gitlab.io/bsdf'>Website / docs</a>
 <span class='badge_sep'>|</span>
-<a class='badge' href='http://gitlab.com/almarklein/bsdf'>Gitlab repo</a>
+<a class='badge' href='http://gitlab.com/almarklein/bsdf'>Gitlab / source code</a>
 
 
 # Binary Structured Data Format
 
 The Binary Structured Data Format (BSDF) is an open specification for
-serializing (scientific) data, with implementations in several
-languages.
+serializing (scientific) data, for the purpose of storage and (inter process)
+communication.
 
-Note: these docs are a work in progress ...
+It's designed to be a simple format, making it easy to implement in
+many programming languages. However, the format allows implementations
+to support powerful mechanics such as lazy loading of binary data, and
+streamed reading/writing.
+
+## Format
+
+BSDF supports 8 base types: null, booleans, integers, floats, strings/text,
+(heterogenous) lists, mappings (i.e. dictionaries), and binary blobs. Integers
+and floats represent 64 bit numbers, but can be encoded using less
+bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
+checksums, and can be resized. BSDF has an efficient extension mechanism
+by which other types of data can be serialized with user-defined
+converter functions.
+
+BSDF is a binary format; by giving up on human readability, we were able to
+make BSDF simple, compact and fast. See the [full specification](SPEC.md), or
+how it [compares](COMPARISON.md) to other formats.
 
 
 ## Implementations
@@ -24,29 +41,6 @@ Note: these docs are a work in progress ...
 
 Implementations for other languages are planned. BSDF is designed to be easy
 to implement; perhaps you want to contribute?
-
-
-## Specification
-
-BSDF is designed to be simple; the [full specification](SPEC.md) is quite short.
-
-A minimal BSDF implementation must suport:
-
-* the basic data types: null, bool, int, float, string, list, map/dict.
-* uncompressed binary blobs.
-* unclosed streams (at the end of a data structure).
-* preferably most standard converters.
-
-Implementations are encouraged to support:
-
-* user-defined converters.
-* compressed binary blobs (zlib and bz2).
-
-Further implementations can be made more powerful by supporting:
-
-* Lazy loading of blobs.
-* Lazy loading of streams.
-* Deferred writing of streams.
 
 
 ## Development

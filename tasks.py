@@ -64,7 +64,7 @@ def help(ctx):
 
 @ns.add_task
 @task
-def build_pages(ctx):
+def build_pages(ctx, show=False):
     """ Build the BSDF website from the markdown files. """
     import markdown
     
@@ -115,7 +115,10 @@ def build_pages(ctx):
         filename2 = os.path.join(pages_dir, name + '.html')
         with open(filename2, 'wb') as f:
             f.write(html.encode('utf-8'))
-
+    
+    if show:
+        import webbrowser
+        webbrowser.open(pages_dir + '/index.html')
 
 # The rest are just some strings / templates for the website build task ...
 
@@ -144,9 +147,10 @@ html {
 body {
     margin: 1em auto 1em auto;
     padding: 1em 2em 1em 2em;
-    max-width: 40em;
+    max-width: 600px;
     background: #fff;
     border-radius: 0.5em;
+    box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 a:link, a:visited, a:active {
@@ -163,7 +167,7 @@ a.badge {
     border-radius: 0.2em;
     color: #fff;
     font-size: 90%;
-    background: #555;
+    background: #246;
 }
 
 span.badge_sep {
@@ -182,7 +186,7 @@ hr {
 code {
     font-family: dejavu sans mono, mono, monospace;
     font-weight: bold;
-    color: #333;
+    color: #444;
     background: #fff;
     padding-left: 0.2em;
     padding-right: 0.2em;
