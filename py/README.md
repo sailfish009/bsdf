@@ -18,12 +18,23 @@ There are no dependencies except Python 2.7 or Python 3.4+.
 Run `invoke -l` in this directory for available tasks (like tests).
 
 
-## Examples
+## Usage
 
 <pre style='font-size:80%;'>
-# Setup the serializer
-serializer = bsdf.BsdfSerializer(compression=2)
+import bsdf
 
+# Simple use ...
+
+# Encode
+bb = bsdf.saveb(my_object)
+# Decode
+my_object2 = bsdf.loadb(bb)
+
+# Advanced use ...
+
+# Setup a serializer with converters and options
+serializer = bsdf.BsdfSerializer([bsdf.complex_converter],
+                                 compression='bz2')
 # Use it
 bb = serializer.saves(my_object1)
 my_object2 = serializer.loads(bb)

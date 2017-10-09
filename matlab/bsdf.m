@@ -1,7 +1,7 @@
 function result = bsdf(varargin)
+% Matlab/Octave implementation of the Binary Structured Data Format (BSDF).
 % BSDF is a binary format for serializing structured (scientific) data.
-% This is the Matlab/Octave implementation for reading and writing such
-% data structures. Read more at https://gitlab.com/almarklein/bsdf.
+% Read more at https://gitlab.com/almarklein/bsdf.
 %
 % This is a well tested, but relatively minimal implementation: it does
 % not (yet) support custom converters, and (zlib) compression is only
@@ -9,13 +9,12 @@ function result = bsdf(varargin)
 %
 % Usage:
 %
-%     data = bsdf(filename) to load data from file
-%     data = bsdf(bytes) to load data from bytes
-%     bsdf(filename, data) to save data to file
-%     bytes = bsdf(data) to serialize data to bytes (a uint8 array)
+%     data = bsdf(filename)  % to load data from file
+%     data = bsdf(bytes)     % to load data from bytes
+%     bsdf(filename, data)   % to save data to file
+%     bytes = bsdf(data)     % to serialize data to bytes (a uint8 array)
 %
-% Options (for writing) can be provided via an extra argument,
-% which must be a struct which can contain the following fields:
+% Options (for writing) can be provided via argument pairs:
 %
 %   - compression: the compression for binary blobs, 0 for raw, 1 for zlib
 %     (not available in Octave).

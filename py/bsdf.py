@@ -4,6 +4,9 @@
 """
 Python implementation of the Binary Structured Data Format (BSDF).
 
+BSDF is a binary format for serializing structured (scientific) data.
+Read more at https://gitlab.com/almarklein/bsdf.
+
 This implementation is relatively sophisticated; a simple BSDF serializer
 without support for streaming and lazy blob loading could be much more compact.
 
