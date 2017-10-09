@@ -36,8 +36,8 @@ my_object2 = bsdf.loadb(bb)
 serializer = bsdf.BsdfSerializer([bsdf.complex_converter],
                                  compression='bz2')
 # Use it
-bb = serializer.saves(my_object1)
-my_object2 = serializer.loads(bb)
+bb = serializer.saveb(my_object1)
+my_object2 = serializer.loadb(bb)
 </pre>
 
 

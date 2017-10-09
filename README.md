@@ -40,9 +40,10 @@ how it [compares](COMPARISON.md) to other formats.
 
 ## Implementations
 
-* The [Python implementation](py) in the form of [bsdf.py](py/bsdf.py).
-* The [Matlab / Octave implementation](matlab) in the form of [bsdf.m](matlab/bsdf.m).
-* The [JavaScript implementation](js) (WIP) in the form of [bsdf.js](js/bsdf.js).
+* The [Python](py) implementation in the form of [bsdf.py](py/bsdf.py).
+* The [lite Python](py_lite) implementation in the form of [bsdf_lite.py](py_lite/bsdf_lite.py).
+* The [Matlab / Octave](matlab) implementation in the form of [bsdf.m](matlab/bsdf.m).
+* The [JavaScript](js) implementation (WIP) in the form of [bsdf.js](js/bsdf.js).
 
 Implementations for other languages are planned. BSDF is designed to be easy
 to implement; perhaps you want to [contribute](CONTRIBUTING.md)?

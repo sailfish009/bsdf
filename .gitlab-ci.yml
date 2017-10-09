@@ -1,5 +1,20 @@
 # This file defines the CI for the BSDF repo.
 
+# ---------- Python lite
+
+job_py_lite:
+  image: python:3.4
+  script:
+    - cd py_lite
+    - pip install invoke pytest pytest-cov
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke test-style
+    - invoke test-unit
+    - invoke test-shared
+
 
 # ---------- Python
 
@@ -88,6 +103,7 @@ pages:
     - invoke -l
     #
     - invoke py.update_readme
+    - invoke py_lite.update_readme
     - invoke build-pages
     - mv _pages public  # the name of the artifact matters
   artifacts:
