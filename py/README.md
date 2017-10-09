@@ -18,6 +18,110 @@ There are no dependencies except Python 2.7 or Python 3.4+.
 Run `invoke -l` in this directory for available tasks (like tests).
 
 
-## Maintainers
+## Examples
 
-* @almarklein
+<pre style='font-size:80%;'>
+# Setup the serializer
+serializer = bsdf.BsdfSerializer(compression=2)
+
+# Use it
+bb = serializer.saves(my_object1)
+my_object2 = serializer.loads(bb)
+</pre>
+
+
+## Reference
+
+### class BsdfSerializer`(converters=None, **options)`
+
+Instances of this class represent an BSDF encoder and decoder.
+
+It acts as a holder for a set of converters and encoding/decoding
+options. Use this to predefine converters and options for high
+performant encoding/decoding. For general use, see the functions
+in this module (save, saves, load, loads).
+
+This implementation of BSDF supports streaming lists (keep adding
+to a list after writing the main file), lazy loading of blobs, and
+in-place editing of blobs (for streams opened with a+).
+
+Options for encoding:
+
+* compression (int or str): ``0`` or "no" for no compression (default),
+  ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
+  ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
+* use_checksum (bool): whether to include a checksum with binary blobs.
+* float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
+
+Options for decoding:
+
+* load_streaming (bool): if True, and the final object in the structure was
+  a stream, will make it available as a stream in the decoded object.
+* lazy_blob (bool): if True, bytes are represented as Blob objects that can
+  be used to lazily access the data, and also overwrite the data if the
+  file is open in a+ mode.
+
+
+#### method add_converter`(name, cls, encoder, decoder)`
+
+Add a converter to this serializer instance, consisting of:
+
+* name (str): a unique name for this converter (less than 251 chars).
+* cls (type): the class to use in ``isinstance`` during encoding, or
+  a list of classes to trigger on.
+* encoder (function): the function to encode an instance with,
+  which should return a structure of encodable objects.
+* decoder (function): the function to decode the aforementioned
+  structure with.
+
+
+#### method remove_converter`(name)`
+
+Remove a converted by its unique name.
+
+
+#### method saves`(ob)`
+
+Save the given object to bytes. See ``save()`` for details.
+
+
+#### method save`(f, ob)`
+
+Write the given object to the given file stream.
+
+
+#### method loads`(bb)`
+
+Load the data structure that is BSDF-encodded in the given bytes.
+
+
+#### method load`(f)`
+
+Load a BSDF-encoded object from the given stream.
+
+
+##
+### function load`(f, converters=None, **options)`
+
+Load a (BSDF-encoded) structure from the given file(name).
+
+
+### function save`(f, ob, converters=None, **options)`
+
+Save (BSDF-encode) the given object to the given file(name).
+See BSDFSerializer for details.
+
+
+### function loads`(bb, converters=None, **options)`
+
+Load a (BSDF-encoded) structure from bytes.
+See BSDFSerializer for details.
+
+
+### function saves`(ob, converters=None, **options)`
+
+Save (BSDF-encode) the given object to bytes.
+See BSDFSerializer for details.
+
+
+

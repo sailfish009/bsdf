@@ -87,6 +87,7 @@ pages:
     - python --version
     - invoke -l
     #
+    - invoke py.update_readme
     - invoke build-pages
     - mv _pages public  # the name of the artifact matters
   artifacts:

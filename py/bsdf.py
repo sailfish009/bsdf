@@ -96,6 +96,7 @@ def _isidentifier(s):
 
 class BsdfSerializer(object):
     """ Instances of this class represent an BSDF encoder and decoder.
+
     It acts as a holder for a set of converters and encoding/decoding
     options. Use this to predefine converters and options for high
     performant encoding/decoding. For general use, see the functions
@@ -105,18 +106,7 @@ class BsdfSerializer(object):
     to a list after writing the main file), lazy loading of blobs, and
     in-place editing of blobs (for streams opened with a+).
 
-    Example
-    -------
-
-    # Setup the serializer
-    serializer = bsdf.BsdfSerializer(bsdf.complex_converter, compression=2)
-
-    # Use it
-    bb = serializer.saves(my_object1)
-    my_object2 = serializer.loads(bb)
-
-    Options for encoding
-    --------------------
+    Options for encoding:
 
     * compression (int or str): ``0`` or "no" for no compression (default),
       ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
@@ -124,8 +114,7 @@ class BsdfSerializer(object):
     * use_checksum (bool): whether to include a checksum with binary blobs.
     * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
-    Options for decoding
-    --------------------
+    Options for decoding:
 
     * load_streaming (bool): if True, and the final object in the structure was
       a stream, will make it available as a stream in the decoded object.
@@ -266,10 +255,10 @@ class BsdfSerializer(object):
             f.write(b'b')  # B for blob
             blob = Blob(value, compression=self._compression,
                         use_checksum=self._use_checksum)
-            blob._to_file(f)
+            blob._to_file(f)  # noqa
         elif isinstance(value, Blob):
             f.write(b'b')  # B for blob
-            value._to_file(f)
+            value._to_file(f)  # noqa
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
@@ -281,7 +270,7 @@ class BsdfSerializer(object):
             if len(streams) > 0:
                 raise ValueError('Can only have one stream per file.')
             streams.append(value)
-            value._activate(f, self._encode, self._decode)
+            value._activate(f, self._encode, self._decode)  # noqa
         else:
             # Try if the value is of a type we know
             x = self._encode_converters.get(value.__class__, None)
@@ -348,7 +337,7 @@ class BsdfSerializer(object):
                 # todo: if n > 0, we don't have to do the while loop
                 if self._load_streaming:
                     value = ListStream()
-                    value._activate(f, self._encode, self._decode)
+                    value._activate(f, self._encode, self._decode)  # noqa
                 else:
                     value = []
                     try:
@@ -385,6 +374,7 @@ class BsdfSerializer(object):
             if converter is not None:
                 value = converter(f, value)
             else:
+                # todo: warn/log instead of print
                 print('no converter found for %r' % converter_id)
 
         return value
@@ -436,6 +426,7 @@ class BsdfSerializer(object):
                  'than the implementation (%s).')
             raise RuntimeError(t % (__version__, file_version))
         if minor_version > format_version[1]:  # minor should be < ours
+            # todo: warn/log instead of print
             t = ('Warning: reading file with higher minor version (%s) '
                  'than the implementation (%s).')
             print(t % (__version__, file_version))
@@ -447,10 +438,14 @@ class BsdfSerializer(object):
 
 
 class BaseStream(object):
+    """ Base class for streams.
+    """
     pass
 
 
 class ListStream(BaseStream):
+    """ A streamable list object used for writing or reading.
+    """
 
     def __init__(self):
         self.f = None
@@ -466,6 +461,8 @@ class ListStream(BaseStream):
         self._decode = decode_func
 
     def append(self, item):
+        """ Append an item to the list.
+        """
         if self.f is None:
             raise RuntimeError('List streamer is not ready for streaming yet.')
         # todo: this was encode, is save() correct?
@@ -473,6 +470,8 @@ class ListStream(BaseStream):
         self.count += 1
 
     def close(self):
+        """ Close the stream, writing the size.
+        """
         # todo: prevent breaking things when used for reading!
         if self.f is None:
             raise RuntimeError('List streamer is not opened yet.')
@@ -483,6 +482,8 @@ class ListStream(BaseStream):
         self.f.seek(i)
 
     def get_next(self):
+        """ Get the next element in the stream.
+        """
         # todo: prevent mixing write/read ops, or is that handy in a+?
         # This raises EOFError at some point.
         try:
@@ -601,6 +602,8 @@ class Blob(object):
         self.data_size = data_size
 
     def seek(self, p):
+        """ Seek to the given position (relative to the blob start).
+        """
         if self.f is None:
             raise RuntimeError('Cannot seek in a blob '
                                'that is not created by the BSDF decoder.')
@@ -611,12 +614,16 @@ class Blob(object):
         self.f.seek(self.start_pos + p)
 
     def tell(self):
+        """ Get the current file pointer position (relative to the blob start).
+        """
         if self.f is None:
             raise RuntimeError('Cannot tell in a blob '
                                'that is not created by the BSDF decoder.')
         self.f.tell() - self.start_pos
 
     def write(self, bb):
+        """ Write bytes to the blob.
+        """
         if self.f is None:
             raise RuntimeError('Cannot write in a blob '
                                'that is not created by the BSDF decoder.')
@@ -628,6 +635,8 @@ class Blob(object):
         return self.f.write(bb)
 
     def read(self, n):
+        """ Read n bytes from the blob.
+        """
         if self.f is None:
             raise RuntimeError('Cannot read in a blob '
                                'that is not created by the BSDF decoder.')
@@ -638,6 +647,8 @@ class Blob(object):
         return self.f.read(n)
 
     def get_bytes(self):
+        """ Get the contents of the blob as bytes.
+        """
         if self.compressed is not None:
             compressed = self.compressed
         else:

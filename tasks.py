@@ -97,16 +97,16 @@ def build_pages(ctx, show=False):
     for name, text in list(pages.items()):
         # Fix links
         base_url = 'http://gitlab.com/almarklein/bsdf/tree/master/'
-        text = text.replace('(bsdf.', '(%s%s/bsdf.' % (base_url, name))
+        text = text.replace('](bsdf.', '](%s%s/bsdf.' % (base_url, name))
         for n in pages:
-            text = text.replace('(%s)' % n, '(%s.html)' % n)
-            text = text.replace('(%s.md)' % n.upper(), '(%s.html)' % n)
-            text = text.replace('(%s/' % n, '(%s%s/' % (base_url, n))
+            text = text.replace('](%s)' % n, '](%s.html)' % n)
+            text = text.replace('](%s.md)' % n.upper(), '](%s.html)' % n)
+            text = text.replace('](%s/' % n, '](%s%s/' % (base_url, n))
         # Insert back button
         if name != 'index':
             text = "<a class='badge' href='index.html'>&lt;&lt;</a>\n\n" + text
         # To markdown
-        pages[name] = markdown.markdown(text)
+        pages[name] = markdown.markdown(text, extensions=[])
     
     # Generate pages
     for name, text in pages.items():
@@ -186,18 +186,24 @@ hr {
 code {
     font-family: dejavu sans mono, mono, monospace;
     font-weight: bold;
+    font-size: 90%;
     color: #444;
     background: #fff;
     padding-left: 0.2em;
     padding-right: 0.2em;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4 {
     color: #246;
 }
 
 h2 {
     border-bottom: 1px solid #ace;
+}
+
+h3 code, h4 code {
+    color: #246;
+    padding-left: 0;
 }
 """
 
