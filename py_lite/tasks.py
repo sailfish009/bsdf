@@ -25,7 +25,7 @@ def test_style(ctx):
 @task
 def test_unit(ctx):
     """ Run all unit tests with pytest. """
-    call('pytest', '-v', '-x', '--cov', 'bsdf', '--cov-report', 'html', '.')
+    call('pytest', '-v', '-x', '--cov', 'bsdf_lite', '--cov-report', 'html', '.')
 
 @task
 def test_shared(ctx, exe=sys.executable):
