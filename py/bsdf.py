@@ -95,12 +95,12 @@ def _isidentifier(s):
 
 
 class BsdfSerializer(object):
-    """ Instances of this class represent an BSDF encoder and decoder.
+    """ Instances of this class represent a BSDF encoder/decoder.
 
-    It acts as a holder for a set of converters and encoding/decoding
+    It acts as a placeholder for a set of converters and encoding/decoding
     options. Use this to predefine converters and options for high
-    performant encoding/decoding. For general use, see the functions
-    in this module (save, saves, load, loads).
+    performance encoding/decoding. For general use, see the functions
+    `save()`, `saveb()`, `load()`, and `loadb()`.
 
     This implementation of BSDF supports streaming lists (keep adding
     to a list after writing the main file), lazy loading of blobs, and
@@ -379,8 +379,8 @@ class BsdfSerializer(object):
 
         return value
 
-    def saves(self, ob):
-        """ Save the given object to bytes. See ``save()`` for details.
+    def saveb(self, ob):
+        """ Save the given object to bytes.
         """
         f = BytesIO()
         self.save(f, ob)
@@ -405,8 +405,8 @@ class BsdfSerializer(object):
                 raise ValueError('The stream object must be '
                                  'the last object to be encoded.')
 
-    def loads(self, bb):
-        """ Load the data structure that is BSDF-encodded in the given bytes.
+    def loadb(self, bb):
+        """ Load the data structure that is BSDF-encoded in the given bytes.
         """
         f = BytesIO(bb)
         return self.load(f)
@@ -690,18 +690,18 @@ standard_converters = [complex_converter]
 # %% High-level functions
 
 
-def saves(ob, converters=None, **options):
+def saveb(ob, converters=None, **options):
     """ Save (BSDF-encode) the given object to bytes.
-    See BSDFSerializer for details.
+    See BSDFSerializer for details on converters and options.
     """
     s = BsdfSerializer(converters, **options)
-    return s.saves(ob)
+    return s.saveb(ob)
 
 
 # todo: allow f and ob to be reversed
 def save(f, ob, converters=None, **options):
-    """ Save (BSDF-encode) the given object to the given file(name).
-    See BSDFSerializer for details.
+    """ Save (BSDF-encode) the given object to the given filename or
+    file object. See BSDFSerializer for details on converters and options.
     """
     s = BsdfSerializer(converters, **options)
     if isinstance(f, string_types):
@@ -711,12 +711,12 @@ def save(f, ob, converters=None, **options):
         return s.save(f, ob)
 
 
-def loads(bb, converters=None, **options):
+def loadb(bb, converters=None, **options):
     """ Load a (BSDF-encoded) structure from bytes.
     See BSDFSerializer for details.
     """
     s = BsdfSerializer(converters, **options)
-    return s.loads(bb)
+    return s.loadb(bb)
 
 
 def load(f, converters=None, **options):
@@ -730,4 +730,6 @@ def load(f, converters=None, **options):
         return s.load(f)
 
 
-dumps = saves  # json compat
+# Aliases for json compat
+loads = loadb
+dumps = saveb

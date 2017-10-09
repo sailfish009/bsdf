@@ -18,7 +18,8 @@ from time import perf_counter, sleep
 # === BSDF
 import bsdf
 lib = bsdf.BsdfSerializer()
-lib.dumps = lib.saves
+lib.dumps = lib.saveb
+lib.loads = lib.loadb
 
 # === YAML
 # import yaml as lib
