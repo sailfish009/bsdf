@@ -40,18 +40,4 @@ how it [compares](COMPARISON.md) to other formats.
 * The [JavaScript implementation](js) (WIP) in the form of [bsdf.js](js/bsdf.js).
 
 Implementations for other languages are planned. BSDF is designed to be easy
-to implement; perhaps you want to contribute?
-
-
-## Development
-
-Since BSDF is designed to be simple, implementations are usually
-restricted to a single module. The BSDF Gitlab repo contains
-implementations for several languages, organized in sub directories.
-This allows testing each implementation using a "test service", and ensures
-compatibility between the different implementations.
-
-The tooling around BSDF is implemented in Python. For development, you
-need Python 3.x and the invoke library (`pip install invoke`).
-
-To run tasks such as tests, run `invoke` from the root repo to get started.
+to implement; perhaps you want to [contribute](CONTRIBUTING.md)?
