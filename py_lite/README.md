@@ -5,7 +5,6 @@ This is a lightweight implementation of BSDF in Python. Fully functional
 loading or streaming. With less than 500 lines of code (including docstrings)
 this demonstrates how simple a BSDF implementation can be.
 
-
 ## Installation
 
 Copy [bsdf_lite.py](bsdf_lite.py) to a place where Python can find it.

@@ -45,8 +45,9 @@ how it [compares](COMPARISON.md) to other formats.
 * The [Matlab / Octave](matlab) implementation in the form of [bsdf.m](matlab/bsdf.m).
 * The [JavaScript](js) implementation (WIP) in the form of [bsdf.js](js/bsdf.js).
 
-Implementations for other languages are planned. BSDF is designed to be easy
-to implement; perhaps you want to [contribute](CONTRIBUTING.md)?
+We'd like implementations for other languages (such as R and Julia).
+BSDF is designed to be easy to implement; perhaps you want to
+[contribute](CONTRIBUTING.md)?
 
 
 ## Installation

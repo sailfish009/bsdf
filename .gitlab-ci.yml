@@ -6,7 +6,7 @@ job_py_lite:
   image: python:3.4
   script:
     - cd py_lite
-    - pip install invoke pytest pytest-cov
+    - pip install invoke flake8 pytest pytest-cov
     #
     - python --version
     - invoke -l
