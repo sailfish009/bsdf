@@ -59,11 +59,11 @@ def lendecode(f):
 
 class BsdfLiteSerializer(object):
     """ Instances of this class represent a BSDF encoder/decoder.
-    
+
     This is a lite variant of the Python BSDF serializer. It does not support
     lazy loading or streaming, but is otherwise fully functional, including
     support for custom converters.
-    
+
     It acts as a placeholder for a set of converters and encoding/decoding
     options. Options for encoding:
 
