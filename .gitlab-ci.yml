@@ -93,7 +93,7 @@ job_matlab_octave:
 
 # ---------- Website
 
-job_pages:
+pages:  # this name matters
   stage: deploy
   image: python:3.6
   script:
