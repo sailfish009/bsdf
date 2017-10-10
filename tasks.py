@@ -28,19 +28,19 @@ for dname in os.listdir(ROOT_DIR):
     
     # Add all tasks from this subdir
     collection = Collection()
-    ns.add_collection(collection, dname)
+    ns.add_collection(collection, dname.replace('_', '-'))
     for ob in module.values():
         if isinstance(ob, Task):
             collection.add_task(ob)
         elif isinstance(ob, Collection):
             ns.add_collection(ob)
 
+
 # Implement collection default messages, without creating an actual task for it
-if len(sys.argv) == 2 and os.path.isdir(os.path.join(ROOT_DIR, sys.argv[1])):
-    subdir = sys.argv[1]
+if len(sys.argv) == 2 and sys.argv[1] in ns.collections.keys():
     lines = subprocess.getoutput(['invoke', '-l']).splitlines()
-    lines = [line for line in lines if line.strip().startswith(subdir + '.')]
-    print('Task {} is a category with available tasks:\n'.format(subdir))
+    lines = [line for line in lines if line.strip().startswith(sys.argv[1] + '.')]
+    print('Task {} is a category with available tasks:\n'.format(sys.argv[1]))
     print('\n'.join(lines))
     sys.exit(1)
 

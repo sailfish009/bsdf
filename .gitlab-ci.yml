@@ -103,7 +103,7 @@ job_pages:
     - invoke -l
     #
     - invoke python.update-readme
-    - invoke python_lite.update-readme
+    - invoke python-lite.update-readme
     - invoke build-pages
     - mv _pages public  # the name of the artifact matters
   artifacts:
