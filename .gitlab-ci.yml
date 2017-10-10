@@ -5,7 +5,7 @@
 job_python_lite_py34:
   image: python:3.4
   script:
-    - cd py_lite
+    - cd python_lite
     - pip install invoke flake8 pytest pytest-cov
     #
     - python --version
@@ -102,8 +102,8 @@ job_pages:
     - python --version
     - invoke -l
     #
-    - invoke py.update-readme
-    - invoke py_lite.update-readme
+    - invoke python.update-readme
+    - invoke python_lite.update-readme
     - invoke build-pages
     - mv _pages public  # the name of the artifact matters
   artifacts:
