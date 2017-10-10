@@ -36,8 +36,12 @@ for dname in os.listdir(ROOT_DIR):
             ns.add_collection(ob)
 
 # Implement collection default messages, without creating an actual task for it
-if len(sys.argv) == 2 and sys.argv[1] in ('py', 'matlab'):
-    print('Task "%s" is a collection; use "invoke -l" to see available tasks.' % sys.argv[1])
+if len(sys.argv) == 2 and os.path.isdir(os.path.join(ROOT_DIR, sys.argv[1])):
+    subdir = sys.argv[1]
+    lines = subprocess.getoutput(['invoke', '-l']).splitlines()
+    lines = [line for line in lines if line.strip().startswith(subdir + '.')]
+    print('Task {} is a category with available tasks:\n'.format(subdir))
+    print('\n'.join(lines))
     sys.exit(1)
 
 # Add root tasks ...

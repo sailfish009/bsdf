@@ -2,7 +2,7 @@
 
 # ---------- Python lite
 
-job_py_lite:
+job_python_lite_py34:
   image: python:3.4
   script:
     - cd py_lite
@@ -18,10 +18,10 @@ job_py_lite:
 
 # ---------- Python
 
-job_py27:
+job_python_py27:
   image: python:2.7
   script:
-    - cd py
+    - cd python
     - pip install invoke pytest pytest-cov
     #
     - python --version
@@ -31,10 +31,10 @@ job_py27:
     #- invoke test-shared  this has issues with bytes/unicode/json
 
 
-job_pypy:
+job_python_pypy3:
   image: pypy:3
   script:
-    - cd py
+    - cd python
     - pip install invoke pytest pytest-cov
     #
     - python --version
@@ -44,10 +44,10 @@ job_pypy:
     - invoke test-shared
 
 
-job_py34:
+job_python_py34:
   image: python:3.4
   script:
-    - cd py
+    - cd python
     - pip install invoke pytest pytest-cov
     #
     - python --version
@@ -57,10 +57,10 @@ job_py34:
     - invoke test-shared
 
 
-job_py36:
+job_python_py36:
   image: python:3.6
   script:
-    - cd py
+    - cd python
     - pip install invoke flake8 pytest pytest-cov
     #
     - python --version
@@ -72,7 +72,7 @@ job_py36:
 
 # ---------- Octave / Matlab
 
-job_octave:
+job_matlab_octave:
   image: almarklein/octave
   script:
     - cd matlab
@@ -93,7 +93,7 @@ job_octave:
 
 # ---------- Website
 
-pages:
+job_pages:
   stage: deploy
   image: python:3.6
   script:
@@ -102,8 +102,8 @@ pages:
     - python --version
     - invoke -l
     #
-    - invoke py.update_readme
-    - invoke py_lite.update_readme
+    - invoke py.update-readme
+    - invoke py_lite.update-readme
     - invoke build-pages
     - mv _pages public  # the name of the artifact matters
   artifacts:

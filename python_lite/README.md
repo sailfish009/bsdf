@@ -4,6 +4,7 @@ This is a lightweight implementation of BSDF in Python. Fully functional
 (including support for custom converters) but no fancy features like lazy
 loading or streaming. With less than 500 lines of code (including docstrings)
 this demonstrates how simple a BSDF implementation can be.
+See also the [complete version](python) of BSDF in Python.
 
 ## Installation
 

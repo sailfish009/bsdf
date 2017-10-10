@@ -1,7 +1,8 @@
 # BSDF Python implementation
 
 This is the reference implementation of BSDF, with support for streamed
-reading and writing, and lazy loading of binary blobs.
+reading and writing, and lazy loading of binary blobs. See also the
+[minimal version](python_lite) of BSDF in Python.
 
 This directory also contains tooling to help test other BSDF
 implementations, most notably bsdf_test_service.py.

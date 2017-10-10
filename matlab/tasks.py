@@ -16,7 +16,7 @@ def call(*cmd):
 def test_shared(ctx, octave=False, matlab=False):
     """ Run BSDF tests using the shared test service. Use with either --octave or --matlab flag."""
     
-    sys.path.insert(0, os.path.join(this_dir, '..', 'py'))
+    sys.path.insert(0, os.path.join(this_dir, '..', 'python'))
     import bsdf_test_service
     
     if octave and matlab:
