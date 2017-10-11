@@ -63,8 +63,10 @@ toNumber = function(bufu8) {
  * We test it on numbers that include byte boundaries.
  */
 aa = [0, -1, -2, 1, 2, 42, -1337,
-	  -254, -255, -256, -257, 254, 255, 256, 257,
-	  -65534, -65535, -65536, -65537, 65534, 65535, 65536, 65537,
+	  -126, -127, -128, -129, -254, -255, -256, -257,
+	   126,  127,  128,  129,  254,  255,  256,  257,
+	  -32766, -32767, -32768, -32769, -65534, -65535, -65536, -65537,
+	   32766,  32767,  32768,  32769,  65534,  65535,  65536,  65537,
 	  -2147483647, -2147483648, 2147483646, 2147483647, // these should just work in a int32.
 	  ];
 
@@ -72,6 +74,7 @@ for (i=0; i<aa.length; i++) {
 	a = aa[i];
 
 	// encode via uint16
+	// I suppose that this would fail on Big Endian systems ...
 	if (a < 0) {
 		a_ = a + 1;
 		bufu16[0] = ((-(a_ % 65536 )) & 65535) ^ 65535;
@@ -116,19 +119,22 @@ for (i=0; i<aa.length; i++) {
 	// decode via uint8 (inspired by msgpack)
 	var isneg = (bufu8[3] & 0x80) > 0;
 	if (isneg) {
-		b = -(1 +
-			  (bufu8[0] ^ 0xff) +
-              (bufu8[1] ^ 0xff) * 0x100 +
-              (bufu8[2] ^ 0xff) * 0x10000 +
-              (bufu8[3] ^ 0xff) * 0x1000000);
+		b = -1;
+		m = 1;
+		for (j=0; j<4; j++) {
+			b -= (bufu8[j] ^ 0xff) * m;
+			m *= 256;
+		}
     } else {
-        b = (bufu8[0] +
-	         bufu8[1] * 0x100 +
-	         bufu8[2] * 0x10000 +
-	         bufu8[3] * 0x1000000);
+    	b = 0;
+		m = 1;
+		for (j=0; j<4; j++) {
+			b += bufu8[j] * m;
+			m *= 256;
+		}
     }
 
     assert(a == bufi32[0], a, bufi32[0]);
 	assert(a == b, a, b);
-	console.log(a, b, 'ok');
+	console.log(a, b, isneg, 'ok');
 }

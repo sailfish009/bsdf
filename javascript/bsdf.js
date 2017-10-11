@@ -146,15 +146,11 @@ function ByteBuilder() {
         pos += 1;
     }
     function push_int(s) {
-        // todo: performance tweaking, perhaps using uint8's here is faster
         if (pos + 8 > buf.byteLength) { need_size(pos + 8); }
-        if (s < 0) { // two's-complement
-            s = s + 1;
-            bufdv.setUint32(pos  , ((-(s % 4294967296)) & 4294967295) ^ 4294967295, true);
-            bufdv.setUint32(pos+4, ((-(s / 4294967296)) & 4294967295) ^ 4294967295, true);
+        if (s < 0) { // perform two's complement encoding
+            for (var j=0, a=s+1; j<8; j++, a/=256) { buf8[pos+j] = ((-(a % 256 )) & 255) ^ 255; }
         } else {
-            bufdv.setUint32(pos  , (s % 4294967296), true);
-            bufdv.setUint32(pos+4, (s / 4294967296) & 4294967295, true);
+            for (var j=0, a=s; j<8; j++, a/=256) { buf8[pos+j] = ((a % 256 ) & 255); }
         }
         pos += 8;
     }
@@ -309,16 +305,17 @@ function BytesReader(buf) {
         return buf8[pos++];
     }
     function get_int(c) {
-        var s1 = bufdv.getUint32(pos, true);
-        var s2 = bufdv.getUint32(pos+4, true);
-        var isneg = (s2 & 0x8000) > 0;
+        var isneg = (buf8[pos+7] & 0x80) > 0;
         if (isneg) {
-            var s = -1 - (s1 ^ 4294967295) - (s2 ^ 4294967295) * 4294967296;
+            var s = -1;
+            for (var j=0, m=1; j<8; j++, m*=256) { s -= (buf8[pos+j] ^ 0xff) * m; }
         } else {
-            var s = s1 + s2 * 4294967296;
+            var s = 0;
+            for (var j=0, m=1; j<8; j++, m*=256) { s += buf8[pos+j] * m; }
         }
         pos += 8;
         return s;
+
     }
     function get_float32(c) {
         var s = bufdv.getFloat32(pos, true);
