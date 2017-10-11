@@ -166,13 +166,14 @@ body {
     box-sizing: border-box;
     margin: 1em auto;
     padding: 1em 2em;
+    width: 100%;
     max-width: 700px;
     background: #fff;
     border-radius: 0.5em;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
-@media screen and (max-width:  980px) { /* some browser dont trigger for smaller numbers */
-    .content { max-width: 100%;}
+@media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
+    .content { max-width: 100%; margin:0; }
 }
 .menu {
     box-sizing: border-box;
