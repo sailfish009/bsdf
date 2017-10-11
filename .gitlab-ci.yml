@@ -97,7 +97,7 @@ pages:  # this name matters
   stage: deploy
   image: python:3.6
   script:
-    - pip install invoke markdown
+    - pip install invoke markdown pygments
     #
     - python --version
     - invoke -l
