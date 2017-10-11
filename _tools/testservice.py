@@ -11,7 +11,7 @@ and ``{fname2}``. The extension of these file names indicates the format
 test.
 
 Alternatively, one can do a call in the shell:
-``python bsdf_test_service.py dir exe ...``.
+``python testservice.py dir exe ...``.
 One can also run this script using pytest, in which case the tests are run
 in-process to allow establishing the test coverage. 
 
@@ -29,12 +29,10 @@ import threading
 import subprocess
 from io import open  # pypy and py27 compat
 
-import bsdf  # the current script is next to this module
+import datagen
 
-# Import module to generate random data structures
-sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '_data')))
-import generate
-sys.path.pop(0)
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', 'python')))
+import bsdf  # the current script is next to this module
 
 
 ## Setup
@@ -365,7 +363,7 @@ def test_bsdf_to_bsdf_random():
     for iter in range(8):
         random.seed(time.time())
         
-        data1 = generate.random_dict(6, maxn=100, types=generate.JSON_TYPES)
+        data1 = datagen.random_dict(6, maxn=100, types=datagen.JSON_TYPES)
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
@@ -374,7 +372,7 @@ def test_bsdf_to_bsdf_random():
     for iter in range(8):
         random.seed(time.time())
         
-        data1 = generate.random_list(6, maxn=100, types=generate.JSON_TYPES)
+        data1 = datagen.random_list(6, maxn=100, types=datagen.JSON_TYPES)
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)

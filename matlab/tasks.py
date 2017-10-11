@@ -16,18 +16,18 @@ def call(*cmd):
 def test_shared(ctx, octave=False, matlab=False):
     """ Run BSDF tests using the shared test service. Use with either --octave or --matlab flag."""
     
-    sys.path.insert(0, os.path.join(this_dir, '..', 'python'))
-    import bsdf_test_service
+    sys.path.insert(0, os.path.join(this_dir, '..', '_tools'))
+    import testservice
     
     if octave and matlab:
         sys.exit('Choose either --octave or --matlab, not both.')
     elif octave:
-        bsdf_test_service.main(this_dir, 'octave-cli', '-q', '--eval',
-                               'testservice_runner(\'{fname1}\', \'{fname2}\');')
+        testservice.main(this_dir, 'octave-cli', '-q', '--eval',
+                         'testservice_runner(\'{fname1}\', \'{fname2}\');')
     elif matlab:
-        bsdf_test_service.main(this_dir, 'matlab',
-                               '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
-                               'testservice_runner(\'{fname1}\', \'{fname2}\');exit();')
+        testservice.main(this_dir, 'matlab',
+                         '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
+                         'testservice_runner(\'{fname1}\', \'{fname2}\');exit();')
     else:
         sys.exit('Choose either --octave or --matlab.')
 

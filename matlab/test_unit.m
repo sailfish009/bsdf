@@ -2,7 +2,7 @@
 % Run unit tests for BSDF.
 %
 % The tests that use actual filenames are sufficiently covered
-% by the bsdf_test_service.
+% by the testservice.py.
 %
 % In Matlab functions are not objects, so creating custom converters will
 % probably need to be class based or something. We leave that for later.

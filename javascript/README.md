@@ -8,14 +8,6 @@ It is a "lite" implementation, without support for e.g. streaming.
 Include [bsdf.js](bsdf.js) in your project.
 
 
-## Running tests
-
-(In the commands below, the `.` can be replaced with `py` when running from
-the root of the repository.)
-
-* Unit tests: `npm test`?
-* Service tests: `python ./py/bsdf_test_service.py node .`
-
 
 ## Maintainers
 

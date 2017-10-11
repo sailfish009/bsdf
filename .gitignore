@@ -1,5 +1,5 @@
 # This package
-_data/rand*
+_data/*
 _pages/*
 
 # Byte-compiled / optimized / DLL files

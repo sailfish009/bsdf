@@ -4,9 +4,6 @@ This is the reference implementation of BSDF, with support for streamed
 reading and writing, and lazy loading of binary blobs. See also the
 [minimal version](python_lite) of BSDF in Python.
 
-This directory also contains tooling to help test other BSDF
-implementations, most notably bsdf_test_service.py.
-
 
 ## Installation
 
@@ -21,7 +18,7 @@ Run `invoke -l` in this directory for available tasks (like tests).
 
 ## Usage
 
-<pre style='font-size:80%;'>
+```py
 import bsdf
 
 # Simple use ...
@@ -39,7 +36,7 @@ serializer = bsdf.BsdfSerializer([bsdf.complex_converter],
 # Use it
 bb = serializer.saveb(my_object1)
 my_object2 = serializer.loadb(bb)
-</pre>
+```
 
 
 ## Reference
