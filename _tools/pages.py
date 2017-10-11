@@ -49,6 +49,7 @@ def build():
         # To markdown
         text = fix_links(text, name, pages.keys())
         text = highlight(text)
+        text = add_anchors(text)
         pages[name] = markdown.markdown(text, extensions=[])
     
     # Generate pages
@@ -71,6 +72,22 @@ def fix_links(text, name, page_names):
         text = text.replace('](%s.md)' % n.upper(), '](%s.html)' % n)
         text = text.replace('](%s/' % n, '](%s%s/' % (base_url, n))
     return text
+
+
+def add_anchors(text):
+    """ Turn h2 heads into anchors.
+    """
+    lines = []
+    for i, line in enumerate(text.splitlines()):
+        if line.startswith('## '):
+            title = line[3:].split('(')[0].strip().lower()
+            if title:
+                lines.append("<a class='anch' name='{}' href='#{}'>".format(title, title))
+                lines.append(line)
+                lines.append('</a>')
+                continue
+        lines.append(line)
+    return '\n'.join(lines)
 
 
 def highlight(text):
@@ -135,6 +152,15 @@ a:link, a:visited, a:active {
 a:hover {
     text-decoration: underline;
 }
+a.anch:hover {
+    text-decoration: none;
+}
+a.anch:hover h2::after {
+    content: " \\00B6";
+    color: rgba(0, 0, 0, 0.3);
+    font-size: 80%;
+}
+
 a.badge {
     margin: 0;
     padding: 0.1em 0.3em 0.1em 0.3em;
