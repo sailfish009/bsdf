@@ -46,9 +46,6 @@ def build():
     # Convert to html
     menus = {}
     for name, text in list(pages.items()):
-        # Insert back button
-        if name != 'index':
-            text = "<a class='badge' href='index.html'>&lt;&lt;</a>\n\n" + text
         # Convert markdown to HTML
         text = fix_links(text, name, pages.keys())
         text = highlight(text)
@@ -142,10 +139,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<div class='content'>
 <div class='menu'>
 {menu}
+<br /><br />
+<a href="https://gitlab.com/almarklein/bsdf/pipelines">
+<img alt="pipeline status" src="https://gitlab.com/almarklein/bsdf/badges/master/pipeline.svg" />
+</a>
 </div>
+<div class='content'>
 {body}
 <hr />
 <div class='footer'>© Copyright 2017, Almar Klein -
@@ -160,22 +161,24 @@ BSDF_CSS = """
 /* BSDF CSS */
 body {
     background: #ace;
-    width: 100%;
 }
 .content {
     box-sizing: border-box;
     margin: 1em auto;
     padding: 1em 2em;
-    max-width: 640px;
+    max-width: 700px;
     background: #fff;
     border-radius: 0.5em;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
+}
+@media screen and (max-width:  980px) { /* some browser dont trigger for smaller numbers */
+    .content { max-width: 100%;}
 }
 .menu {
     box-sizing: border-box;
     position: fixed;
     top: 1em;
-    right: calc(50% + 320px + 10px);
+    right: calc(50% + 350px + 10px);
     padding: 0.5em 1em;
     width: 240px;
     max-width: 240px;
@@ -185,7 +188,9 @@ body {
     overflow: hidden;
     white-space: nowrap;
 }
-@media (max-width: 1140px) { .menu { display: none;} }
+@media screen and (max-width: 1200px) {
+    .menu { display: none;}
+}
 a:link, a:visited, a:active {
     color: #48C;
     text-decoration: none;
@@ -203,22 +208,6 @@ a.anch:hover h2::after {
     content: " \\00B6";
     color: rgba(0, 0, 0, 0.3);
     font-size: 80%;
-}
-a.badge {
-    margin: 0;
-    padding: 0.1em 0.3em 0.1em 0.3em;
-    border-radius: 0.2em;
-    font-weight: bold;
-    color: #246;
-    font-size: 90%;
-    background: #ace;
-}
-a.badge:hover {
-    text-decoration: none;
-    color: #000;
-}
-span.badge_sep {
-    display: none;
 }
 hr {
     border: 1px solid #ace;
@@ -260,7 +249,7 @@ h3 code, h4 code {
 RESET_CSS = """
 /*! normalize.css v3.0.3 | MIT License | github.com/necolas/normalize.css */
 html
-{font-family:sans-serif;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}
+{font-family:sans-serif;}
 body{margin:0}
 article,aside,details,figcaption,figure,footer,header,hgroup,main,menu,nav,
 section,summary{display:block}

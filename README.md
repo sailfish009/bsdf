@@ -1,17 +1,8 @@
-<a href="https://gitlab.com/almarklein/bsdf/pipelines">
-<img alt="pipeline status" align='right' src="https://gitlab.com/almarklein/bsdf/badges/master/pipeline.svg" />
-</a>
-
-<a class='badge' href='http://almarklein.gitlab.io/bsdf'>Website / docs</a>
-<span class='badge_sep'>|</span>
-<a class='badge' href='http://gitlab.com/almarklein/bsdf'>Gitlab / source code</a>
-
-
 # Binary Structured Data Format
 
-The Binary Structured Data Format (BSDF) is an open specification for
-serializing (scientific) data, for the purpose of storage and (inter process)
-communication.
+The [Binary Structured Data Format](http://almarklein.gitlab.io/bsdf) (BSDF)
+is an open specification for serializing (scientific) data, for the
+purpose of storage and (inter process) communication.
 
 It's designed to be a simple format, making it easy to implement in
 many programming languages. However, the format allows implementations
