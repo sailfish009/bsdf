@@ -18,17 +18,20 @@ Run `invoke -l` in this directory for available tasks (like tests).
 
 ## Usage
 
-```py
-import bsdf
+Simple use:
 
-# Simple use ...
+```python
+import bsdf
 
 # Encode
 bb = bsdf.saveb(my_object)
+
 # Decode
 my_object2 = bsdf.loadb(bb)
+```
+Advanced use:
 
-# Advanced use ...
+```python
 
 # Setup a serializer with converters and options
 serializer = bsdf.BsdfSerializer([bsdf.complex_converter],

@@ -54,7 +54,7 @@ def build():
     # Generate pages
     for name, text in pages.items():
         title = 'BSDF' if name == 'index' else 'BSDF - ' + name
-        css = RESET_CSS + PYGMENTS_CSS + OUR_CSS
+        css = RESET_CSS + PYGMENTS_CSS + BSDF_CSS
         html = HTML_TEMPLATE.format(title=title, style=css, body=text)
         filename2 = os.path.join(pages_dir, name + '.html')
         with open(filename2, 'wb') as f:
@@ -94,7 +94,7 @@ def highlight(text):
             code.append(line)
         else:
             lines.append(line)
-    return '\n'.join(lines)
+    return '\n'.join(lines).strip()
 
 # The rest are just some strings / templates for the website build task ...
 
@@ -115,11 +115,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
-OUR_CSS = """
+BSDF_CSS = """
+/* BSDF CSS */
 html {
     background: #ace;
 }
-
 body {
     margin: 1em auto 1em auto;
     padding: 1em 2em 1em 2em;
@@ -128,7 +128,6 @@ body {
     border-radius: 0.5em;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
-
 a:link, a:visited, a:active {
     color: #48C;
     text-decoration: none;
@@ -136,7 +135,6 @@ a:link, a:visited, a:active {
 a:hover {
     text-decoration: underline;
 }
-
 a.badge {
     margin: 0;
     padding: 0.1em 0.3em 0.1em 0.3em;
@@ -146,26 +144,20 @@ a.badge {
     font-size: 90%;
     background: #ace;
 }
-
 a.badge:hover {
     text-decoration: none;
     color: #000;
 }
-
-
 span.badge_sep {
     display: none;
 }
-
 hr {
     border: 1px solid #ace;
 }
-
 .footer {
     color: #777;
     font-size: 90%;
 }
-
 code {
     font-family: dejavu sans mono, mono, monospace;
     font-weight: bold;
@@ -175,26 +167,21 @@ code {
     padding-left: 0.2em;
     padding-right: 0.2em;
 }
-
- .highlight {
+.highlight {  /*pygments */
     font-family: dejavu sans mono, mono, monospace;
     font-size: 12px;
     color: #444;
     background: #def;
     border: 1px solid #ace;
-    padding: 0.1em 1em;
+    padding: 0em 1em;
     border-radius: 0.2em;
  }
-
-
 h1, h2, h3, h4 {
     color: #246;
 }
-
 h2 {
     border-bottom: 1px solid #ace;
 }
-
 h3 code, h4 code {
     color: #246;
     padding-left: 0;
@@ -250,4 +237,4 @@ table{border-collapse:collapse;border-spacing:0}
 td,th{padding:0}
 """.lstrip()
 
-PYGMENTS_CSS = HtmlFormatter(style='vs').get_style_defs('.highlight')
+PYGMENTS_CSS = '/* Pygments CSS */\n' + HtmlFormatter(style='vs').get_style_defs('.highlight')

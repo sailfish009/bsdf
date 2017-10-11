@@ -19,7 +19,7 @@ Run `invoke -l` in this directory for available tasks (like tests).
 
 ## Usage
 
-<pre style='font-size:80%;'>
+```python
 import bsdf_lite
 
 # Setup a serializer with converters and options
@@ -28,7 +28,7 @@ serializer = bsdf_lite.BsdfLiteSerializer([bsdf_lite.complex_converter],
 # Use it
 bb = serializer.saveb(my_object1)
 my_object2 = serializer.loadb(bb)
-</pre>
+```
 
 
 ## Reference

@@ -24,12 +24,12 @@ Run `invoke -l` in this directory for available tasks (like tests).
 
 Functionality is provided via a single `bsdf` function:
 
-<pre style='font-size:80%;'>
+```matlab
 data = bsdf(filename)  % to load data from file
 data = bsdf(bytes)     % to load data from bytes
 bsdf(filename, data)   % to save data to file
 bytes = bsdf(data)     % to serialize data to bytes (a uint8 array)
-</pre>
+```
 
 Options (for writing) can be provided via argument pairs:
     
