@@ -29,6 +29,7 @@ def build():
     
     # Collect markdown pages
     pages = {}
+    page_is_implementation = {}
     for fname in os.listdir(ROOT_DIR):
         if fname.endswith('.md'):
             name = fname.split('.')[0].lower()
@@ -40,23 +41,37 @@ def build():
             continue
         name = 'index' if name == 'readme' else name  # Some names need replacing
         pages[name] = open(filename, 'rb').read().decode('utf-8')
+        page_is_implementation[name] = '.' not in fname
     
     # Convert to html
+    menus = {}
     for name, text in list(pages.items()):
         # Insert back button
         if name != 'index':
             text = "<a class='badge' href='index.html'>&lt;&lt;</a>\n\n" + text
-        # To markdown
+        # Convert markdown to HTML
         text = fix_links(text, name, pages.keys())
         text = highlight(text)
-        text = add_anchors(text)
+        text, headers = add_anchors(text)
         pages[name] = markdown.markdown(text, extensions=[])
+        # Build menu
+        menu = []
+        for is_imp in (False, True):
+            for pagename in sorted(pages, key=lambda n: (n!='index', n)):
+                if is_imp != page_is_implementation[pagename]:
+                    continue
+                menu.append("<a href='{}.html'>{}</a>".format(pagename, 'BSDF' if pagename == 'index' else pagename))
+                if pagename == name:
+                    menu += ["&nbsp;&nbsp;&nbsp;<a href='#{}'>{}</a>".format(title, title) for title in headers]
+            menu.append('')
+        menu.append("<a href='http://gitlab.com/almarklein/bsdf'>Source at Gitlab</a>")
+        menus[name] = '<br />'.join(menu)
     
     # Generate pages
     for name, text in pages.items():
         title = 'BSDF' if name == 'index' else 'BSDF - ' + name
         css = RESET_CSS + PYGMENTS_CSS + BSDF_CSS
-        html = HTML_TEMPLATE.format(title=title, style=css, body=text)
+        html = HTML_TEMPLATE.format(title=title, style=css, body=text, menu=menus[name])
         filename2 = os.path.join(pages_dir, name + '.html')
         with open(filename2, 'wb') as f:
             f.write(html.encode('utf-8'))
@@ -78,6 +93,7 @@ def add_anchors(text):
     """ Turn h2 heads into anchors.
     """
     lines = []
+    headers = []
     for i, line in enumerate(text.splitlines()):
         if line.startswith('## '):
             title = line[3:].split('(')[0].strip().lower()
@@ -85,9 +101,10 @@ def add_anchors(text):
                 lines.append("<a class='anch' name='{}' href='#{}'>".format(title, title))
                 lines.append(line)
                 lines.append('</a>')
+                headers.append(title)
                 continue
         lines.append(line)
-    return '\n'.join(lines)
+    return '\n'.join(lines), headers
 
 
 def highlight(text):
@@ -118,39 +135,66 @@ def highlight(text):
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
-    <title>{title}</title>
-    <meta charset="utf-8">
-</head>
-<body>
+<title>{title}</title>
+<meta charset="utf-8">
 <style>
 {style}
 </style>
+</head>
+<body>
+<div class='content'>
+<div class='menu'>
+{menu}
+</div>
 {body}
 <hr />
-<div class='footer'>© Copyright 2017, Almar Klein - BSDF lives on <a href='http://gitlab.com/almarklein/bsdf'>GitLab</a> </div>
+<div class='footer'>© Copyright 2017, Almar Klein -
+the texts on this page are licensed under <a href='https://creativecommons.org/licenses/by/4.0/'>CC BY 4.0</a>
+</div>
+</div>
 </body>
 </html>
 """
 
 BSDF_CSS = """
 /* BSDF CSS */
-html {
-    background: #ace;
-}
 body {
-    margin: 1em auto 1em auto;
-    padding: 1em 2em 1em 2em;
+    background: #ace;
+    width: 100%;
+}
+.content {
+    box-sizing: border-box;
+    margin: 1em auto;
+    padding: 1em 2em;
     max-width: 640px;
     background: #fff;
     border-radius: 0.5em;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
+.menu {
+    box-sizing: border-box;
+    position: fixed;
+    top: 1em;
+    right: calc(50% + 320px + 10px);
+    padding: 0.5em 1em;
+    width: 240px;
+    max-width: 240px;
+    background: #fff;
+    border-radius: 0.5em;
+    box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    white-space: nowrap;
+}
+@media (max-width: 1140px) { .menu { display: none;} }
 a:link, a:visited, a:active {
     color: #48C;
     text-decoration: none;
 }
 a:hover {
     text-decoration: underline;
+}
+.menu a {
+    color: #246;
 }
 a.anch:hover {
     text-decoration: none;
@@ -160,7 +204,6 @@ a.anch:hover h2::after {
     color: rgba(0, 0, 0, 0.3);
     font-size: 80%;
 }
-
 a.badge {
     margin: 0;
     padding: 0.1em 0.3em 0.1em 0.3em;
@@ -197,7 +240,7 @@ code {
     font-family: dejavu sans mono, mono, monospace;
     font-size: 12px;
     color: #444;
-    background: #def;
+    background: #ddeeff;
     border: 1px solid #ace;
     padding: 0em 1em;
     border-radius: 0.2em;
