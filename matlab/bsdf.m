@@ -270,11 +270,13 @@ function bsdf_encode(f, value, opt)
         write_length(f, data_size);
         fwrite(f, compression, 'uint8');
         fwrite(f, 0, 'uint8');  % no checksum
-        % Byte alignment (only for uncompressed data)
+        % Byte alignment (only necessary for uncompressed data)
         if compression == 0
             alignment = mod(ftell(f) + 1, 8);  % +1 for the byte about to write
             fwrite(f, alignment, 'uint8');
             fwrite(f, zeros(alignment, 1), 'uint8');
+        else
+            fwrite(f, 0, 'uint8');
         end
         fwrite(f, compressed, 'uint8');
         fwrite(f, zeros(extra_size, 1), 'uint8');
