@@ -210,7 +210,8 @@ class BsdfSerializer(object):
     def _encode(self, f, value, streams, converter_id):
         """ Main encoder function.
         """
-
+        
+        # todo: put these closures outside
         if converter_id is not None:
             bb = converter_id.encode('UTF-8')
             converter_patch = lencode(len(bb)) + bb
@@ -425,8 +426,8 @@ class BsdfSerializer(object):
         minor_version = strunpack('<B', f.read(1))[0]
         file_version = '%i.%i' % (major_version, minor_version)
         if major_version != format_version[0]:  # major version should be 2
-            t = ('Warning: reading file with higher major version (%s) '
-                 'than the implementation (%s).')
+            t = ('Reading file with different major version (%s) '
+                 'from the implementation (%s).')
             raise RuntimeError(t % (__version__, file_version))
         if minor_version > format_version[1]:  # minor should be < ours
             # todo: warn/log instead of print
@@ -556,7 +557,7 @@ class Blob(object):
             f.write(b'\xff' + hashlib.md5(self.compressed).digest())
         else:
             f.write(b'\x00')
-        # Byte alignment (only for uncompressed data)
+        # Byte alignment (only necessary for uncompressed data)
         if self.compression == 0:
             alignment = (f.tell() + 1) % 8  # +1 for the byte about to write
             f.write(spack('<B', alignment))  # padding for byte alignment
