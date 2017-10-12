@@ -95,6 +95,7 @@ job_javascript_node:
     - pip install invoke
     #
     - python --version
+    - nodejs --version || node --version
     - invoke -l
     #
     - invoke test-unit

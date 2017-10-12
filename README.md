@@ -10,7 +10,7 @@ to support powerful mechanics such as lazy loading of binary data, and
 streamed reading/writing.
 
 Implementations currently exist for multiple languages. Each implementation is
-[well-tested](https://gitlab.com/almarklein/bsdf/pipelines) to ensure compatibility.
+[continuously tested](https://gitlab.com/almarklein/bsdf/pipelines) to ensure compatibility.
 
 
 ## Format
@@ -22,7 +22,7 @@ bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
 checksums, and can be resized.
 
 BSDF has an efficient extension mechanism by which other types of data
-can be serialized with user-defined converter functions.
+can be serialized with user-defined converters.
 
 BSDF is a binary format; by giving up on human readability, we were able to
 make BSDF simple, compact and fast. See the [full specification](SPEC.md), or
@@ -34,7 +34,7 @@ how it [compares](COMPARISON.md) to other formats.
 * The [Python](python) implementation in the form of [bsdf.py](python/bsdf.py).
 * The [lite Python](python_lite) implementation in the form of [bsdf_lite.py](python_lite/bsdf_lite.py).
 * The [Matlab / Octave](matlab) implementation in the form of [bsdf.m](matlab/bsdf.m).
-* The [JavaScript](javascript) implementation (WIP) in the form of [bsdf.js](javascript/bsdf.js).
+* The [JavaScript](javascript) implementation in the form of [bsdf.js](javascript/bsdf.js).
 
 We'd like implementations for other languages (such as R and Julia).
 BSDF is designed to be easy to implement; perhaps you want to
