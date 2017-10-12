@@ -58,7 +58,7 @@ job_python_py34:
 
 
 job_python_py36:
-  image: python:3.6
+  image: almarklein/py36
   script:
     - cd python
     - pip install invoke flake8 pytest pytest-cov
@@ -76,9 +76,9 @@ job_matlab_octave:
   image: almarklein/octave
   script:
     - cd matlab
-    - pip install invoke
+    - pip3 install invoke
     #
-    - python --version
+    - python3 --version
     - octave-cli --version
     - invoke -l
     #
@@ -89,12 +89,12 @@ job_matlab_octave:
 # ---------- Node / JavaScript
 
 job_javascript_node:
-  image: datagovsg/python-node
+  image: almarklein/nodejs
   script:
     - cd javascript
     - pip install invoke
     #
-    - python --version
+    - python3 --version
     - nodejs --version || node --version
     - invoke -l
     #
@@ -106,7 +106,7 @@ job_javascript_node:
 
 pages:  # this name matters
   stage: deploy
-  image: python:3.6
+  image: almarklein/py36
   script:
     - pip install invoke markdown pygments
     #

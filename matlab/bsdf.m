@@ -209,9 +209,7 @@ end
 
 
 function bsdf_encode(f, value, opt)
-  
-    % todo: convert ...
-    
+
     if isa(value, 'struct')
         fwrite(f, 'm');
         keys = fieldnames(value);
