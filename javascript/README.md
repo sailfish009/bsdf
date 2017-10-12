@@ -1,14 +1,20 @@
 # BSDF Javascript implementation
 
-This implementation of BSDF is intended for use in either NodeJS or the browser.
-It is a "lite" implementation, without support for e.g. streaming.
+This implementation of BSDF is intended for use in NodeJS or the browser.
+It is a "lite" implementation, without support for e.g. lazy loading
+or streaming.
 
 ## Installation
 
 Include [bsdf.js](bsdf.js) in your project.
 
 
+## Reference
 
-## Maintainers
+```
+bsdf = require('bsdf.js');
 
-* @almarklein
+var bb = bsdf.encode(data1);
+
+data2 = bsdf.decode(bb);
+```

@@ -112,7 +112,7 @@ function ByteBuilder() {
     function push_bytes(s) { // uint8Array
         var n = s.byteLength;
         if (pos + n > buf.byteLength) { need_size(pos + n); }
-        for (var i=0; i<n; i++) { buf[pos+i] = s[i]; }
+        for (var i=0; i<n; i++) { buf8[pos+i] = s[i]; }
         pos += n;
     }
     function push_char(s) {
@@ -212,7 +212,7 @@ function encode_object(f, value, converter_id) {
                 f.push_str(key);
                 encode_object(f, value[key]);
             }
-        } else if (b instanceof ArrayBuffer) {  // bytes
+        } else if (value instanceof ArrayBuffer) {  // bytes
             encode_type_id(f, 'b', converter_id);
             var compression = 0;
             var compressed = new Uint8Array(value);
@@ -235,7 +235,7 @@ function encode_object(f, value, converter_id) {
             f.push_uint8(0);  // no checksum
             // Byte alignment
             if (compression == 0) {
-                alignment = (f.tell() + 1) % 8  // +1 for the byte to write
+                var alignment = (f.tell() + 1) % 8  // +1 for the byte to write
                 f.push_uint8(alignment);
                 for (var i=0; i<alignment; i++) { f.push_uint8(0); }
             } else {
@@ -246,7 +246,12 @@ function encode_object(f, value, converter_id) {
             f.push_bytes(new Uint8Array(allocated_size - used_size));
         } else {
             // todo: try converters
-            throw "cannot encode object " + value.constructor.name;
+
+            if (value instanceof Complex) {
+                encode_object(f, [value.real, value.imag], 'c');
+            } else {
+                throw "cannot encode object " + value.constructor.name;
+            }
         }
     } else {
         throw "cannot encode type " + typeof(value);
@@ -258,8 +263,8 @@ function encode_object(f, value, converter_id) {
 function BytesReader(buf) {
 
     // We need a typed array (not a raw buffer) so we know the offset in the buffer.
-    // If we get a buffer, we just use a zero offset.
-    if (buf.constructor === ArrayBuffer) { buf = new Uint8Array(buf); }
+    // If we get an ArrayBuffer (or Node Buffer), we just use a zero offset.
+    if (buf.constructor !== Uint8Array) { buf = new Uint8Array(buf); }
 
     var pos = buf.byteOffset;
     var buf = buf.buffer;
@@ -284,8 +289,14 @@ function BytesReader(buf) {
     }
     function get_size() {
         var s = buf8[pos++];
-        if (s == 253) {
-            s = bufdv.getUint32(pos, true) + bufdv.getUint32(pos+4, true) * 4294967296;
+        if (s >= 253) {
+            if (s == 253) {
+                s = bufdv.getUint32(pos, true) + bufdv.getUint32(pos+4, true) * 4294967296;
+            } else if (s == 255) {
+                s = -1;  // streaming
+            } else {
+                throw "Invalid size";
+            }
             pos += 8;
         }
         return s;
@@ -304,7 +315,7 @@ function BytesReader(buf) {
     function get_uint8() {
         return buf8[pos++];
     }
-    function get_int(c) {
+    function get_int() {
         var isneg = (buf8[pos+7] & 0x80) > 0;
         if (isneg) {
             var s = -1;
@@ -317,17 +328,17 @@ function BytesReader(buf) {
         return s;
 
     }
-    function get_float32(c) {
+    function get_float32() {
         var s = bufdv.getFloat32(pos, true);
         pos += 4;
         return s;
-    } function get_float64(c) {
+    } function get_float64() {
         var s = bufdv.getFloat64(pos, true);
         pos += 8
         return s;
     }
 
-    return {tell: tell, get_size:get_size, get_bytes: get_bytes, get_uint8: get_uint8, get_int: get_int,
+    return {tell: tell, buf8:buf8, get_size:get_size, get_bytes: get_bytes, get_uint8: get_uint8, get_int: get_int,
             get_float32: get_float32, get_float64: get_float64, get_char: get_char, get_str: get_str};
 
 }
@@ -337,6 +348,16 @@ function decode_object(f) {
     var char = f.get_char();
     var c = char.toLowerCase();
     var value;
+    var converter_id = null;
+
+    if (char == '\x00') {  // because String.fromCharCode(undefined) produces ASCII 0.
+        throw new EOFError('End of BSDF data reached.');
+    }
+
+    // Conversion (uppercase value identifiers signify converted values)
+    if (char != c) {
+        converter_id = f.get_str();
+    }
 
     if (c == 'v') {
         value = null;
@@ -356,9 +377,20 @@ function decode_object(f) {
         value = f.get_str();
     } else if (c == 'l') {
         var n = f.get_size();
-        value = new Array(n);
-        for (var i=0; i<n; i++) {
-            value[i] = decode_object(f);
+        if (n < 0) {
+            // Streaming
+            value = new Array();
+            try {
+                while (true) { value.push(decode_object(f)); }
+            } catch(err) {
+                if (err instanceof EOFError) { /* ok */ } else { throw err; }
+            }
+        } else {
+            // Normal
+            value = new Array(n);
+            for (var i=0; i<n; i++) {
+                value[i] = decode_object(f);
+            }
         }
     } else if (c == 'm') {
         var n = f.get_size();
@@ -390,11 +422,29 @@ function decode_object(f) {
             throw "JS implementation of BSDF does not support compression (" + compression + ')';
         }
     } else {
-        throw "Invalid value specifier at pos " + f.tell() + ": " + JSON.stringify(c);
+        throw "Invalid value specifier at pos " + f.tell() + ": " + JSON.stringify(char);
     }
 
-    // todo: maybe convert value
+    // Convert? for now this is hard-coded -> need user-defined converters!
+    if (converter_id !== null) {
+        if (converter_id == 'c') {
+            value = new Complex(value[0], value[1]);
+        } else {
+            console.log('No known converter for "' + converter_id + '", value passes in raw form.');
+        }
+    }
     return value;
+}
+
+
+// To be able to support complex numbers
+function Complex(real, imag) {
+    this.real = real;
+    this.imag = imag;
+}
+
+function EOFError(msg) {
+    this.msg = msg;
 }
 
 // ==================

@@ -17,7 +17,8 @@ def test_shared(ctx):
     """ Run BSDF tests on JS using the shared test service. """
     sys.path.insert(0, os.path.join(this_dir, '..', '_tools'))
     import testservice
-    testservice.main(this_dir, 'node', 'testservice_runner.js', '{fname1}', '{fname2}')
+    testservice.main(this_dir, 'node', 'testservice_runner.js', '{fname1}', '{fname2}',
+                     excludes=['roundfloatisnotint'])
 
 @task
 def test_unit(ctx):
