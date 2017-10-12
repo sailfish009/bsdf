@@ -88,7 +88,17 @@ job_matlab_octave:
 
 # ---------- Node / JavaScript
 
-# todo: job_js
+job_javascript_node8:
+  image: node:8.7
+  script:
+    - cd javascript
+    - pip install invoke
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke test-unit
+    - invoke test-shared
 
 
 # ---------- Website
