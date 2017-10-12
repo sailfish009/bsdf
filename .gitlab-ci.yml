@@ -92,7 +92,7 @@ job_javascript_node:
   image: almarklein/nodejs
   script:
     - cd javascript
-    - pip install invoke
+    - pip3 install invoke
     #
     - python3 --version
     - nodejs --version || node --version
