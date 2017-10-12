@@ -91,7 +91,9 @@ def random_bool():
     return random.random() > 0.5
 
 def random_int():
-    return random.randint(-2**62, 2**62)
+    # Range based on maxiumum that can be reliably encoded with a float64, since
+    # some languages (e.g. JS) don't have real ints.
+    return random.randint(-9007199254740991, 9007199254740991)
 
 def random_float():
     # which does not support these

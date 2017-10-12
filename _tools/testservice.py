@@ -44,10 +44,11 @@ def setup_module(module):
     exe_name = 'pytest'
 
 
-def main(test_dir_, *exe_):
+def main(test_dir_, *exe_, excludes=None):
     """ We call this when this is run as as script. """
     global test_dir, exe, exe_name, runner
     
+    excludes = dict((e, True) for e in (excludes or []))
     # Set exe and test_dir
     test_dir = test_dir_
     exe = list(exe_)
@@ -60,7 +61,7 @@ def main(test_dir_, *exe_):
         if name.startswith('test_') and callable(func):
             print('Running service test %s %s ' % (exe_name, name), end='')
             try:
-                func()
+                func(**excludes)
             except Exception:
                 print('  Failed')
                 raise
@@ -259,7 +260,7 @@ JSON_ABLE_OBJECTS = [
 ]
 
 
-def test_bsdf_to_json():
+def test_bsdf_to_json(**excludes):
     
     for data1 in JSON_ABLE_OBJECTS:
         fname1, fname2 = get_filenames('.bsdf', '.json')
@@ -267,7 +268,7 @@ def test_bsdf_to_json():
         compare_data(data1, data2)
 
 
-def test_json_to_bsdf():
+def test_json_to_bsdf(**excludes):
     
     for data1 in JSON_ABLE_OBJECTS:
         fname1, fname2 = get_filenames('.json', '.bsdf')
@@ -275,7 +276,7 @@ def test_json_to_bsdf():
         compare_data(data1, data2)
 
 
-def test_bsdf_to_bsdf():
+def test_bsdf_to_bsdf(**excludes):
     
     # Just repeat these
     for data1 in JSON_ABLE_OBJECTS[:-1]:
@@ -284,11 +285,18 @@ def test_bsdf_to_bsdf():
         compare_data(data1, data2)
     
     # Singletons, some JSON implementations choke on these
-    for data1 in [None, False, True,  0, 1, 0.0, 1.0, 4, 3.4, '', 'hello', [], {}, b'', b'xx']:
+    for data1 in [None, False, True, 3.4, '', 'hello', [], {}, b'', b'xx']:
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
-        assert str(data1) == str(data2)  # because False != 0
+        assert str(data1) == str(data2), str((data1, data2))  # because False != 0
+    
+    for data1 in [0, 1, 0.0, 1.0, 4]:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        data2 = convert_data(fname1, fname2, data1)
+        compare_data(data1, data2)
+        if 'roundfloatisnotint' not in excludes:
+            assert str(data1) == str(data2), str((data1, data2))  # because 0.0 != 0
     
     # Special values
     for data1 in [float('nan'), float('inf'), float('-inf')]:
@@ -367,7 +375,7 @@ def test_bsdf_to_bsdf():
     assert data2 == [3, 4, 5, [6, 7]]
 
 
-def test_bsdf_to_bsdf_random():
+def test_bsdf_to_bsdf_random(**excludes):
     
     # we want pytest to be repeatable
     if exe_name == 'pytest':
