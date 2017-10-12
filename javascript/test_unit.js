@@ -25,22 +25,48 @@ c = bsdf.decode(b);
 assert(str(a) == str(c), a, c);
 
 
-/* Test real basics: bytes
+/* Test bytes
  */
-a = new Uint8Array([4, 5, 6]);
-b = bsdf.encode(a.buffer);
+a0 = new Uint8Array([4, 5, 6]);
+a = a0.buffer;
+b = bsdf.encode(a);
 c = bsdf.decode(b);
+c0 = new Uint8Array(c.buffer, c.byteOffset, c.byteLength);
 
-assert(a.buffer instanceof ArrayBuffer, a);
-// todo: assert(b.buffer instanceof ArrayBuffer, b);
-// todo: assert(c.buffer instanceof ArrayBuffer, c);
-d = new Uint8Array(c);
+assert(a instanceof ArrayBuffer, a);
+assert(b instanceof ArrayBuffer, b);
+assert(c instanceof DataView, c);
 
-for (i=0; i<3; i++) {
-    assert(a[0] == d[0], a, d);
-}
+for (i=0; i<3; i++) { assert(a0[0] == c0[0], a, c); }
 
+// decode also accepts DataView and uint8
+b0 = new Uint8Array(b);
+offset = 3;
+b_with_offset = new Uint8Array(b.byteLength + offset);
+for (j=0; j<b.byteLength; j++) { b_with_offset[j+offset] = b0[j]; }
 
+b1 = new DataView(b_with_offset.buffer, offset, b.byteLength);
+b2 = new Uint8Array(b_with_offset.buffer, offset, b.byteLength);
+
+c = bsdf.decode(b1);
+assert(c instanceof DataView, c);
+c0 = new Uint8Array(c.buffer, c.byteOffset, c.byteLength);
+for (i=0; i<3; i++) { assert(a0[0] == c0[0], a, c); }
+
+c = bsdf.decode(b2);
+assert(c instanceof DataView, c);
+c0 = new Uint8Array(c.buffer, c.byteOffset, c.byteLength);
+for (i=0; i<3; i++) { assert(a0[0] == c0[0], a, c); }
+
+// bytes can also be given as DataView
+a1 = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+a0 = new Uint8Array(a1, 3 , 3);
+a = new DataView(a1.buffer, a0.byteOffset, a0.byteLength);
+b = bsdf.encode(a);
+c = bsdf.decode(b);
+c0 = new Uint8Array(c.buffer, c.byteOffset, c.byteLength);
+assert(c instanceof DataView, c);
+for (i=0; i<3; i++) { assert(a0[0] == c0[0], a, c); }
 
 
 /* Test integer encoding.
@@ -65,7 +91,7 @@ aa = [0, -1, -2, 1, 2, 42, -1337,
 
 for (i=0; i<aa.length; i++) {
     a = aa[i];
-    
+
     // encode via uint16
     // I suppose that this would fail on Big Endian systems ...
     if (a < 0) {
@@ -76,7 +102,7 @@ for (i=0; i<aa.length; i++) {
         bufu16[0] = (a % 65536 );
         bufu16[1] = (a / 65536 ) & 65535;
     }
-    
+
     // decode via uint16
     //var isneg = (bufu8[3] & 0x80) > 0;
     var isneg = (bufu16[1] & 0x8000) > 0;
@@ -85,10 +111,10 @@ for (i=0; i<aa.length; i++) {
     } else {
         b = bufu16[0] + bufu16[1] * 65536;
     }
-    
+
     assert(a == bufi32[0], a, bufi32[0]);
     assert(a == b, a, b);
-    console.log(a, b, isneg, 'ok');
+    //console.log(a, b, isneg, 'ok');
 }
 
 for (i=0; i<aa.length; i++) {
@@ -129,7 +155,7 @@ for (i=0; i<aa.length; i++) {
 
     assert(a == bufi32[0], a, bufi32[0]);
     assert(a == b, a, b);
-    console.log(a, b, isneg, 'ok');
+    //console.log(a, b, isneg, 'ok');
 }
 
 

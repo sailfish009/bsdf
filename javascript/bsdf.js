@@ -1,15 +1,29 @@
 
 /* JavaScript implementation of the Binary Structured Data Format (BSDF)
  *
+ * bsdf_encode(data) -> ArrayBuffer
+ * bsdf_decode(bytes) -> data (bytes can be ArrayBuffer, DataView or Uint8Array)
+ *
+ * The data is any data structure supported by BSDF and the applies converters.
+ * ArrayBuffer and DataView are consumed as bytes, Uint8Array as a typed array.
+ *
  * See http://gitlab.com/almarklein/bsdf for more information.
  *
  */
 
 /* Developer notes:
  *
- * To represent bytes we need to chose between Uint8Array and ArrayBuffer. The latter
- * most closely resembles abstract byte blobs, but it cannot be a view. We consider
- * ArrayBuffer byte blobs, but the encode() and decode() function produce/accept Uint8Array.
+ * To represent bytes we need to chose between Uint8Array, DataView and ArrayBuffer.
+ * The ArrayBuffer most closely resembles abstract byte blobs, but it cannot be a view.
+ * The Uint8Array can be a view, but it can represent an array of numbers.
+ * The DataView provides an abstract view on a buffer, so it seems to give us both.
+ *
+ * - The encoder accepts either of these three (and also Nodejs Buffer objects).
+ * - The decoder returns ArrayBuffer.
+ * - The encoder consumes DataView and ArrayBuffer as bytes.
+ * - The decoder produces DataView objects for bytes, allowing mapping to typed arrays
+ *   without copying.
+ *
  */
 
 (function (root, factory) {
@@ -74,11 +88,14 @@ function ByteBuilder() {
     // We use an arraybuffer for efficiency, but we don't know its final size.
     // Therefore we create a new one with increasing size when needed.
     var buffers = [];
-    var buf = new ArrayBuffer(8);
-    var buf8 = new Uint8Array(buf);
-    //var buf64 = new Uint64Array(buf);
-    var bufdv = new DataView(buf);
+    var min_buf_size = 1024;
+
+    var buf8 = new Uint8Array(min_buf_size);
+    var bufdv = new DataView(buf8.buffer);
+
     var pos = 0;
+    var pos_offset = 0;
+    var pos_max = buf8.byteLength;  // max valid value of pos
 
     // Create text encoder / decoder
     var text_encode, text_decode;
@@ -90,50 +107,61 @@ function ByteBuilder() {
         text_encode = utf8encode;
     }
 
-    function get_bytes() {
-        return new Uint8Array(buf, 0, pos);
+    function get_result() {
+        // Combine all sub buffers into one contiguous buffer
+        var total = new Uint8Array(pos_offset + pos);
+        var i = 0;
+        for (var index=0; index<buffers.length; index+=2) {
+            var sub = buffers[index];
+            var n = buffers[index + 1];
+            var offset = i
+            for(var j=0; j<n; j++, i++){ total[i] = sub[j]; }
+        }
+        for(var j=0; j<pos; j++, i++){ total[i] = buf8[j]; }  // also current buffer
+        return total.buffer; // total is an exact fit on its buffer
     }
-    function need_size(n) {
-        // establish size
-        var new_size = buf.byteLength;
-        while (new_size < n) { new_size += Math.min(new_size, 65536); }
-        // create new (larger) copy of buffer
-        var old8 = buf8;
-        // buf = ArrayBuffer.transfer(buf, new_size); --> not yet supported
-        buf = new ArrayBuffer(new_size);
-        buf8 = new Uint8Array(buf);
-        //buf64 = new Uint64Array(buf);
-        bufdv = new DataView(buf);
-        for (var i=0; i<old8.length; i++) {buf8[i] = old8[i]; }
+    function new_buffer(n) {
+        // Establish size
+        var new_size = Math.max(n + 64 , min_buf_size);
+        // Store current buffer
+        buffers.push(buf8);
+        buffers.push(pos);
+        // Create new
+        buf8 = new Uint8Array(new_size);
+        bufdv = new DataView(buf8.buffer);
+        // Set positions
+        pos_offset += pos;
+        pos_max = buf8.byteLength;
+        pos = 0;
     }
     function tell() {
-        return pos;
+        return pos_offset + pos;
     }
-    function push_bytes(s) { // uint8Array
+    function push_bytes(s) {  // we use Uint8Array internally for this
         var n = s.byteLength;
-        if (pos + n > buf.byteLength) { need_size(pos + n); }
+        if (pos + n > pos_max) { new_buffer(n); }
         for (var i=0; i<n; i++) { buf8[pos+i] = s[i]; }
         pos += n;
     }
     function push_char(s) {
-        if (pos + 1 > buf.byteLength) { need_size(pos + 1); }
+        if (pos + 1 > pos_max) { new_buffer(1); }
         buf8[pos] = s.charCodeAt();
         pos += 1;
     }
     function push_str(s) {
         var bb = text_encode(s);
         push_size(bb.length);
-        if (pos + bb.length > buf.byteLength) { need_size(pos + bb.length); }
+        if (pos + bb.length > pos_max) { new_buffer(bb.length); }
         for (var i=0; i<bb.length; i++) { buf8[pos + i] = bb[i]; }
         pos += bb.length;
     }
     function push_size(s, big) {
         if (s <= 250 && typeof big == 'undefined') {
-            if (pos + 1 > buf.byteLength) { need_size(pos + 1); }
+            if (pos + 1 > pos_max) { new_buffer(1); }
             buf8[pos] = s;
             pos += 1;
         } else {
-            if (pos + 9 > buf.byteLength) { need_size(pos + 9); }
+            if (pos + 9 > pos_max) { new_buffer(9); }
             buf8[pos] = 253;
             bufdv.setUint32(pos+1, (s % 4294967296), true); // uint64
             bufdv.setUint32(pos+5, (s / 4294967296) & 4294967295, true);
@@ -141,12 +169,12 @@ function ByteBuilder() {
         }
     }
     function push_uint8(s) {
-        if (pos + 1 > buf.byteLength) { need_size(pos + 1); }
+        if (pos + 1 > pos_max) { new_buffer(1); }
         buf8[pos] = s;
         pos += 1;
     }
     function push_int(s) {
-        if (pos + 8 > buf.byteLength) { need_size(pos + 8); }
+        if (pos + 8 > pos_max) { new_buffer(8); }
         if (s < 0) { // perform two's complement encoding
             for (var j=0, a=s+1; j<8; j++, a/=256) { buf8[pos+j] = ((-(a % 256 )) & 255) ^ 255; }
         } else {
@@ -156,11 +184,11 @@ function ByteBuilder() {
     }
     function push_float64(s) {
         // todo: we could push 32bit floats via "f"
-        if (pos + 8 > buf.byteLength) { need_size(pos + 8); }
+        if (pos + 8 > pos_max) { new_buffer(8); }
         bufdv.setFloat64(pos, s, true);
         pos += 8;
     }
-    return {get_bytes: get_bytes, tell: tell, push_bytes: push_bytes,
+    return {get_result: get_result, tell: tell, push_bytes: push_bytes,
             push_char: push_char, push_str: push_str, push_size: push_size,
             push_uint8: push_uint8, push_int: push_int, push_float64: push_float64}
 }
@@ -212,10 +240,11 @@ function encode_object(f, value, converter_id) {
                 f.push_str(key);
                 encode_object(f, value[key]);
             }
-        } else if (value instanceof ArrayBuffer) {  // bytes
+        } else if (value instanceof ArrayBuffer || value instanceof DataView) {  // bytes
+            if (value instanceof ArrayBuffer) { value = new DataView(value); }
             encode_type_id(f, 'b', converter_id);
             var compression = 0;
-            var compressed = new Uint8Array(value);
+            var compressed = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);  // map to uint8
             var data_size = value.byteLength;
             var used_size = data_size;
             var extra_size = 0;
@@ -262,14 +291,21 @@ function encode_object(f, value, converter_id) {
 
 function BytesReader(buf) {
 
-    // We need a typed array (not a raw buffer) so we know the offset in the buffer.
-    // If we get an ArrayBuffer (or Node Buffer), we just use a zero offset.
-    if (buf.constructor !== Uint8Array) { buf = new Uint8Array(buf); }
+    // Buffer can be ArrayBuffer, DataView or Uint8Array, or Nodejs Buffer, we map to DataView
+    var bufdv;
 
-    var pos = buf.byteOffset;
-    var buf = buf.buffer;
-    var buf8 = new Uint8Array(buf);
-    var bufdv = new DataView(buf);
+    if (typeof buf.byteLength == 'undefined') {
+        throw "BSDF decorer needs something that looks like bytes";
+    }
+    if (typeof buf.byteOffset == 'undefined') {
+        bufdv = new DataView(buf);  // buf was probably an ArrayBuffer
+    } else {
+        bufdv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);  // remap to something we know
+    }
+
+    var startpos = bufdv.byteOffset;
+    var pos = 0;
+    var buf8 = new Uint8Array(bufdv.buffer, bufdv.byteOffset, bufdv.byteLength);
 
     // Create text encoder / decoder
     var text_encode, text_decode;
@@ -301,14 +337,14 @@ function BytesReader(buf) {
         }
         return s;
     }
-    function get_bytes(n) {  // Uint8Array
-        var s = new Uint8Array(buf, pos, n);
+    function get_bytes(n) {  // we use Uint8Array internally for this
+        var s = new Uint8Array(buf8.buffer, buf8.byteOffset + pos, n);
         pos += n;
         return s;
     }
     function get_str() {
         var n = get_size();
-        var bb = new Uint8Array(buf, pos, n);
+        var bb = new Uint8Array(buf8.buffer, buf8.byteOffset + pos, n);
         pos += n;
         return text_decode(bb);
     }
@@ -326,7 +362,6 @@ function BytesReader(buf) {
         }
         pos += 8;
         return s;
-
     }
     function get_float32() {
         var s = bufdv.getFloat32(pos, true);
@@ -338,7 +373,7 @@ function BytesReader(buf) {
         return s;
     }
 
-    return {tell: tell, buf8:buf8, get_size:get_size, get_bytes: get_bytes, get_uint8: get_uint8, get_int: get_int,
+    return {tell: tell, get_size:get_size, get_bytes: get_bytes, get_uint8: get_uint8, get_int: get_int,
             get_float32: get_float32, get_float64: get_float64, get_char: get_char, get_str: get_str};
 
 }
@@ -414,10 +449,10 @@ function decode_object(f) {
         var alignment = f.get_uint8();
         f.get_bytes(alignment)
         // Get data (as ArrayBuffer)
-        var compressed = f.get_bytes(used_size);
+        var compressed = f.get_bytes(used_size);  // uint8
         f.get_bytes(allocated_size - used_size);  // skip extra space
         if (compression == 0) {
-            value = compressed.buffer.slice(compressed.byteOffset, compressed.byteOffset + compressed.byteLength);
+            value = new DataView(compressed.buffer, compressed.byteOffset, compressed.byteLength);
         } else {
             throw "JS implementation of BSDF does not support compression (" + compression + ')';
         }
@@ -457,7 +492,7 @@ function bsdf_encode(d) {
     f.push_uint8(VERSION[0]); f.push_uint8(VERSION[1]);
     // Encode and return result
     encode_object(f, d);
-    return f.get_bytes();
+    return f.get_result();
 }
 
 function bsdf_decode(buf) {
@@ -465,7 +500,7 @@ function bsdf_decode(buf) {
     // Check head
     var head = f.get_char() + f.get_char() + f.get_char() + f.get_char()
     if (head != 'BSDF') {
-        throw "This does not look like BSDF encoded data."
+        throw "This does not look like BSDF encoded data: " + head;
     }
     // Check version
     var major_version = f.get_uint8();
