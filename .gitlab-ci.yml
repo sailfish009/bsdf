@@ -88,8 +88,8 @@ job_matlab_octave:
 
 # ---------- Node / JavaScript
 
-job_javascript_node8:
-  image: node:8.7
+job_javascript_node:
+  image: datagovsg/python-node
   script:
     - cd javascript
     - pip install invoke
