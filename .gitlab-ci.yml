@@ -11,7 +11,7 @@ job_python_lite_py34:
     - python --version
     - invoke -l
     #
-    - invoke test-style
+    - invoke lint
     - invoke test-unit
     - invoke test-shared
 
@@ -66,7 +66,7 @@ job_python_py36:
     - python --version
     - invoke -l
     #
-    - invoke test-style
+    - invoke lint
     - invoke test-unit
     - invoke test-shared
 
@@ -93,11 +93,13 @@ job_javascript_node:
   script:
     - cd javascript
     - pip3 install invoke
+    - npm install -g jshint
     #
     - python3 --version
     - nodejs --version || node --version
     - invoke -l
     #
+    - invoke lint
     - invoke test-unit
     - invoke test-shared
 

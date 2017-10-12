@@ -14,7 +14,7 @@ def call(*cmd):
 
 
 @task
-def test_style(ctx):
+def lint(ctx):
     """ Run style tests with flake8. """
     # Print nice messages when all is well; flake8 does not celebrate.
     ret_code = subprocess.call(['flake8', 'bsdf.py'], cwd=this_dir)
