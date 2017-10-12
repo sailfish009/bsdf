@@ -419,8 +419,9 @@ class BsdfSerializer(object):
         """ Load a BSDF-encoded object from the given stream.
         """
         # Check magic string
-        if f.read(4) != b'BSDF':
-            raise RuntimeError('This does not look a BSDF file.')
+        head = f.read(4)
+        if head != b'BSDF':
+            raise RuntimeError('This does not look like a BSDF file: %r' % head)
         # Check version
         major_version = strunpack('<B', f.read(1))[0]
         minor_version = strunpack('<B', f.read(1))[0]
