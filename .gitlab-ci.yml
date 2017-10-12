@@ -93,7 +93,7 @@ job_javascript_node:
   script:
     - cd javascript
     - pip3 install invoke
-    - npm install -g jshint
+    #- npm install -g jshint -- done in Dockerfile
     #
     - python3 --version
     - nodejs --version || node --version
