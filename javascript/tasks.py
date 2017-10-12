@@ -9,7 +9,7 @@ from invoke import task
 this_dir = os.path.dirname(__file__)
 
 def call(*cmd):
-    sys.exit(subprocess.call(cmd, cwd=this_dir))
+    sys.exit(subprocess.call(cmd, cwd=this_dir, shell=True))
 
 
 def get_node_exe():
@@ -21,6 +21,11 @@ def get_node_exe():
     return node_exe
 
 
+@task
+def test_style(ctx):
+    """ Test for style errors using JSHint. """
+    call('jshint', 'bsdf.js')
+    
 @task
 def test_shared(ctx):
     """ Run BSDF tests on JS using the shared test service. """

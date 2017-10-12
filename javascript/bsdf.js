@@ -110,14 +110,14 @@ function ByteBuilder() {
     function get_result() {
         // Combine all sub buffers into one contiguous buffer
         var total = new Uint8Array(pos_offset + pos);
-        var i = 0;
+        var i = 0, j;
         for (var index=0; index<buffers.length; index+=2) {
             var sub = buffers[index];
             var n = buffers[index + 1];
-            var offset = i
-            for(var j=0; j<n; j++, i++){ total[i] = sub[j]; }
+            var offset = i;
+            for(j=0; j<n; j++, i++){ total[i] = sub[j]; }
         }
-        for(var j=0; j<pos; j++, i++){ total[i] = buf8[j]; }  // also current buffer
+        for(j=0; j<pos; j++, i++){ total[i] = buf8[j]; }  // also current buffer
         return total.buffer; // total is an exact fit on its buffer
     }
     function new_buffer(n) {
@@ -175,10 +175,11 @@ function ByteBuilder() {
     }
     function push_int(s) {
         if (pos + 8 > pos_max) { new_buffer(8); }
+        var j, a;
         if (s < 0) { // perform two's complement encoding
-            for (var j=0, a=s+1; j<8; j++, a/=256) { buf8[pos+j] = ((-(a % 256 )) & 255) ^ 255; }
+            for (j=0, a=s+1; j<8; j++, a/=256) { buf8[pos+j] = ((-(a % 256 )) & 255) ^ 255; }
         } else {
-            for (var j=0, a=s; j<8; j++, a/=256) { buf8[pos+j] = ((a % 256 ) & 255); }
+            for (j=0, a=s; j<8; j++, a/=256) { buf8[pos+j] = ((a % 256 ) & 255); }
         }
         pos += 8;
     }
@@ -190,7 +191,7 @@ function ByteBuilder() {
     }
     return {get_result: get_result, tell: tell, push_bytes: push_bytes,
             push_char: push_char, push_str: push_str, push_size: push_size,
-            push_uint8: push_uint8, push_int: push_int, push_float64: push_float64}
+            push_uint8: push_uint8, push_int: push_int, push_float64: push_float64};
 }
 
 function encode_type_id(f, c, converter_id) {
@@ -234,8 +235,8 @@ function encode_object(f, value, converter_id) {
             }
         } else if (value.constructor === Object) {  // mapping / dict
             encode_type_id(f, 'm', converter_id);
-            var n = Object.keys(value).length;
-            f.push_size(n);
+            var nm = Object.keys(value).length;
+            f.push_size(nm);
             for (var key in value) {
                 f.push_str(key);
                 encode_object(f, value[key]);
@@ -264,9 +265,9 @@ function encode_object(f, value, converter_id) {
             f.push_uint8(0);  // no checksum
             // Byte alignment
             if (compression == 0) {
-                var alignment = (f.tell() + 1) % 8  // +1 for the byte to write
+                var alignment = (f.tell() + 1) % 8;  // +1 for the byte to write
                 f.push_uint8(alignment);
-                for (var i=0; i<alignment; i++) { f.push_uint8(0); }
+                for (var j=0; j<alignment; j++) { f.push_uint8(0); }
             } else {
                 f.push_uint8(0);  // zero alignment
             }
@@ -353,12 +354,13 @@ function BytesReader(buf) {
     }
     function get_int() {
         var isneg = (buf8[pos+7] & 0x80) > 0;
+        var s, j, m;
         if (isneg) {
-            var s = -1;
-            for (var j=0, m=1; j<8; j++, m*=256) { s -= (buf8[pos+j] ^ 0xff) * m; }
+            s = -1;
+            for (j=0, m=1; j<8; j++, m*=256) { s -= (buf8[pos+j] ^ 0xff) * m; }
         } else {
-            var s = 0;
-            for (var j=0, m=1; j<8; j++, m*=256) { s += buf8[pos+j] * m; }
+            s = 0;
+            for (j=0, m=1; j<8; j++, m*=256) { s += buf8[pos+j] * m; }
         }
         pos += 8;
         return s;
@@ -369,7 +371,7 @@ function BytesReader(buf) {
         return s;
     } function get_float64() {
         var s = bufdv.getFloat64(pos, true);
-        pos += 8
+        pos += 8;
         return s;
     }
 
@@ -414,7 +416,7 @@ function decode_object(f) {
         var n = f.get_size();
         if (n < 0) {
             // Streaming
-            value = new Array();
+            value = [];
             try {
                 while (true) { value.push(decode_object(f)); }
             } catch(err) {
@@ -428,9 +430,9 @@ function decode_object(f) {
             }
         }
     } else if (c == 'm') {
-        var n = f.get_size();
+        var nm = f.get_size();
         value = {};
-        for (var i=0; i<n; i++) {
+        for (var j=0; j<nm; j++) {
             var key = f.get_str();
             value[key] = decode_object(f);
         }
@@ -447,7 +449,7 @@ function decode_object(f) {
         }
         // Skip alignment
         var alignment = f.get_uint8();
-        f.get_bytes(alignment)
+        f.get_bytes(alignment);
         // Get data (as ArrayBuffer)
         var compressed = f.get_bytes(used_size);  // uint8
         f.get_bytes(allocated_size - used_size);  // skip extra space
@@ -498,7 +500,7 @@ function bsdf_encode(d) {
 function bsdf_decode(buf) {
     var f = BytesReader(buf);
     // Check head
-    var head = f.get_char() + f.get_char() + f.get_char() + f.get_char()
+    var head = f.get_char() + f.get_char() + f.get_char() + f.get_char();
     if (head != 'BSDF') {
         throw "This does not look like BSDF encoded data: " + head;
     }
