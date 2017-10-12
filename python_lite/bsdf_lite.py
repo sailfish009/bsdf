@@ -70,6 +70,8 @@ class BsdfLiteSerializer(object):
     * compression (int or str): ``0`` or "no" for no compression (default),
       ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
       ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
+      Note that some BSDF implementations (e.g. JavaScript) may not support
+      compression.
     * use_checksum (bool): whether to include a checksum with binary blobs.
     * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 

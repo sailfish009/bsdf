@@ -114,6 +114,8 @@ class BsdfSerializer(object):
     * compression (int or str): ``0`` or "no" for no compression (default),
       ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
       ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
+      Note that some BSDF implementations (e.g. JavaScript) may not support
+      compression.
     * use_checksum (bool): whether to include a checksum with binary blobs.
     * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
@@ -210,7 +212,7 @@ class BsdfSerializer(object):
     def _encode(self, f, value, streams, converter_id):
         """ Main encoder function.
         """
-        
+
         # todo: put these closures outside
         if converter_id is not None:
             bb = converter_id.encode('UTF-8')
@@ -419,9 +421,9 @@ class BsdfSerializer(object):
         """ Load a BSDF-encoded object from the given stream.
         """
         # Check magic string
-        head = f.read(4)
-        if head != b'BSDF':
-            raise RuntimeError('This does not look like a BSDF file: %r' % head)
+        f4 = f.read(4)
+        if f4 != b'BSDF':
+            raise RuntimeError('This does not look like a BSDF file: %r' % f4)
         # Check version
         major_version = strunpack('<B', f.read(1))[0]
         minor_version = strunpack('<B', f.read(1))[0]
