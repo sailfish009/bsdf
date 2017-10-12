@@ -176,8 +176,8 @@ function encode_type_id(f, c, converter_id) {
 
 function encode_object(f, value, converter_id) {
 
-
     if (value === null) { encode_type_id(f, 'v', converter_id); }
+    //else if (typeof value == 'undefined') { encode_type_id(f, 'v', converter_id); }
     else if (value === false) { encode_type_id(f, 'n', converter_id); }
     else if (value === true) { encode_type_id(f, 'y', converter_id); }
     else if (typeof value == 'number') {
