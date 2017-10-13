@@ -4,8 +4,11 @@
  * bsdf_encode(data) -> ArrayBuffer
  * bsdf_decode(bytes) -> data (bytes can be ArrayBuffer, DataView or Uint8Array)
  *
- * The data is any data structure supported by BSDF and the applies converters.
- * ArrayBuffer and DataView are consumed as bytes, Uint8Array as a typed array.
+ * The data is any data structure supported by BSDF and the applied converters.
+ * ArrayBuffer and DataView are consumed as bytes, and Uint8Array as a typed array.
+ * Bytes are decoded as DataView objects, which can be mapped to arrays with e.g.
+ * `a = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)`, if needed
+ * make a copy with `a = new Uint8Array(a)`.
  *
  * See http://gitlab.com/almarklein/bsdf for more information.
  *
