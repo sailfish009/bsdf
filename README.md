@@ -29,6 +29,14 @@ make BSDF simple, compact and fast. See the [full specification](SPEC.md), or
 how it [compares](COMPARISON.md) to other formats.
 
 
+## Status
+
+Thinks are taking shape quickly, but at this point I still take the right to change
+the spec without notice (e.g. #9). Once I've collected some initial feedback, the spec
+will be stable (before 2018 at the latest). There are a few tasks left (#7) before
+I'll shout about BSDF from rooftops.
+
+
 ## Implementations
 
 * The [Python](python) implementation in the form of [bsdf.py](python/bsdf.py).
