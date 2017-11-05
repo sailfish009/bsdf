@@ -21,8 +21,9 @@ and floats represent 64 bit numbers, but can be encoded using less
 bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
 checksums, and can be resized.
 
-BSDF has an efficient extension mechanism by which other types of data
-can be serialized with user-defined converters.
+Via an efficient extension mechanism, other data types (including custom
+ones), can be serialized based on the aforementioned types. Standard
+extensions are available for common data types, such as nd-arrays.
 
 BSDF is a binary format; by giving up on human readability, we were able to
 make BSDF simple, compact and fast. See the [full specification](SPEC.md), or
@@ -31,7 +32,7 @@ how it [compares](COMPARISON.md) to other formats.
 
 ## Status
 
-Thinks are taking shape quickly, but at this point I still take the right to change
+Things are taking shape quickly, but at this point I still take the right to change
 the spec without notice (e.g. #9). Once I've collected some initial feedback, the spec
 will be stable (before 2018 at the latest). There are a few tasks left (#7) before
 I'll shout about BSDF from rooftops.
@@ -53,6 +54,61 @@ BSDF is designed to be easy to implement; perhaps you want to
 
 See the specific implementations for detailed installation instructions.
 Most implementations consist of a single file.
+
+
+## Examples
+
+
+In Python:
+
+```py
+>>> import bsdf
+>>> b = bsdf.encode(['just some objects', {'foo': True, 'bar': None}, 42.001])
+>>> b
+b'BSDF\x02\x00l\x03s\x11just some objectsm\x02\x03fooy\x03barvd\xe3\xa5\x9b\xc4 \x00E@'
+>>> len(b)
+48
+>>> bsdf.decode(b)
+['just some objects', {'foo': True, 'bar': None}, 42.001]
+```
+
+In JavaScript:
+
+```js
+> bsdf = require('bsdf.js')
+{ encode: [Function: bsdf_encode],
+  decode: [Function: bsdf_decode] }
+> b = bsdf.encode(['just some objects', {foo: true, bar: null}, 42.001])
+ArrayBuffer { byteLength: 48 }
+> bsdf.decode(b)
+[ 'just some objects', { foo: true, bar: null }, 42.001 ]
+```
+
+In Matlab / Octave:
+
+```matlab
+>> b = bsdf({'just some objects', struct('foo', true, 'bar', []), 42.001});
+>> size(b)
+ans =
+   48    1
+>> bsdf(b)
+ans =
+{
+  [1,1] = just some objects
+  [1,2] =
+
+    scalar structure containing the fields:
+
+      foo = 1
+      bar = [](0x0)
+
+  [1,3] =  42.001
+}
+```
+
+It is worth noting that although different languages may represent data types
+in slightly different ways, the underlying bytes in BSDF are the same. This makes
+BSDF suited for inter-language communication.
 
 
 ## License

@@ -365,7 +365,7 @@ class BsdfLiteSerializer(object):
 
         return value
 
-    def saveb(self, ob):
+    def encode(self, ob):
         """ Save the given object to bytes.
         """
         f = BytesIO()
@@ -373,7 +373,7 @@ class BsdfLiteSerializer(object):
         return f.getvalue()
 
     def save(self, f, ob):
-        """ Write the given object to the given file stream.
+        """ Write the given object to the given file object.
         """
         f.write(b'BSDF')
         f.write(struct.pack('<B', format_version[0]))
@@ -391,14 +391,14 @@ class BsdfLiteSerializer(object):
                 raise ValueError('The stream object must be '
                                  'the last object to be encoded.')
 
-    def loadb(self, bb):
+    def decode(self, bb):
         """ Load the data structure that is BSDF-encoded in the given bytes.
         """
         f = BytesIO(bb)
         return self.load(f)
 
     def load(self, f):
-        """ Load a BSDF-encoded object from the given stream.
+        """ Load a BSDF-encoded object from the given file object.
         """
         # Check magic string
         if f.read(4) != b'BSDF':

@@ -47,6 +47,8 @@ options. Options for encoding:
 * compression (int or str): ``0`` or "no" for no compression (default),
   ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
   ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
+  Note that some BSDF implementations (e.g. JavaScript) may not support
+  compression.
 * use_checksum (bool): whether to include a checksum with binary blobs.
 * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
@@ -69,24 +71,24 @@ Add a converter to this serializer instance, consisting of:
 Remove a converted by its unique name.
 
 
-#### method saveb`(ob)`
+#### method encode`(ob)`
 
 Save the given object to bytes.
 
 
 #### method save`(f, ob)`
 
-Write the given object to the given file stream.
+Write the given object to the given file object.
 
 
-#### method loadb`(bb)`
+#### method decode`(bb)`
 
 Load the data structure that is BSDF-encoded in the given bytes.
 
 
 #### method load`(f)`
 
-Load a BSDF-encoded object from the given stream.
+Load a BSDF-encoded object from the given file object.
 
 
 ##

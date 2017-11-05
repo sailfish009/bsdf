@@ -62,25 +62,25 @@ def test_parse_errors():
     
     s = bsdf_lite.BsdfLiteSerializer()
     
-    assert s.loadb(b'BSDF\x02\x00v') == None
-    assert s.loadb(b'BSDF\x02\x00u\x07') == 7
+    assert s.decode(b'BSDF\x02\x00v') == None
+    assert s.decode(b'BSDF\x02\x00u\x07') == 7
     
     # Not BSDF
     with raises(RuntimeError):
-        assert s.loadb(b'BZDF\x02\x00v')
+        assert s.decode(b'BZDF\x02\x00v')
     
     # Version mismatch
     with raises(RuntimeError):
-        assert s.loadb(b'BSDF\x03\x00v')
+        assert s.decode(b'BSDF\x03\x00v')
     with raises(RuntimeError):
-        assert s.loadb(b'BSDF\x01\x00v')
+        assert s.decode(b'BSDF\x01\x00v')
     
     # Smaller minor version is ok, larger minor version displays warning
-    s.loadb(b'BSDF\x02\x01v')
+    s.decode(b'BSDF\x02\x01v')
     
     # Wrong types
     with raises(RuntimeError):
-        s.loadb(b'BSDF\x02\x00r\x07')
+        s.decode(b'BSDF\x02\x00r\x07')
         #                         \ r is not a known type
     
     
@@ -113,8 +113,8 @@ def test_all_types_simple():
               v12 = b'bb',
              )
     
-    bb = s.saveb(s1)
-    s2 = s.loadb(bb)
+    bb = s.encode(s1)
+    s2 = s.decode(bb)
     
     # Correction - tuples become lists
     assert isinstance(s2['v8'], list)
@@ -133,8 +133,8 @@ def test_loaders_and_savers_of_serializer():
     serializer = bsdf_lite.BsdfLiteSerializer()
     
     # In-memory
-    bb = serializer.saveb(s1)
-    s2 = serializer.loadb(bb)
+    bb = serializer.encode(s1)
+    s2 = serializer.decode(bb)
     assert s1 == s2
     
     # Using a filename fails
@@ -162,9 +162,9 @@ def test_compression():
     
     # Compressing makes smaller files
     data = [1, 2, b'\x00' * 10000]
-    b1 = bsdf_lite.BsdfLiteSerializer(compression=0).saveb(data)
-    b2 = bsdf_lite.BsdfLiteSerializer(compression=1).saveb(data)
-    b3 = bsdf_lite.BsdfLiteSerializer(compression=2).saveb(data)
+    b1 = bsdf_lite.BsdfLiteSerializer(compression=0).encode(data)
+    b2 = bsdf_lite.BsdfLiteSerializer(compression=1).encode(data)
+    b3 = bsdf_lite.BsdfLiteSerializer(compression=2).encode(data)
     assert len(b1) > 10 * len(b2)
     assert len(b1) > 10 * len(b3)
 
@@ -174,31 +174,31 @@ def test_float32():
     
     # Using float32 makes smaller files
     data = [2.0, 3.1, 5.1]
-    b1 = bsdf_lite.BsdfLiteSerializer(float64=False).saveb(data)
-    b2 = bsdf_lite.BsdfLiteSerializer(float64=True).saveb(data)
+    b1 = bsdf_lite.BsdfLiteSerializer(float64=False).encode(data)
+    b2 = bsdf_lite.BsdfLiteSerializer(float64=True).encode(data)
     assert len(b1) < len(b2)
     #
-    assert s.loadb(b1) != data
-    assert s.loadb(b2) == data
-    assert all(abs(i1-i2) < 0.01 for i1, i2 in zip(s.loadb(b1), data))
-    assert all(abs(i1-i2) < 0.001 for i1, i2 in zip(s.loadb(b2), data))
+    assert s.decode(b1) != data
+    assert s.decode(b2) == data
+    assert all(abs(i1-i2) < 0.01 for i1, i2 in zip(s.decode(b1), data))
+    assert all(abs(i1-i2) < 0.001 for i1, i2 in zip(s.decode(b2), data))
     
     # Does not affect ints
     data = [2, 3, 5]
-    b1 = bsdf_lite.BsdfLiteSerializer(float64=False).saveb(data)
-    b2 = bsdf_lite.BsdfLiteSerializer(float64=True).saveb(data)
+    b1 = bsdf_lite.BsdfLiteSerializer(float64=False).encode(data)
+    b2 = bsdf_lite.BsdfLiteSerializer(float64=True).encode(data)
     assert len(b1) == len(b2)
     #
-    assert s.loadb(b1) == data
-    assert s.loadb(b2) == data
+    assert s.decode(b1) == data
+    assert s.decode(b2) == data
     
     # Ints are auto-scaled
-    b1 = s.saveb([3, 4, 5])
-    b2 = s.saveb([300, 400, 500])
+    b1 = s.encode([3, 4, 5])
+    b2 = s.encode([300, 400, 500])
     assert len(b1) < len(b2)
     #
-    assert s.loadb(b1) == [3, 4, 5]
-    assert s.loadb(b2) == [300, 400, 500]
+    assert s.decode(b1) == [3, 4, 5]
+    assert s.decode(b2) == [300, 400, 500]
 
 
 if __name__ == '__main__':

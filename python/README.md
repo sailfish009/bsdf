@@ -24,7 +24,7 @@ Simple use:
 import bsdf
 
 # Encode
-bb = bsdf.saveb(my_object)
+bb = bsdf.encode(my_object)
 
 # Decode
 my_object2 = bsdf.loadb(bb)
@@ -37,7 +37,7 @@ Advanced use:
 serializer = bsdf.BsdfSerializer([bsdf.complex_converter],
                                  compression='bz2')
 # Use it
-bb = serializer.saveb(my_object1)
+bb = serializer.encode(my_object1)
 my_object2 = serializer.loadb(bb)
 ```
 
@@ -51,7 +51,7 @@ Instances of this class represent a BSDF encoder/decoder.
 It acts as a placeholder for a set of converters and encoding/decoding
 options. Use this to predefine converters and options for high
 performance encoding/decoding. For general use, see the functions
-`save()`, `saveb()`, `load()`, and `loadb()`.
+`save()`, `encode()`, `load()`, and `decode()`.
 
 This implementation of BSDF supports streaming lists (keep adding
 to a list after writing the main file), lazy loading of blobs, and
@@ -62,6 +62,8 @@ Options for encoding:
 * compression (int or str): ``0`` or "no" for no compression (default),
   ``1`` or "zlib" for Zlib compression (same as zip files and PNG), and
   ``2`` or "bz2" for Bz2 compression (more compact but slower writing).
+  Note that some BSDF implementations (e.g. JavaScript) may not support
+  compression.
 * use_checksum (bool): whether to include a checksum with binary blobs.
 * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
@@ -92,28 +94,28 @@ Add a converter to this serializer instance, consisting of:
 Remove a converted by its unique name.
 
 
-#### method saveb`(ob)`
+#### method encode`(ob)`
 
 Save the given object to bytes.
 
 
 #### method save`(f, ob)`
 
-Write the given object to the given file stream.
+Write the given object to the given file object.
 
 
-#### method loadb`(bb)`
+#### method decode`(bb)`
 
 Load the data structure that is BSDF-encoded in the given bytes.
 
 
 #### method load`(f)`
 
-Load a BSDF-encoded object from the given stream.
+Load a BSDF-encoded object from the given file object.
 
 
 ##
-### function saveb`(ob, converters=None, **options)`
+### function encode`(ob, converters=None, **options)`
 
 Save (BSDF-encode) the given object to bytes.
 See `BSDFSerializer` for details on converters and options.
@@ -125,7 +127,7 @@ Save (BSDF-encode) the given object to the given filename or
 file object. See` BSDFSerializer` for details on converters and options.
 
 
-### function loadb`(bb, converters=None, **options)`
+### function decode`(bb, converters=None, **options)`
 
 Load a (BSDF-encoded) structure from bytes.
 See `BSDFSerializer` for details on converters and options.

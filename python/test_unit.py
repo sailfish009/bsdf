@@ -60,25 +60,25 @@ def test_length_encoding():
 
 def test_parse_errors():
     
-    assert bsdf.loadb(b'BSDF\x02\x00v') == None
-    assert bsdf.loadb(b'BSDF\x02\x00u\x07') == 7
+    assert bsdf.decode(b'BSDF\x02\x00v') == None
+    assert bsdf.decode(b'BSDF\x02\x00u\x07') == 7
     
     # Not BSDF
     with raises(RuntimeError):
-        assert bsdf.loadb(b'BZDF\x02\x00v')
+        assert bsdf.decode(b'BZDF\x02\x00v')
     
     # Version mismatch
     with raises(RuntimeError):
-        assert bsdf.loadb(b'BSDF\x03\x00v')
+        assert bsdf.decode(b'BSDF\x03\x00v')
     with raises(RuntimeError):
-        assert bsdf.loadb(b'BSDF\x01\x00v')
+        assert bsdf.decode(b'BSDF\x01\x00v')
     
     # Smaller minor version is ok, larger minor version displays warning
-    bsdf.loadb(b'BSDF\x02\x01v')
+    bsdf.decode(b'BSDF\x02\x01v')
     
     # Wrong types
     with raises(RuntimeError):
-        bsdf.loadb(b'BSDF\x02\x00r\x07')
+        bsdf.decode(b'BSDF\x02\x00r\x07')
         #                         \ r is not a known type
     
     
@@ -110,8 +110,8 @@ def test_all_types_simple():
               v12 = b'bb',
              )
     
-    bb = bsdf.saveb(s1)
-    s2 = bsdf.loadb(bb)
+    bb = bsdf.encode(s1)
+    s2 = bsdf.decode(bb)
     
     # Correction - tuples become lists
     assert isinstance(s2['v8'], list)
@@ -130,8 +130,8 @@ def test_loaders_and_savers():
     s1 = dict(foo=42, bar=[1, 2.1, False, 'spam', b'eggs'])
     
     # In-memory
-    bb = bsdf.saveb(s1)
-    s2 = bsdf.loadb(bb)
+    bb = bsdf.encode(s1)
+    s2 = bsdf.decode(bb)
     assert s1 == s2
     
     # Using a filename
@@ -161,8 +161,8 @@ def test_loaders_and_savers_of_serializer():
     serializer = bsdf.BsdfSerializer()
     
     # In-memory
-    bb = serializer.saveb(s1)
-    s2 = serializer.loadb(bb)
+    bb = serializer.encode(s1)
+    s2 = serializer.decode(bb)
     assert s1 == s2
     
     # Using a filename fails
@@ -190,17 +190,17 @@ def test_compression():
     
     # Compressing makes smaller files
     data = [1, 2, b'\x00' * 10000]
-    b1 = bsdf.saveb(data, compression=0)
-    b2 = bsdf.saveb(data, compression=1)
-    b3 = bsdf.saveb(data, compression=2)
+    b1 = bsdf.encode(data, compression=0)
+    b2 = bsdf.encode(data, compression=1)
+    b3 = bsdf.encode(data, compression=2)
     assert len(b1) > 10 * len(b2)
     assert len(b1) > 10 * len(b3)
     
     # Compression can be per-object, using blobs
     data1 = [1, 2, b'\x00' * 10000]
     data2 = [1, 2, bsdf.Blob(b'\x00'  * 10000, compression=1)]
-    b1 = bsdf.saveb(data1, compression=0)
-    b2 = bsdf.saveb(data2, compression=0)
+    b1 = bsdf.encode(data1, compression=0)
+    b2 = bsdf.encode(data2, compression=0)
     assert len(b1) > 10 * len(b2)
     
 
@@ -209,31 +209,31 @@ def test_float32():
     
     # Using float32 makes smaller files
     data = [2.0, 3.1, 5.1]
-    b1 = bsdf.saveb(data, float64=False)
-    b2 = bsdf.saveb(data, float64=True)
+    b1 = bsdf.encode(data, float64=False)
+    b2 = bsdf.encode(data, float64=True)
     assert len(b1) < len(b2)
     #
-    assert bsdf.loadb(b1) != data
-    assert bsdf.loadb(b2) == data
-    assert all(abs(i1-i2) < 0.01 for i1, i2 in zip(bsdf.loadb(b1), data))
-    assert all(abs(i1-i2) < 0.001 for i1, i2 in zip(bsdf.loadb(b2), data))
+    assert bsdf.decode(b1) != data
+    assert bsdf.decode(b2) == data
+    assert all(abs(i1-i2) < 0.01 for i1, i2 in zip(bsdf.decode(b1), data))
+    assert all(abs(i1-i2) < 0.001 for i1, i2 in zip(bsdf.decode(b2), data))
     
     # Does not affect ints
     data = [2, 3, 5]
-    b1 = bsdf.saveb(data, float64=False)
-    b2 = bsdf.saveb(data, float64=True)
+    b1 = bsdf.encode(data, float64=False)
+    b2 = bsdf.encode(data, float64=True)
     assert len(b1) == len(b2)
     #
-    assert bsdf.loadb(b1) == data
-    assert bsdf.loadb(b2) == data
+    assert bsdf.decode(b1) == data
+    assert bsdf.decode(b2) == data
     
     # Ints are auto-scaled
-    b1 = bsdf.saveb([3, 4, 5])
-    b2 = bsdf.saveb([300, 400, 500])
+    b1 = bsdf.encode([3, 4, 5])
+    b2 = bsdf.encode([300, 400, 500])
     assert len(b1) < len(b2)
     #
-    assert bsdf.loadb(b1) == [3, 4, 5]
-    assert bsdf.loadb(b2) == [300, 400, 500]
+    assert bsdf.decode(b1) == [3, 4, 5]
+    assert bsdf.decode(b2) == [300, 400, 500]
 
 
 ## Converters
@@ -247,8 +247,8 @@ def test_encode_complex():
     x = bsdf.BsdfSerializer([complex_conv])
     
     a = 3 + 4j
-    bb = x.saveb(a)
-    b = x.loadb(bb)
+    bb = x.encode(a)
+    b = x.decode(bb)
     assert a == b
 
 
@@ -271,16 +271,16 @@ def test_encode_array():
     a1 = [1, 2, array.array('b', [1, 2, 42])]
     a2 = [1, 2, array.array('b', [1, 2, 42]*1000)]
     a3 = [1, 2, array.array('b', [4, 2, 42]*1000)]
-    bb1 = bsdf.saveb(a1, converters)
-    bb2 = bsdf.saveb(a2, converters, compression=0)
-    bb3 = bsdf.saveb(a3, converters, compression=1)
+    bb1 = bsdf.encode(a1, converters)
+    bb2 = bsdf.encode(a2, converters, compression=0)
+    bb3 = bsdf.encode(a3, converters, compression=1)
     
     assert len(bb2) > len(bb1) * 10
     assert len(bb2) > len(bb3) * 10
     
-    b1 = bsdf.loadb(bb1, converters)
-    b2 = bsdf.loadb(bb2, converters)
-    b3 = bsdf.loadb(bb3, converters)
+    b1 = bsdf.decode(bb1, converters)
+    b2 = bsdf.decode(bb2, converters)
+    b3 = bsdf.decode(bb3, converters)
     
     assert a1 == b1
     assert a2 == b2
@@ -308,7 +308,7 @@ def test_streaming1():
     
     thelist.close()
     bb = f.getvalue()
-    b = bsdf.loadb(bb)
+    b = bsdf.decode(bb)
     
     assert b[-1] == ['hi', 0, 101, 202, 303, 404, 505, 606, 707, 808, 909, [4, 2]]
     
@@ -351,7 +351,7 @@ def test_streaming2():
         thelist.append(i)
     
     bb = f.getvalue()
-    b = bsdf.loadb(bb)
+    b = bsdf.decode(bb)
     
     # However, this BSDF implementation consumes the whole stream anyway
     assert b[-1] == ['hi', 0, 1, 2]
@@ -371,7 +371,7 @@ def test_streaming3():
         thelist.append(i)
     
     bb = f.getvalue()
-    b = bsdf.loadb(bb, load_streaming=True)
+    b = bsdf.decode(bb, load_streaming=True)
     
     x = b[-1]
     assert isinstance(x, bsdf.ListStream)
