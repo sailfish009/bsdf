@@ -61,7 +61,7 @@ def test_length_encoding():
 def test_parse_errors():
     
     assert bsdf.decode(b'BSDF\x02\x00v') == None
-    assert bsdf.decode(b'BSDF\x02\x00u\x07') == 7
+    assert bsdf.decode(b'BSDF\x02\x00h\x07\x00') == 7
     
     # Not BSDF
     with raises(RuntimeError):
@@ -228,12 +228,12 @@ def test_float32():
     assert bsdf.decode(b2) == data
     
     # Ints are auto-scaled
-    b1 = bsdf.encode([3, 4, 5])
-    b2 = bsdf.encode([300, 400, 500])
+    b1 = bsdf.encode([3, 4, 5, 300, 400, 500])
+    b2 = bsdf.encode([300000, 400000, 500000, 3000000, 4000000, 5000000])
     assert len(b1) < len(b2)
     #
-    assert bsdf.decode(b1) == [3, 4, 5]
-    assert bsdf.decode(b2) == [300, 400, 500]
+    assert bsdf.decode(b1) == [3, 4, 5, 300, 400, 500]
+    assert bsdf.decode(b2) == [300000, 400000, 500000, 3000000, 4000000, 5000000]
 
 
 ## Converters

@@ -84,7 +84,7 @@ The values null, false and true are identified by `v` (for void),
 
 Integer values come it two flavours:
 
-* `u`: small values (between 0 and 255) can be encoded using a uint8.
+* `h`: small values (between -32768 and 32768, inclusive) can be encoded using int16.
 * `i`: int64
 
 ### floats
