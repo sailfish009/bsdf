@@ -63,7 +63,7 @@ def test_parse_errors():
     s = bsdf_lite.BsdfLiteSerializer()
     
     assert s.decode(b'BSDF\x02\x00v') == None
-    assert s.decode(b'BSDF\x02\x00u\x07') == 7
+    assert s.decode(b'BSDF\x02\x00h\x07\x00') == 7
     
     # Not BSDF
     with raises(RuntimeError):
@@ -194,11 +194,11 @@ def test_float32():
     
     # Ints are auto-scaled
     b1 = s.encode([3, 4, 5])
-    b2 = s.encode([300, 400, 500])
+    b2 = s.encode([300000, 400000, 500000])
     assert len(b1) < len(b2)
     #
     assert s.decode(b1) == [3, 4, 5]
-    assert s.decode(b2) == [300, 400, 500]
+    assert s.decode(b2) == [300000, 400000, 500000]
 
 
 if __name__ == '__main__':

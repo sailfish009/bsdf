@@ -170,8 +170,8 @@ class BsdfLiteSerializer(object):
         elif value is False:
             f.write(x(b'n'))  # N for no
         elif isinstance(value, int):
-            if 0 <= value <= 255:
-                f.write(x(b'u') + spack('B', value))  # U for uint8
+            if -32768 <= value <= 32767:
+                f.write(x(b'h') + spack('h', value))  # H for ...
             else:
                 f.write(x(b'i') + spack('<q', value))  # I for int
         elif isinstance(value, float):
@@ -283,8 +283,8 @@ class BsdfLiteSerializer(object):
             value = True
         elif c == b'n':
             value = False
-        elif c == b'u':
-            value = strunpack('<B', f.read(1))[0]
+        elif c == b'h':
+            value = strunpack('<h', f.read(2))[0]
         elif c == b'i':
             value = strunpack('<q', f.read(8))[0]
         elif c == b'f':
