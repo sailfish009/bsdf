@@ -44,31 +44,31 @@ my_object2 = serializer.loadb(bb)
 
 ## Reference
 
-### function encode`(ob, converters=None, **options)`
+### function `encode(ob, converters=None, **options)`
 
 Save (BSDF-encode) the given object to bytes.
 See `BSDFSerializer` for details on converters and options.
 
 
-### function decode`(bb, converters=None, **options)`
+### function `decode(bb, converters=None, **options)`
 
 Load a (BSDF-encoded) structure from bytes.
 See `BSDFSerializer` for details on converters and options.
 
 
-### function save`(f, ob, converters=None, **options)`
+### function `save(f, ob, converters=None, **options)`
 
 Save (BSDF-encode) the given object to the given filename or
 file object. See` BSDFSerializer` for details on converters and options.
 
 
-### function load`(f, converters=None, **options)`
+### function `load(f, converters=None, **options)`
 
 Load a (BSDF-encoded) structure from the given filename or file object.
 See `BSDFSerializer` for details on converters and options.
 
 
-### class BsdfSerializer`(converters=None, **options)`
+### class `BsdfSerializer(converters=None, **options)`
 
 Instances of this class represent a BSDF encoder/decoder.
 
@@ -100,7 +100,7 @@ Options for decoding:
   file is open in a+ mode.
 
 
-#### method add_converter`(name, cls, encoder, decoder)`
+#### method `add_converter(name, cls, encoder, decoder)`
 
 Add a converter to this serializer instance, consisting of:
 
@@ -113,27 +113,27 @@ Add a converter to this serializer instance, consisting of:
   structure with.
 
 
-#### method remove_converter`(name)`
+#### method `remove_converter(name)`
 
 Remove a converted by its unique name.
 
 
-#### method encode`(ob)`
+#### method `encode(ob)`
 
 Save the given object to bytes.
 
 
-#### method save`(f, ob)`
+#### method `save(f, ob)`
 
 Write the given object to the given file object.
 
 
-#### method decode`(bb)`
+#### method `decode(bb)`
 
 Load the data structure that is BSDF-encoded in the given bytes.
 
 
-#### method load`(f)`
+#### method `load(f)`
 
 Load a BSDF-encoded object from the given file object.
 

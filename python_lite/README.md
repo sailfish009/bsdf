@@ -33,7 +33,7 @@ my_object2 = serializer.loadb(bb)
 
 ## Reference
 
-### class BsdfLiteSerializer`(converters=None, **options)`
+### class `BsdfLiteSerializer(converters=None, **options)`
 
 Instances of this class represent a BSDF encoder/decoder.
 
@@ -53,7 +53,7 @@ options. Options for encoding:
 * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
 
-#### method add_converter`(name, cls, encoder, decoder)`
+#### method `add_converter(name, cls, encoder, decoder)`
 
 Add a converter to this serializer instance, consisting of:
 
@@ -66,27 +66,27 @@ Add a converter to this serializer instance, consisting of:
   structure with.
 
 
-#### method remove_converter`(name)`
+#### method `remove_converter(name)`
 
 Remove a converted by its unique name.
 
 
-#### method encode`(ob)`
+#### method `encode(ob)`
 
 Save the given object to bytes.
 
 
-#### method save`(f, ob)`
+#### method `save(f, ob)`
 
 Write the given object to the given file object.
 
 
-#### method decode`(bb)`
+#### method `decode(bb)`
 
 Load the data structure that is BSDF-encoded in the given bytes.
 
 
-#### method load`(f)`
+#### method `load(f)`
 
 Load a BSDF-encoded object from the given file object.
 
