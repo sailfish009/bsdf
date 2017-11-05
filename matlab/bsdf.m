@@ -301,9 +301,9 @@ function bsdf_encode(f, value, opt)
                     fwrite(f, value, 'float32');
                 end
             elseif isa(value, 'integer')
-                if value >= 0 && value < 256
-                    fwrite(f, 'u');
-                    fwrite(f, value, 'uint8');
+                if value >= -32768 && value <= 32767
+                    fwrite(f, 'h');
+                    fwrite(f, value, 'int16');
                 else
                     fwrite(f, 'i');
                     fwrite(f, value, 'int64');
@@ -342,8 +342,8 @@ function value = bsdf_decode(f)
         value = true;
     elseif c == 'n'
         value = false;
-    elseif c == 'u'
-        value = fread(f, 1, 'uint8=>int64');  % uint8 -> int64
+    elseif c == 'h'
+        value = fread(f, 1, 'int16=>int64');  % int16 -> int64
     elseif c == 'i'
         value = fread(f, 1, '*int64');  % int64 -> int64
     elseif c == 'f'
