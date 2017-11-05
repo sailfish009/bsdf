@@ -176,7 +176,12 @@ function ByteBuilder() {
         buf8[pos] = s;
         pos += 1;
     }
-    function push_int(s) {
+    function push_int16(s) {
+        if (pos + 2 > pos_max) { new_buffer(2); }
+        bufdv.setInt16(pos, s, true);
+        pos += 2;
+    }
+    function push_int64(s) {
         if (pos + 8 > pos_max) { new_buffer(8); }
         var j, a;
         if (s < 0) { // perform two's complement encoding
@@ -194,7 +199,8 @@ function ByteBuilder() {
     }
     return {get_result: get_result, tell: tell, push_bytes: push_bytes,
             push_char: push_char, push_str: push_str, push_size: push_size,
-            push_uint8: push_uint8, push_int: push_int, push_float64: push_float64};
+            push_uint8: push_uint8, push_int16: push_int16, push_int64: push_int64,
+            push_float64: push_float64};
 }
 
 function encode_type_id(f, c, converter_id) {
@@ -214,12 +220,12 @@ function encode_object(f, value, converter_id) {
     else if (value === true) { encode_type_id(f, 'y', converter_id); }
     else if (typeof value == 'number') {
         if (Number.isInteger(value)) {
-            if (value >= 0 && value <= 255) {
-                encode_type_id(f, 'u', converter_id);
-                f.push_uint8(value);
+            if (value >= -32768 && value <= 32767) {
+                encode_type_id(f, 'h', converter_id);
+                f.push_int16(value);
             } else {
                 encode_type_id(f, 'i', converter_id);
-                f.push_int(value);
+                f.push_int64(value);
             }
         } else {
             encode_type_id(f, 'd', converter_id);
@@ -355,7 +361,12 @@ function BytesReader(buf) {
     function get_uint8() {
         return buf8[pos++];
     }
-    function get_int() {
+    function get_int16() {
+        var s = bufdv.getInt16(pos, true);
+        pos += 2;
+        return s;
+    }
+    function get_int64() {
         var isneg = (buf8[pos+7] & 0x80) > 0;
         var s, j, m;
         if (isneg) {
@@ -378,7 +389,8 @@ function BytesReader(buf) {
         return s;
     }
 
-    return {tell: tell, get_size:get_size, get_bytes: get_bytes, get_uint8: get_uint8, get_int: get_int,
+    return {tell: tell, get_size:get_size, get_bytes: get_bytes,
+            get_uint8: get_uint8, get_int16: get_int16, get_int64: get_int64,
             get_float32: get_float32, get_float64: get_float64, get_char: get_char, get_str: get_str};
 
 }
@@ -405,10 +417,10 @@ function decode_object(f) {
         value = false;
     } else if (c == 'y') {
         value = true;
-    } else if (c == 'u') {
-        value = f.get_uint8();
+    } else if (c == 'h') {
+        value = f.get_int16();
     } else if (c == 'i') {
-        value = f.get_int();
+        value = f.get_int64();
     } else if (c == 'f') {
         value = f.get_float32();
     } else if (c == 'd') {
