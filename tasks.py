@@ -78,3 +78,26 @@ def build_pages(ctx, show=False):
     pages.build()
     if show:
         webbrowser.open(os.path.join(ROOT_DIR, '_pages', 'index.html'))
+
+
+@ns.add_task
+@task
+def check_line_endings(ctx, show=False):
+    """ Check line endings of all source files. """
+    
+    for dname in os.listdir(ROOT_DIR):
+        if dname.startswith(('.', '_')) or ' ' in dname:
+            continue
+        dirname = os.path.join(ROOT_DIR, dname)
+        if os.path.isfile(dirname):
+            _check_line_endings(dirname)
+        else:
+            for fname in os.listdir(dirname):
+                filename = os.path.join(dirname, fname)
+                if os.path.isfile(filename) and not fname.startswith('.'):
+                    _check_line_endings(filename)
+            
+def _check_line_endings(filename):
+    text = open(filename, 'rb').read().decode()
+    if '\r' in text:
+        print('Detected \\r in ', filename)
