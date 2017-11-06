@@ -200,21 +200,20 @@ be displayed.
 * encoding: a list with two elements (the real and the imaginary part).
 
 
-### N-dimensional arrays (should be standard soon)
-
-Questions:
-    
-* Allow F-order?
-* Allow striding?
-* Probably KISS, e.g. JS has no striding.
+### N-dimensional arrays (standard)
 
 * name: "ndarray"
 * encoding: a dict with elements:
     * 'dtype', a string that specifies the data type. Minimal support
-      should be 'uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'uint64',
-       'int64', 'float32', 'float64'.
-    * 'shape', a list with as many elements (integers) as the array has dimensions.
-    * 'data', a blob of bytes representing the contiguous data in C-order.
+      should be 'uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
+      'float32', and preferably 'uint64', 'int64' and 'float64'.
+    * 'shape', a list with as many elements (integers) as the array has
+      dimensions. The first changing dimension first.
+    * 'data', a blob of bytes representing the contiguous data.
+
+We might add an "order" field at a later point. This will need to be
+investigated/discussed further. Until then, C-order (row-major) should
+be assumed where it matters.
 
 
 ### 2D image data
