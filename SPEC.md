@@ -22,19 +22,22 @@ This has resulted in the following features:
   with minimal effect on performance, also accross languages.
 * Data can be read and written without seek operations (e.g. to allow
   (streamed) reading from remote resources).
+* Zero copy reads (in uncompressed data, bytes are aligned).
 * Implementations can provide direct access to blobs via a file-like
   object for lazy loading or efficient updating.
-* Provides a way to stream data (e.g. asa list at the end of the
+* Provides a way to stream data (e.g. as a list at the end of the
   file that can simply be appended to).
+
+Also see how BSDF [compares](COMPARISON.md) to other formats.
 
 
 ## Minimal implementation
 
-A minimal BSDF implementation must suport:
+A minimal BSDF implementation must support:
 
 * the basic data types: null, bool, int, float, string, list, mapping,
   and uncompressed binary blobs.
-* unclosed streams (at the end of a data structure).
+* reading unclosed streams (at the end of a data structure).
 * preferably most standard converters.
 
 Implementations are encouraged to support:
@@ -71,14 +74,18 @@ streams, and 251-254 are reserved.)
 Data encoded with BSDF starts with the following 6-byte header:
 
 * 4 Identifier bytes: ASCII `BSDF`, equivalent to 1178882882 little endian.
-* Two variable size unsigned integers (uint8 in practice, while version
+* Two variable size unsigned integers (uint8 in practice, assuming version
   number are smaller than 251) indicating major and minor version
   numbers. Currently 2 and 0.
 
-### null, false, true
+### null
 
-The values null, false and true are identified by `v` (for void),
-`n` for no, and `y` for yes, respectively. These values have no data.
+The value null/nil/none is identified by `v` (for void), and has no data.
+
+### booleans
+
+The values false and true are identified by `n` for no, and `y` for yes,
+respectively. These values have no data.
 
 ### integers
 
@@ -129,10 +136,10 @@ can be of any type.
 
 ### mappings
 
-Mappings consists of the identifier `m` (for mapping), followed by a
-size item that represents the length of the mapping n. After that,
-n items follow, each time a combination of a string that represents
-the key, and the value itself.
+Mappings, a.k.a. dictionaries or structs, consists of the identifier
+`m` (for mapping), followed by a size item that represents the length
+of the mapping n. After that, n items follow, each time a combination
+of a string that represents the key, and the value itself.
 
 
 ## Streaming
@@ -158,7 +165,7 @@ of how certain objects can be encoded, and how they are named.
 
 Data to be converted is identified by its identifier byte to be in uppercase.
 In such a case, there will be a string before the data, which identifies
-the converter. Any data element can potentially be converted, even nul.
+the converter. Any data element can potentially be converted, even null.
 
 How users specify converters is specific to the implementation, but
 converters will generally consist of 4 elements:

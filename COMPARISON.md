@@ -1,25 +1,35 @@
 # Comparison with other formats
 
+The question that arises with any new format:
+*Why, oh Why? Why yet another format!?*
+
+In short, there was no format that could serialize nd-array data well,
+and also work well on the web. The realization that HDF5 is not so great,
+a strong need to send scientific data between Python and JavaScript, and
+a repeated annoyance with JSON has nudged me to create BSDF.
+
+This page tries to compares BSDF with other formats, and explains
+why these formats were in my view insufficient for my needs.
+
 
 ## BSDF vs JSON
 
-Although JSON is very widely used, it has several limitations:
+Although [JSON](http://www.json.org/) is very widely used, it has several limitations:
 
 * JSON's inability to encode `nan` and `inf` can be painful.
-* No support for binary data or nd-arrays (base64 is a compromise that
-  we wanted to avoid).
+* No support for binary data or nd-arrays (base64 is a compromise worth avoiding).
 * It's kind of human readable, but very verbose, and not easy to write
   (e.g. a comma after the last item in a list breaks things).
 * Many JSON implementations allow extending the types, but this involves
-  an extra function call for element, which degrades the performance.
+  an extra function call for each element, which degrades the performance.
 
 
-## BSDF vs UBJSON / MSGPACK / BSON
+## BSDF vs UBJSON et al.
 
-We've considered binary formats that are commonly used on the web
-([ubjson](http://ubjson.org/), [msgpack](http://msgpack.org/), [bson](http://bsonspec.org/)).
-Most are rather web-oriented, or adhere strictly to JSON compat (e.g.
-no `nan`). Most do not support typed arrays, let alone nd arrays, and/or
+Binary formats commonly used on the web that were considered are
+[ubjson](http://ubjson.org/), [msgpack](http://msgpack.org/), [bson](http://bsonspec.org/).
+Most are rather web-oriented, or adhere strictly to JSON compatibility (e.g.
+no `nan`). Most do not support typed arrays, let alone nd-arrays, and/or
 decode such arrays in JavaScript as regular arrays instead of array
 buffers. In short; none of these seemed to provide the flexibility that
 a scientific data format needs.
@@ -28,15 +38,16 @@ BSDF differs from most of them by its flexibility for encoding binary data,
 and its simple extension mechanism.
 
 It's worth noting that BSDF does not support typed arrays as one of its base
-types, but the converter for nd typed arrays is a standard converter available
+types, but the converter for typed nd-arrays is a standard converter available
 in most implementations.
 
 
 ## BSDF vs HDF5
 
-HDF5 is a popular format for scientific data, but there are also good
-reasons to avoid it, as e.g. explained the
-[paper on ASDF](http://linkinghub.elsevier.com/retrieve/pii/S2213133715000645).
+[HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) is a popular format for
+scientific data, but there are also good reasons to avoid it, as e.g. explained the
+[paper on ASDF](http://linkinghub.elsevier.com/retrieve/pii/S2213133715000645)
+and this [blog post](http://cyrille.rossant.net/should-you-use-hdf5/).
 Summarizing:
 
 * HDF5 is a complex specification and (therefore) there is really just one
@@ -48,14 +59,9 @@ Summarizing:
 * No proper mappings (dicts) and lists.
 
 HDF5 is certainly more flexible, e.g. with regard to providing lazy
-loading parts of compressed data. BSDF does support resizing of binary data, 
-in-place editing, lazy loading, streamed reading and writing.
-
-
-## BSDF vs NPZ
-
-Numpy has a builtin way to encode typed arrays. However, this is limited to
-arrays, and rather specific to Python.
+loading parts of compressed data. However, BSDF does support resizing
+of binary data, in-place editing, lazy loading, and streamed reading and
+writing.
 
 
 ## BSDF vs ASDF
@@ -74,8 +80,8 @@ goals that partly overlap with the purpose of BSDF:
 * explicit extensibility without interference
 * support for validation with schemas
 
-We've seriously considered ASDF before starting development on BSDF.
-We like the idea of a human readable format, but ...
+ASDF was seriously considered before the development on BSDF started.
+The idea of a human readable format is appealing, but ...
 
 * Yaml is a rather ill defined format that is hard to parse, which is
   probably why the parser is so slow.
@@ -85,13 +91,30 @@ We like the idea of a human readable format, but ...
 * If the text is edited, byte alignments are likely to break.
 * It makes the format more complex (you basically have two formats).
 
-This is why we've dropped human readability. What we gain is a format that
-is simple, compact, and fast to parse. This is not to say that we
-think ASDF did it wrong; it is very suited for what it was designed
-for. But with BSDF we also have e.g. inter process communication in mind.
+This is why BSDF drops human readability, gaining a format that
+is simple, compact, and fast to parse. This is not to say that
+ASDF did it wrong; it is very suited for what it was designed
+for. But BSDF is more suited for e.g. inter process communication.
 
 
-### BSDF vs SSDF (and BSDF v1)
+## BSDF vs Arrow
+
+The goals of [Apache Arrow](https://arrow.apache.org/) bear similarities with 
+BSDF, with e.g. a clear standard and zero copy reads. However, it's
+rather focussed on columnar data (where BSDF supports nd-arrays), and
+seems oriented at compiled languages, i.e. less flexible. Although the
+specification looks easy to read, the Python implementation is *much*
+larger than BSDF's 800 or so lines of code. It's also not pure Python, making
+it nontrivial to install on less common Python versions/implementations.
+
+
+## BSDF vs NPZ
+
+Numpy has a builtin way to encode typed arrays. However, this is limited to
+arrays (no meta data), and rather specific to Python.
+
+
+## BSDF vs SSDF (and BSDF v1)
 
 Around 2011 I developed a human readable [file format called
 SSDF](https://bitbucket.org/almarklein/ssdf), suited for storing
@@ -108,7 +131,7 @@ compatible, but stored binary data more effectively. The current BSDF
 format can be seen as its successor, being both simpler and more
 extensible. This is also why BSDF's version number starts at 2.
 
-I am currently of the opinion was that a format that is good at binary data
+I am currently of the opinion that a format that is good at binary data
 can not also be good at being a human readable config format. Therefore
 I created [ZON](https://bitbucket.org/pyzo/pyzolib/src/tip/zon), which
 is completely compatible with SSDF, except that it does not support
