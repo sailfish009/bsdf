@@ -239,12 +239,43 @@ def test_float32():
 ## Converters
 
 
-# todo: test convertes API (adding/removing) more
+def test_converter_add_remove():
+    
+    # Not specifying converters used defaults
+    x = bsdf.BsdfSerializer()
+    assert len(x._converters) > 0
+    x = bsdf.BsdfSerializer(None)
+    assert len(x._converters) > 0
+    
+    # Specifying empty list discarts defaults
+    x = bsdf.BsdfSerializer([])
+    assert len(x._converters) == 0
+    
+    class MyConverter(bsdf.Converter):
+        def get_name(self):
+            return 'x'
+    
+    # Add via init or add_converters()
+    x = bsdf.BsdfSerializer([MyConverter()])
+    assert len(x._converters) == 1
+    x.add_converter(bsdf.ComplexConverter())
+    assert len(x._converters) == 2
+    
+    # No dups
+    x.add_converter(MyConverter())
+    x.add_converter(bsdf.ComplexConverter())
+    
+    # Remove
+    with raises(TypeError):
+        x.remove_converter(bsdf.ComplexConverter())
+    x.remove_converter('x')
+    x.remove_converter('c')
+    assert len(x._converters) == 0
 
-def test_encode_complex():
 
-    complex_conv = 'complex', complex, lambda ctx, c: (c.real, c.imag), lambda ctx, v: complex(*v)
-    x = bsdf.BsdfSerializer([complex_conv])
+def test_standard_converters_complex():
+
+    x = bsdf.BsdfSerializer()
     
     a = 3 + 4j
     bb = x.encode(a)
@@ -252,21 +283,51 @@ def test_encode_complex():
     assert a == b
 
 
-def test_encode_array():
+def test_standard_converters_ndarray():
     
-    # Note, we use tostring and fromstring here for py27 compat;
-    # they are technically deprecated methods that handle bytes.
+    try:
+        import numpy as np
+    except ImportError:
+        skip('need numpy')
     
-    def array_encode(ctx, arr):
-        return dict(typecode=str(arr.typecode),
-                    data=arr.tostring())
+    converters = None
     
-    def array_decode(ctx, d):
-        a = array.array(d['typecode'])
-        a.fromstring(d['data'])
-        return a
+    a1 = [1, 2, np.array([1, 2, 3, 4]).reshape((2,2))]
+    a2 = [1, 2, np.array([1, 2, 42]*1000)]
+    a3 = [1, 2, np.array([4, 2, 42]*1000)]
+    b1 = bsdf.encode(a1, converters)
+    b2 = bsdf.encode(a2, converters, compression=0)
+    b3 = bsdf.encode(a3, converters, compression=1)
     
-    converters = [('test_array', array.array, array_encode, array_decode)]
+    assert len(b2) > len(b1) * 10
+    assert len(b2) > len(b3) * 10
+    
+    c1 = bsdf.decode(b1, converters)
+    c2 = bsdf.decode(b2, converters)
+    c3 = bsdf.decode(b3, converters)
+    
+    assert np.all(a1[2] == c1[2])
+    assert np.all(a2[2] == c2[2])
+    assert np.all(a3[2] == c3[2])
+
+
+def test_custom_converter_array():
+    import array
+    
+    class ArrayConverter(bsdf.Converter):
+        def get_name(self):
+            return 'array'
+        def get_type(self):
+            return array.array
+        def encode(self, arr):
+            return dict(typecode=str(arr.typecode),
+                        data=arr.tostring())
+        def decode(self, d):
+            a = array.array(d['typecode'])
+            a.fromstring(d['data'])
+            return a
+    
+    converters = [ArrayConverter()]
     
     a1 = [1, 2, array.array('b', [1, 2, 42])]
     a2 = [1, 2, array.array('b', [1, 2, 42]*1000)]
@@ -285,6 +346,109 @@ def test_encode_array():
     assert a1 == b1
     assert a2 == b2
     assert a3 == b3
+
+
+def test_custom_converters_fail():
+    
+    with raises(TypeError):
+        bsdf.encode(None, ['not a converter'])
+    
+    class MyConverter1(bsdf.Converter):
+        def get_name(self):
+            return 3
+    
+    with raises(TypeError):
+        bsdf.encode(None, [MyConverter1()])
+    
+    class MyConverter2(bsdf.Converter):
+        def get_name(self):
+            return ''
+    
+    with raises(NameError):
+        bsdf.encode(None, [MyConverter2()])
+    
+    class MyConverter3(bsdf.Converter):
+        def get_name(self):
+            return 'x' * 1000
+    
+    with raises(NameError):
+        bsdf.encode(None, [MyConverter3()])
+    
+    class MyConverter4(bsdf.Converter):
+        def get_name(self):
+            return 'x'
+        def get_type(self):
+            return 4
+    
+    with raises(TypeError):
+        bsdf.encode(None, [MyConverter4()])
+
+
+def test_custom_converters():
+    
+    class MyObject1:
+        def __init__(self, val):
+            self.val = val
+        def __repr__(self):
+            return '<%s %r>' % (self.__class__.__name__, self.val)
+    
+    class MyObject2(MyObject1):
+        pass
+    
+    class MyConverter(bsdf.Converter):
+        def get_name(self):
+            return 'myob'
+        def encode(self, v):
+            return v.val
+        def decode(self, v):
+            return MyObject1(v)
+    
+    class MyConverter1(MyConverter):
+        def get_type(self):
+            return MyObject1
+    
+    class MyConverter2(MyConverter):
+        def get_type(self):
+            return MyObject1, MyObject2
+        
+    class MyConverter3(MyConverter):
+        def match(self, v):
+            return isinstance(v, MyObject1)
+    
+    # Define data
+    a1 = [1, MyObject1(2), 3]
+    a2 = [1, MyObject1(2), MyObject2(3), 4]
+    
+    # Converter 1 can only encode MyObject1
+    b1 = bsdf.encode(a1, [MyConverter1()])
+    c1 = bsdf.decode(b1, [MyConverter1()])
+    assert repr(a1) == repr(c1)
+    # 
+    with raises(TypeError):
+        b2 = bsdf.encode(a2, [MyConverter1()])
+    
+    # Converter 2 can encode both
+    b1 = bsdf.encode(a1, [MyConverter2()])
+    c1 = bsdf.decode(b1, [MyConverter2()])
+    assert repr(a1) == repr(c1)
+    #
+    b2 = bsdf.encode(a2, [MyConverter2()])
+    c2 = bsdf.decode(b2, [MyConverter2()])
+    assert repr(a2).replace('ct2', 'ct1') == repr(c2)
+    
+    # Converter 3 can encode both too
+    b3 = bsdf.encode(a1, [MyConverter2()])
+    c3 = bsdf.decode(b1, [MyConverter2()])
+    assert repr(a1) == repr(c1)
+    #
+    b3 = bsdf.encode(a2, [MyConverter3()])
+    c3 = bsdf.decode(b2, [MyConverter3()])
+    assert repr(a2).replace('ct2', 'ct1') == repr(c2)
+
+    # Overwriting works
+    b3 = bsdf.encode(a2, [MyConverter1(), MyConverter3()])
+    c3 = bsdf.decode(b2, [MyConverter1(), MyConverter3()])
+    assert repr(a2).replace('ct2', 'ct1') == repr(c2)
 
 
 ## Special implementation stuff - streaming, lazy loading

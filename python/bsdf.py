@@ -129,12 +129,12 @@ class BsdfSerializer(object):
     """
 
     def __init__(self, converters=None, **options):
-        self._encode_converters = {}
-        self._decode_converters = {}
+        self._converters = {}  # name -> converter
+        self._converters_by_cls = {}  # cls -> (name, converter.encode)
         if converters is None:
             converters = standard_converters
         for converter in converters:
-            self.add_converter(*converter)
+            self.add_converter(converter)
         self._parse_options(**options)
 
     def _parse_options(self,
@@ -158,56 +158,52 @@ class BsdfSerializer(object):
         self._load_streaming = bool(load_streaming)
         self._lazy_blob = bool(lazy_blob)
 
-    def add_converter(self, name, cls, encoder, decoder):
-        """ Add a converter to this serializer instance, consisting of:
-
-        * name (str): a unique name for this converter (less than 251 chars).
-        * cls (type): the class to use in ``isinstance`` during encoding, or
-          a list of classes to trigger on.
-        * encoder (function): the function to encode an instance with,
-          which should return a structure of encodable objects.
-        * decoder (function): the function to decode the aforementioned
-          structure with.
+    def add_converter(self, converter):
+        """ Add a converter to this serializer instance, which must be
+        a subclass of Converter.
         """
         # Check classes
-        if isinstance(cls, (tuple, list)):
+        if not isinstance(converter, Converter):
+            raise TypeError('add_converter() expects a Converter instance.')
+        
+        # Get name
+        name = converter.get_name()
+        if not isinstance(name, str):
+            raise TypeError('Converter name must be str.')
+        if len(name) == 0 or len(name) > 250:
+            raise NameError('Converter names must be nonempty and shorter '
+                            'than 251 chars.')
+        if name in self._converters:
+            logger.warn('Overwriting converter "%s", '
+                        'consider removing first' % name)
+        
+        # Get classes
+        cls = converter.get_type()
+        if not cls:
+            clss = []
+        elif isinstance(cls, (tuple, list)):
             clss = cls
         else:
             clss = [cls]
         for cls in clss:
             if not isinstance(cls, type):
                 raise TypeError('Converter classes must be types.')
-
-        # Check inputs
-        if not isinstance(name, str):
-            raise TypeError('Converter name must be str.')
-        if not len(name) <= 250:
-            raise NameError('Converter names must be shorter than 251 chars.')
-        if not callable(encoder):
-            raise TypeError('Converter encoder must be a callable.')
-        if not callable(decoder):
-            raise TypeError('Converter decoder must be a callable.')
-
-        # Check if we already have it
-        if name in self._decode_converters:
-            logger.warn('Overwriting encoder "%s", '
-                        'consider removing first' % name)
-
+        
         # Store
         for cls in clss:
-            self._encode_converters[cls] = name, encoder
-        self._decode_converters[name] = decoder
+            self._converters_by_cls[cls] = name, converter.encode
+        self._converters[name] = converter
 
     def remove_converter(self, name):
         """ Remove a converted by its unique name.
         """
         if not isinstance(name, str):
             raise TypeError('Converter name must be str.')
-        if name in self._decode_converters:
-            self._decode_converters.pop(name)
-        for cls in list(self._encode_converters.keys()):
-            if self._encode_converters[cls][0] == name:
-                self._encode_converters.pop(cls)
+        if name in self._converters:
+            self._converters.pop(name)
+        for cls in list(self._converters_by_cls.keys()):
+            if self._converters_by_cls[cls][0] == name:
+                self._converters_by_cls.pop(cls)
 
     def _encode(self, f, value, streams, converter_id):
         """ Main encoder function.
@@ -279,11 +275,12 @@ class BsdfSerializer(object):
             value._activate(f, self._encode, self._decode)  # noqa
         else:
             # Try if the value is of a type we know
-            x = self._encode_converters.get(value.__class__, None)
+            x = self._converters_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
             if x is None:
-                for cls, x in self._encode_converters.items():
-                    if isinstance(value, cls):
+                for name, c in self._converters.items():
+                    if c.match(value):
+                        x = name, c.encode
                         break
                 else:
                     x = None
@@ -292,7 +289,7 @@ class BsdfSerializer(object):
                 converter_id2, converter_func = x
                 if converter_id == converter_id2:
                     raise ValueError('Circular recursion in converter func!')
-                self._encode(f, converter_func(f, value),
+                self._encode(f, converter_func(value),
                              streams, converter_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
@@ -376,9 +373,9 @@ class BsdfSerializer(object):
 
         # Convert value if we have a converter for it
         if converter_id is not None:
-            converter = self._decode_converters.get(converter_id, None)
+            converter = self._converters.get(converter_id, None)
             if converter is not None:
-                value = converter(f, value)
+                value = converter.decode(value)
             else:
                 # todo: warn/log instead of print
                 print('no converter found for %r' % converter_id)
@@ -682,18 +679,6 @@ class Blob(object):
             self.f.write(hashlib.md5(compressed).digest())
 
 
-# %% Standard convertors
-
-complex_converter = ('c',
-                     complex,
-                     lambda ctx, c: (c.real, c.imag),
-                     lambda ctx, v: complex(*v)
-                     )
-
-
-standard_converters = [complex_converter]
-
-
 # %% High-level functions
 
 
@@ -741,3 +726,90 @@ def load(f, converters=None, **options):
 # Aliases for json compat
 loads = decode
 dumps = encode
+
+
+# %% Standard converters
+
+# Defining converters as a dict would be more compact and feel lighter, but
+# that would only allow lambdas, which is too limiting, e.g. for ndarray
+# converter.
+
+class Converter:
+    """ Base converter class to implement BSDF converters for special data types.
+    
+    A converter must have 5 methods. The first two are called when the
+    BSDF serializer initializes, the others are called as needed:
+    
+    * `get_name() -> str`: the name by which encoded values will be identified.
+      Must be unique, so it is recommended to prefix with a project name.
+    * `get_type() -> type`: the type (or list of types) to match values with.
+      This is optional, but it makes the encoder select converters faster.
+    * `match(value) -> bool`: return whether the converter can convert the
+      given value. A good default is ``isinstance(v, cls)``.
+    * `encode(value) -> encoded_value`: a function to encode a value to
+      more basic data types.
+    * `decode(encoded_value) -> value`: a function to decode an encoded value.
+    
+    """
+    
+    def get_name(self):
+        raise NotImplementedError()
+    
+    def get_type(self):
+        return ()
+    
+    def match(self, v):
+        return False
+    
+    def encode(self, v):
+        return v
+    
+    def decode(self, v):
+        return v
+
+
+class ComplexConverter(Converter):
+    
+    def get_name(self):
+        return 'c'
+    
+    def get_type(self):
+        return complex
+    
+    def match(self, v):
+        return isinstance(v, complex)
+    
+    def encode(self, v):
+        return (v.real, v.imag)
+    
+    def decode(self, v):
+        return complex(v[0], v[1])
+
+
+class NDArrayConverter(Converter):
+    
+    def get_name(self):
+        return 'ndarray'
+    
+    def get_type(self):
+        if 'numpy' in sys.modules:
+            import numpy as np
+            return (np.ndarray, )
+        return ()
+    
+    def match(self, v):
+        return hasattr(v, 'shape') and hasattr(v, 'dtype') and hasattr(v, 'tobytes')
+    
+    def encode(self, v):
+        return dict(shape=v.shape,
+                    dtype=str(v.dtype),
+                    data=v.tobytes())
+    
+    def decode(self, v):
+        import numpy as np
+        a = np.frombuffer(v['data'], dtype=v['dtype'])
+        a.shape = v['shape']
+        return a
+
+
+standard_converters = [ComplexConverter(), NDArrayConverter()]
