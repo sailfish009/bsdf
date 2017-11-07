@@ -66,7 +66,7 @@ def _get_reference():
     
     parts = []
     
-    for ob in (bsdf_lite.BsdfLiteSerializer, ):
+    for ob in (bsdf_lite.BsdfLiteSerializer, bsdf_lite.Extension):
         
         sig = str(inspect.signature(ob))
         if isinstance(ob, type):

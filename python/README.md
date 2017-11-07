@@ -27,18 +27,37 @@ import bsdf
 bb = bsdf.encode(my_object)
 
 # Decode
-my_object2 = bsdf.loadb(bb)
+my_object2 = bsdf.decode(bb)
 ```
 Advanced use:
 
 ```python
+import bsdf
+
+class MyFunctionExtension(bsdf.Extension):
+    """ An extension that can encode function objects and reload them if the
+    function is in the global scope.
+    """
+    name = 'my.func'
+    def match(self, f):
+        return callable(f)
+    def encode(self, f):
+        return f.__name__
+    def decode(self, name):
+        return globals()[name]  # in reality, one would do a smarter lookup here
 
 # Setup a serializer with extensions and options
-serializer = bsdf.BsdfSerializer([bsdf.ComplexExtension],
+serializer = bsdf.BsdfSerializer([MyFunctionExtension],
                                  compression='bz2')
+
+def foo():
+    print(42)
+
 # Use it
-bb = serializer.encode(my_object1)
-my_object2 = serializer.loadb(bb)
+bb = serializer.encode(foo)
+foo2 = serializer.decode(bb)
+
+foo2()  # print 42
 ```
 
 
@@ -129,6 +148,33 @@ Load the data structure that is BSDF-encoded in the given bytes.
 #### method `load(f)`
 
 Load a BSDF-encoded object from the given file object.
+
+
+##
+### class `Extension()`
+
+Base extension class to implement BSDF extensions for special data types.
+
+Extension classes are provided to the BSDF serializer, which
+instantiates the class. That way, the extension can be somewhat dynamic:
+e.g. the NDArrayExtension exposes the ndarray class only when numpy
+is imported.
+
+A extension instance must have two attributes. These can be attribiutes of
+the class, or of the instance set in ``__init__()``:
+
+* name (str): the name by which encoded values will be identified.
+* cls (type): the type (or list of types) to match values with.
+  This is optional, but it makes the encoder select extensions faster. 
+
+Further, it needs 3 methods:
+
+* `match(value) -> bool`: return whether the extension can convert the
+  given value. The default is ``isinstance(value, self.cls)``.
+* `encode(value) -> encoded_value`: the function to encode a value to
+  more basic data types.
+* `decode(encoded_value) -> value`: the function to decode an encoded value
+  back to its intended representation.
 
 
 ##
