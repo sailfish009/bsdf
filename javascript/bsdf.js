@@ -4,7 +4,7 @@
  * bsdf_encode(data) -> ArrayBuffer
  * bsdf_decode(bytes) -> data (bytes can be ArrayBuffer, DataView or Uint8Array)
  *
- * The data is any data structure supported by BSDF and the applied converters.
+ * The data is any data structure supported by BSDF and available extensions.
  * ArrayBuffer and DataView are consumed as bytes, and Uint8Array as a typed array.
  * Bytes are decoded as DataView objects, which can be mapped to arrays with e.g.
  * `a = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)`, if needed
@@ -203,56 +203,56 @@ function ByteBuilder() {
             push_float64: push_float64};
 }
 
-function encode_type_id(f, c, converter_id) {
-    if (typeof converter_id == 'undefined') {
+function encode_type_id(f, c, extension_id) {
+    if (typeof extension_id == 'undefined') {
         f.push_char(c);
     } else {
         f.push_char(c.toUpperCase());
-        f.push_str(converter_id);
+        f.push_str(extension_id);
     }
 }
 
-function encode_object(f, value, converter_id) {
+function encode_object(f, value, extensions, extension_id) {
 
-    if (value === null) { encode_type_id(f, 'v', converter_id); }
-    //else if (typeof value == 'undefined') { encode_type_id(f, 'v', converter_id); }
-    else if (value === false) { encode_type_id(f, 'n', converter_id); }
-    else if (value === true) { encode_type_id(f, 'y', converter_id); }
+    if (value === null) { encode_type_id(f, 'v', extension_id); }
+    //else if (typeof value == 'undefined') { encode_type_id(f, 'v', extension_id); }
+    else if (value === false) { encode_type_id(f, 'n', extension_id); }
+    else if (value === true) { encode_type_id(f, 'y', extension_id); }
     else if (typeof value == 'number') {
         if (Number.isInteger(value)) {
             if (value >= -32768 && value <= 32767) {
-                encode_type_id(f, 'h', converter_id);
+                encode_type_id(f, 'h', extension_id);
                 f.push_int16(value);
             } else {
-                encode_type_id(f, 'i', converter_id);
+                encode_type_id(f, 'i', extension_id);
                 f.push_int64(value);
             }
         } else {
-            encode_type_id(f, 'd', converter_id);
+            encode_type_id(f, 'd', extension_id);
             f.push_float64(value);
         }
     } else if (typeof value == 'string') {
-        encode_type_id(f, 's', converter_id);
+        encode_type_id(f, 's', extension_id);
         f.push_str(value);
     } else if (typeof value == 'object') {
         if (Array.isArray(value)) {  // heterogeneous list
-            encode_type_id(f, 'l', converter_id);
+            encode_type_id(f, 'l', extension_id);
             var n = value.length;
             f.push_size(n);
             for (var i=0; i<n; i++) {
-                encode_object(f, value[i]);
+                encode_object(f, value[i], extensions);
             }
         } else if (value.constructor === Object) {  // mapping / dict
-            encode_type_id(f, 'm', converter_id);
+            encode_type_id(f, 'm', extension_id);
             var nm = Object.keys(value).length;
             f.push_size(nm);
             for (var key in value) {
                 f.push_str(key);
-                encode_object(f, value[key]);
+                encode_object(f, value[key], extensions);
             }
         } else if (value instanceof ArrayBuffer || value instanceof DataView) {  // bytes
             if (value instanceof ArrayBuffer) { value = new DataView(value); }
-            encode_type_id(f, 'b', converter_id);
+            encode_type_id(f, 'b', extension_id);
             var compression = 0;
             var compressed = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);  // map to uint8
             var data_size = value.byteLength;
@@ -284,13 +284,15 @@ function encode_object(f, value, converter_id) {
             f.push_bytes(compressed);
             f.push_bytes(new Uint8Array(allocated_size - used_size));
         } else {
-            // todo: try converters
-
-            if (value instanceof Complex) {
-                encode_object(f, [value.real, value.imag], 'c');
-            } else {
-                throw "cannot encode object " + value.constructor.name;
+            // Try extensions
+            for (var iext=0; iext<extensions.length; iext++) {
+                var ext = extensions[iext];
+                if (ext.match(value)) {
+                    encode_object(f, ext.encode(value), extensions, ext.name);
+                    return;
+                }
             }
+            throw "cannot encode object " + value.constructor.name;
         }
     } else {
         throw "cannot encode type " + typeof(value);
@@ -395,12 +397,12 @@ function BytesReader(buf) {
 
 }
 
-function decode_object(f) {
+function decode_object(f, extensions) {
 
     var char = f.get_char();
     var c = char.toLowerCase();
     var value;
-    var converter_id = null;
+    var extension_id = null;
 
     if (char == '\x00') {  // because String.fromCharCode(undefined) produces ASCII 0.
         throw new EOFError('End of BSDF data reached.');
@@ -408,7 +410,7 @@ function decode_object(f) {
 
     // Conversion (uppercase value identifiers signify converted values)
     if (char != c) {
-        converter_id = f.get_str();
+        extension_id = f.get_str();
     }
 
     if (c == 'v') {
@@ -433,7 +435,7 @@ function decode_object(f) {
             // Streaming
             value = [];
             try {
-                while (true) { value.push(decode_object(f)); }
+                while (true) { value.push(decode_object(f, extensions)); }
             } catch(err) {
                 if (err instanceof EOFError) { /* ok */ } else { throw err; }
             }
@@ -441,7 +443,7 @@ function decode_object(f) {
             // Normal
             value = new Array(n);
             for (var i=0; i<n; i++) {
-                value[i] = decode_object(f);
+                value[i] = decode_object(f, extensions);
             }
         }
     } else if (c == 'm') {
@@ -449,7 +451,7 @@ function decode_object(f) {
         value = {};
         for (var j=0; j<nm; j++) {
             var key = f.get_str();
-            value[key] = decode_object(f);
+            value[key] = decode_object(f, extensions);
         }
     } else if (c == 'b') {
         // Get sizes
@@ -477,12 +479,13 @@ function decode_object(f) {
         throw "Invalid value specifier at pos " + f.tell() + ": " + JSON.stringify(char);
     }
 
-    // Convert? for now this is hard-coded -> need user-defined converters!
-    if (converter_id !== null) {
-        if (converter_id == 'c') {
-            value = new Complex(value[0], value[1]);
+    // Convert using an extension?
+    if (extension_id !== null) {
+        var ext = extensions[extension_id];
+        if (ext) {
+            value = ext.decode(value);
         } else {
-            console.log('No known converter for "' + converter_id + '", value passes in raw form.');
+            console.log('No known extension for "' + extension_id + '", value passes in raw form.');
         }
     }
     return value;
@@ -499,20 +502,28 @@ function EOFError(msg) {
     this.msg = msg;
 }
 
-// ==================
+// ================== API
 
-
-function bsdf_encode(d) {
-    var f = ByteBuilder();
+function bsdf_encode(d, extensions) {
+    // Prepare extensions - extensions are stored as an array
+    if (extensions === undefined) { extensions = standard_extensions; }
+    if (!Array.isArray(extensions)) { throw "Extensions must be an array."; }
     // Write head and version
+    var f = ByteBuilder();
     f.push_char('B'); f.push_char('S'); f.push_char('D'); f.push_char('F');
     f.push_uint8(VERSION[0]); f.push_uint8(VERSION[1]);
     // Encode and return result
-    encode_object(f, d);
+    encode_object(f, d, extensions);
     return f.get_result();
 }
 
-function bsdf_decode(buf) {
+function bsdf_decode(buf, extensions) {
+    // Prepare extensions - extensions are stored as an object
+    if (extensions === undefined) { extensions = standard_extensions; }
+    if (!Array.isArray(extensions)) { throw "Extensions must be an array."; }
+    var ext = {};
+    for (var i=0; i<extensions.length; i++) { ext[extensions[i].name] = extensions[i]; }
+    // Write head and version
     var f = BytesReader(buf);
     // Check head
     var head = f.get_char() + f.get_char() + f.get_char() + f.get_char();
@@ -528,14 +539,43 @@ function bsdf_decode(buf) {
         console.log('BSDF Warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
     }
     // Decode
-    return decode_object(f);
+    return decode_object(f, ext);
 }
 
-// For Node.js
-//if (typeof module !== 'undefined') module.exports = {bsdf_encode, bsdf_decode};
 
+// ================== Standard extensions
 
-/* Below is the UMD module suffix */
-exports = {encode: bsdf_encode, decode: bsdf_decode};
+var rootns;
+if (typeof window == 'undefined') { rootns = global; } else { rootns = window; }
+
+var complex_extension = {
+    name: 'c',
+    match: function(v) { return v instanceof Complex; },
+    encode: function(v) { return [v.real, v.imag]; },
+    decode: function(v) { return new Complex(v[0], v[1]); }
+};
+
+var ndarray_extension = {
+    name: 'ndarray',
+    match: function(v) {
+        return v.BYTES_PER_ELEMENT !== undefined && v.constructor.name.endsWith('Array');
+    },
+    encode: function(v) {
+        return {shape: v.shape || [v.length],
+                dtype: v.constructor.name.slice(0, -5).toLowerCase(),
+                data: new DataView(v.buffer, v.byteOffset, v.byteLength)};
+    },
+    decode: function(v) {
+        var cls = rootns[v.dtype[0].toUpperCase() + v.dtype.slice(1) + 'Array'];
+        var value = new cls(v.data.buffer, v.data.byteOffset, v.data.byteLength / cls.BYTES_PER_ELEMENT);
+        value.shape = v.shape;
+        return value;
+    }
+};
+
+var standard_extensions = [complex_extension, ndarray_extension];
+
+// ================== the UMD module suffix
+exports = {encode: bsdf_encode, decode: bsdf_decode, standard_extensions: standard_extensions};
 return exports;
 }));
