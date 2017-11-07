@@ -1,7 +1,7 @@
 # BSDF Python lite implementation
 
 This is a lightweight implementation of BSDF in Python. Fully functional
-(including support for custom converters) but no fancy features like lazy
+(including support for custom extensions) but no fancy features like lazy
 loading or streaming. With less than 500 lines of code (including docstrings)
 this demonstrates how simple a BSDF implementation can be.
 See also the [complete version](python) of BSDF in Python.
@@ -22,8 +22,8 @@ Run `invoke -l` in this directory for available tasks (like tests).
 ```python
 import bsdf_lite
 
-# Setup a serializer with converters and options
-serializer = bsdf_lite.BsdfLiteSerializer([bsdf_lite.complex_converter],
+# Setup a serializer with extensions and options
+serializer = bsdf_lite.BsdfLiteSerializer([bsdf_lite.complex_extension],
                                           compression='bz2')
 # Use it
 bb = serializer.saveb(my_object1)
@@ -33,15 +33,15 @@ my_object2 = serializer.loadb(bb)
 
 ## Reference
 
-### class `BsdfLiteSerializer(converters=None, **options)`
+### class `BsdfLiteSerializer(extensions=None, **options)`
 
 Instances of this class represent a BSDF encoder/decoder.
 
 This is a lite variant of the Python BSDF serializer. It does not support
 lazy loading or streaming, but is otherwise fully functional, including
-support for custom converters.
+support for custom extensions.
 
-It acts as a placeholder for a set of converters and encoding/decoding
+It acts as a placeholder for a set of extensions and encoding/decoding
 options. Options for encoding:
 
 * compression (int or str): ``0`` or "no" for no compression (default),
@@ -53,20 +53,13 @@ options. Options for encoding:
 * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
 
-#### method `add_converter(name, cls, encoder, decoder)`
+#### method `add_extension(extension_class)`
 
-Add a converter to this serializer instance, consisting of:
-
-* name (str): a unique name for this converter (less than 251 chars).
-* cls (type): the class to use in ``isinstance`` during encoding, or
-  a list of classes to trigger on.
-* encoder (function): the function to encode an instance with,
-  which should return a structure of encodable objects.
-* decoder (function): the function to decode the aforementioned
-  structure with.
+Add an extension to this serializer instance, which must be
+a subclass of Extension.
 
 
-#### method `remove_converter(name)`
+#### method `remove_extenstion(name)`
 
 Remove a converted by its unique name.
 

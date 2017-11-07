@@ -14,6 +14,7 @@ a BSDF implementation can be.
 This module has no dependencies and works on Python 3.4+.
 """
 
+import sys
 import bz2
 import hashlib
 import logging
@@ -62,9 +63,9 @@ class BsdfLiteSerializer(object):
 
     This is a lite variant of the Python BSDF serializer. It does not support
     lazy loading or streaming, but is otherwise fully functional, including
-    support for custom converters.
+    support for custom extensions.
 
-    It acts as a placeholder for a set of converters and encoding/decoding
+    It acts as a placeholder for a set of extensions and encoding/decoding
     options. Options for encoding:
 
     * compression (int or str): ``0`` or "no" for no compression (default),
@@ -77,13 +78,13 @@ class BsdfLiteSerializer(object):
 
     """
 
-    def __init__(self, converters=None, **options):
-        self._encode_converters = {}
-        self._decode_converters = {}
-        if converters is None:
-            converters = standard_converters
-        for converter in converters:
-            self.add_converter(*converter)
+    def __init__(self, extensions=None, **options):
+        self._extensions = {}  # name -> extension
+        self._extensions_by_cls = {}  # cls -> (name, extension.encode)
+        if extensions is None:
+            extensions = standard_extensions
+        for extension in extensions:
+            self.add_extension(extension)
         self._parse_options(**options)
 
     def _parse_options(self, compression=0, use_checksum=False, float64=True):
@@ -101,65 +102,63 @@ class BsdfLiteSerializer(object):
         self._use_checksum = bool(use_checksum)
         self._float64 = bool(float64)
 
-    def add_converter(self, name, cls, encoder, decoder):
-        """ Add a converter to this serializer instance, consisting of:
-
-        * name (str): a unique name for this converter (less than 251 chars).
-        * cls (type): the class to use in ``isinstance`` during encoding, or
-          a list of classes to trigger on.
-        * encoder (function): the function to encode an instance with,
-          which should return a structure of encodable objects.
-        * decoder (function): the function to decode the aforementioned
-          structure with.
+    def add_extension(self, extension_class):
+        """ Add an extension to this serializer instance, which must be
+        a subclass of Extension.
         """
-        # Check classes
-        if isinstance(cls, (tuple, list)):
+        # Check class
+        if not (isinstance(extension_class, type) and
+                issubclass(extension_class, Extension)):
+            raise TypeError('add_extension() expects a Extension class.')
+        extension = extension_class()
+        
+        # Get name
+        name = extension.name
+        if not isinstance(name, str):
+            raise TypeError('Extension name must be str.')
+        if len(name) == 0 or len(name) > 250:
+            raise NameError('Extension names must be nonempty and shorter '
+                            'than 251 chars.')
+        if name in self._extensions:
+            logger.warn('Overwriting extension "%s", '
+                        'consider removing first' % name)
+        
+        # Get classes
+        cls = extension.cls
+        if not cls:
+            clss = []
+        elif isinstance(cls, (tuple, list)):
             clss = cls
         else:
             clss = [cls]
         for cls in clss:
             if not isinstance(cls, type):
-                raise TypeError('Converter classes must be types.')
-
-        # Check inputs
-        if not isinstance(name, str):
-            raise TypeError('Converter name must be str.')
-        if not len(name) <= 250:
-            raise NameError('Converter names must be shorter than 251 chars.')
-        if not callable(encoder):
-            raise TypeError('Converter encoder must be a callable.')
-        if not callable(decoder):
-            raise TypeError('Converter decoder must be a callable.')
-
-        # Check if we already have it
-        if name in self._decode_converters:
-            logger.warn('Overwriting encoder "%s", '
-                        'consider removing first' % name)
-
+                raise TypeError('Extension classes must be types.')
+        
         # Store
         for cls in clss:
-            self._encode_converters[cls] = name, encoder
-        self._decode_converters[name] = decoder
+            self._extensions_by_cls[cls] = name, extension.encode
+        self._extensions[name] = extension
 
-    def remove_converter(self, name):
+    def remove_extension(self, name):
         """ Remove a converted by its unique name.
         """
         if not isinstance(name, str):
-            raise TypeError('Converter name must be str.')
-        if name in self._decode_converters:
-            self._decode_converters.pop(name)
-        for cls in list(self._encode_converters.keys()):
-            if self._encode_converters[cls][0] == name:
-                self._encode_converters.pop(cls)
-
-    def _encode(self, f, value, streams, converter_id):
+            raise TypeError('Extension name must be str.')
+        if name in self._extensions:
+            self._extensions.pop(name)
+        for cls in list(self._extensions_by_cls.keys()):
+            if self._extensions_by_cls[cls][0] == name:
+                self._extensions_by_cls.pop(cls)
+    
+    def _encode(self, f, value, streams, extension_id):
         """ Main encoder function.
         """
 
-        if converter_id is not None:
-            bb = converter_id.encode('UTF-8')
-            converter_patch = lencode(len(bb)) + bb
-            x = lambda i: i.upper() + converter_patch  # noqa
+        if extension_id is not None:
+            bb = extension_id.encode('UTF-8')
+            extension_patch = lencode(len(bb)) + bb
+            x = lambda i: i.upper() + extension_patch  # noqa
         else:
             x = lambda i: i  # noqa
 
@@ -239,24 +238,25 @@ class BsdfLiteSerializer(object):
             f.write(b'\x00' * (allocated_size - used_size))
         else:
             # Try if the value is of a type we know
-            x = self._encode_converters.get(value.__class__, None)
+            x = self._extensions_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
             if x is None:
-                for cls, x in self._encode_converters.items():
-                    if isinstance(value, cls):
+                for name, c in self._extensions.items():
+                    if c.match(value):
+                        x = name, c.encode
                         break
                 else:
                     x = None
             # Success or fail
             if x is not None:
-                converter_id2, converter_func = x
-                if converter_id == converter_id2:
-                    raise ValueError('Circular recursion in converter func!')
-                self._encode(f, converter_func(f, value),
-                             streams, converter_id2)
+                extension_id2, extension_func = x
+                if extension_id == extension_id2:
+                    raise ValueError('Circular recursion in extension func!')
+                self._encode(f, extension_func(value),
+                             streams, extension_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
-                     'handled by a converter.')
+                     'handled by an extension.')
                 raise TypeError(t % value.__class__.__name__)
 
     def _decode(self, f):
@@ -273,9 +273,9 @@ class BsdfLiteSerializer(object):
         elif char != c:
             n = strunpack('<B', f.read(1))[0]
             # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - noneed
-            converter_id = f.read(n).decode('UTF-8')
+            extension_id = f.read(n).decode('UTF-8')
         else:
-            converter_id = None
+            extension_id = None
 
         if c == b'v':
             value = None
@@ -354,14 +354,14 @@ class BsdfLiteSerializer(object):
         else:
             raise RuntimeError('Parse error %r' % char)
 
-        # Convert value if we have a converter for it
-        if converter_id is not None:
-            converter = self._decode_converters.get(converter_id, None)
-            if converter is not None:
-                value = converter(f, value)
+        # Convert value if we have a nextension for it
+        if extension_id is not None:
+            extension = self._extensions.get(extension_id, None)
+            if extension is not None:
+                value = extension.decode(value)
             else:
                 # todo: warn/log instead of print
-                print('no converter found for %r' % converter_id)
+                print('no extension found for %r' % extension_id)
 
         return value
 
@@ -420,13 +420,91 @@ class BsdfLiteSerializer(object):
         return self._decode(f)
 
 
-# %% Standard convertors
+# %% Standard extensions
 
-complex_converter = ('c',
-                     complex,
-                     lambda ctx, c: (c.real, c.imag),
-                     lambda ctx, v: complex(*v)
-                     )
+# Defining extensions as a dict would be more compact and feel lighter, but
+# that would only allow lambdas, which is too limiting, e.g. for ndarray
+# extension.
+
+class Extension:
+    """ Base extension class to implement BSDF extensions for special data types.
+    
+    Extension classes are provided to the BSDF serializer, which
+    instantiates the class. That way, the extension can be somewhat dynamic:
+    e.g. the NDArrayExtension exposes the ndarray class only when numpy
+    is imported.
+    
+    A extension instance must have two attributes. These can be attribiutes of
+    the class, or of the instance set in ``__init__()``:
+    
+    * name (str): the name by which encoded values will be identified.
+    * cls (type): the type (or list of types) to match values with.
+      This is optional, but it makes the encoder select extensions faster. 
+    
+    Further, it needs 3 methods:
+    
+    * `match(value) -> bool`: return whether the extension can convert the
+      given value. The default is ``isinstance(value, self.cls)``.
+    * `encode(value) -> encoded_value`: the function to encode a value to
+      more basic data types.
+    * `decode(encoded_value) -> value`: the function to decode an encoded value
+      back to its intended representation.
+    
+    """
+    
+    name = ''
+    cls = ()
+    
+    def __repr__(self):
+        return '<BSDF extension %r at 0x%s>' % (self.name, hex(id(self)))
+    
+    def match(self, v):
+        return isinstance(v, self.cls)
+    
+    def encode(self, v):
+        return v
+    
+    def decode(self, v):
+        return v
 
 
-standard_converters = [complex_converter]
+class ComplexExtension(Extension):
+    
+    name = 'c'
+    cls = complex
+    
+    def encode(self, v):
+        return (v.real, v.imag)
+    
+    def decode(self, v):
+        return complex(v[0], v[1])
+
+
+class NDArrayExtension(Extension):
+    
+    name = 'ndarray'
+    
+    def __init__(self):
+        if 'numpy' in sys.modules:
+            import numpy as np
+            self.cls = np.ndarray
+    
+    def match(self, v):
+        return hasattr(v, 'shape') and hasattr(v, 'dtype') and hasattr(v, 'tobytes')
+    
+    def encode(self, v):
+        return dict(shape=v.shape,
+                    dtype=str(v.dtype),
+                    data=v.tobytes())
+    
+    def decode(self, v):
+        try:
+            import numpy as np
+        except ImportError:
+            return v
+        a = np.frombuffer(v['data'], dtype=v['dtype'])
+        a.shape = v['shape']
+        return a
+
+
+standard_extensions = [ComplexExtension, NDArrayExtension]
