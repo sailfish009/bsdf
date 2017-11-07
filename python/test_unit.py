@@ -236,43 +236,43 @@ def test_float32():
     assert bsdf.decode(b2) == [300000, 400000, 500000, 3000000, 4000000, 5000000]
 
 
-## Converters
+## Extensions
 
 
-def test_converter_add_remove():
+def test_extension_add_remove():
     
-    # Not specifying converters used defaults
+    # Not specifying extensions used defaults
     x = bsdf.BsdfSerializer()
-    assert len(x._converters) > 0
+    assert len(x._extensions) > 0
     x = bsdf.BsdfSerializer(None)
-    assert len(x._converters) > 0
+    assert len(x._extensions) > 0
     
     # Specifying empty list discarts defaults
     x = bsdf.BsdfSerializer([])
-    assert len(x._converters) == 0
+    assert len(x._extensions) == 0
     
-    class MyConverter(bsdf.Converter):
+    class MyExtension(bsdf.Extension):
         name = 'x'
     
-    # Add via init or add_converters()
-    x = bsdf.BsdfSerializer([MyConverter])
-    assert len(x._converters) == 1
-    x.add_converter(bsdf.ComplexConverter)
-    assert len(x._converters) == 2
+    # Add via init or add_extensions()
+    x = bsdf.BsdfSerializer([MyExtension])
+    assert len(x._extensions) == 1
+    x.add_extension(bsdf.ComplexExtension)
+    assert len(x._extensions) == 2
     
     # No dups
-    x.add_converter(MyConverter)
-    x.add_converter(bsdf.ComplexConverter)
+    x.add_extension(MyExtension)
+    x.add_extension(bsdf.ComplexExtension)
     
     # Remove
     with raises(TypeError):
-        x.remove_converter(bsdf.ComplexConverter)
-    x.remove_converter('x')
-    x.remove_converter('c')
-    assert len(x._converters) == 0
+        x.remove_extension(bsdf.ComplexExtension)
+    x.remove_extension('x')
+    x.remove_extension('c')
+    assert len(x._extensions) == 0
 
 
-def test_standard_converters_complex():
+def test_standard_extensions_complex():
 
     x = bsdf.BsdfSerializer()
     
@@ -282,38 +282,38 @@ def test_standard_converters_complex():
     assert a == b
 
 
-def test_standard_converters_ndarray():
+def test_standard_extensions_ndarray():
     
     try:
         import numpy as np
     except ImportError:
         skip('need numpy')
     
-    converters = None
+    extensions = None
     
     a1 = [1, 2, np.array([1, 2, 3, 4]).reshape((2,2))]
     a2 = [1, 2, np.array([1, 2, 42]*1000)]
     a3 = [1, 2, np.array([4, 2, 42]*1000)]
-    b1 = bsdf.encode(a1, converters)
-    b2 = bsdf.encode(a2, converters, compression=0)
-    b3 = bsdf.encode(a3, converters, compression=1)
+    b1 = bsdf.encode(a1, extensions)
+    b2 = bsdf.encode(a2, extensions, compression=0)
+    b3 = bsdf.encode(a3, extensions, compression=1)
     
     assert len(b2) > len(b1) * 10
     assert len(b2) > len(b3) * 10
     
-    c1 = bsdf.decode(b1, converters)
-    c2 = bsdf.decode(b2, converters)
-    c3 = bsdf.decode(b3, converters)
+    c1 = bsdf.decode(b1, extensions)
+    c2 = bsdf.decode(b2, extensions)
+    c3 = bsdf.decode(b3, extensions)
     
     assert np.all(a1[2] == c1[2])
     assert np.all(a2[2] == c2[2])
     assert np.all(a3[2] == c3[2])
 
 
-def test_custom_converter_array():
+def test_custom_extension_array():
     import array
     
-    class ArrayConverter(bsdf.Converter):
+    class ArrayExtension(bsdf.Extension):
         name = 'array'
         cls = array.array
         
@@ -325,59 +325,59 @@ def test_custom_converter_array():
             a.fromstring(d['data'])
             return a
     
-    converters = [ArrayConverter]
+    extensions = [ArrayExtension]
     
     a1 = [1, 2, array.array('b', [1, 2, 42])]
     a2 = [1, 2, array.array('b', [1, 2, 42]*1000)]
     a3 = [1, 2, array.array('b', [4, 2, 42]*1000)]
-    bb1 = bsdf.encode(a1, converters)
-    bb2 = bsdf.encode(a2, converters, compression=0)
-    bb3 = bsdf.encode(a3, converters, compression=1)
+    bb1 = bsdf.encode(a1, extensions)
+    bb2 = bsdf.encode(a2, extensions, compression=0)
+    bb3 = bsdf.encode(a3, extensions, compression=1)
     
     assert len(bb2) > len(bb1) * 10
     assert len(bb2) > len(bb3) * 10
     
-    b1 = bsdf.decode(bb1, converters)
-    b2 = bsdf.decode(bb2, converters)
-    b3 = bsdf.decode(bb3, converters)
+    b1 = bsdf.decode(bb1, extensions)
+    b2 = bsdf.decode(bb2, extensions)
+    b3 = bsdf.decode(bb3, extensions)
     
     assert a1 == b1
     assert a2 == b2
     assert a3 == b3
 
 
-def test_custom_converters_fail():
+def test_custom_extensions_fail():
     
     with raises(TypeError):
-        bsdf.encode(None, ['not a converter'])
+        bsdf.encode(None, ['not an extension'])
     
-    class MyConverter1(bsdf.Converter):
+    class MyExtension1(bsdf.Extension):
         name = 3
     
     with raises(TypeError):
-        bsdf.encode(None, [MyConverter1])
+        bsdf.encode(None, [MyExtension1])
     
-    class MyConverter2(bsdf.Converter):
+    class MyExtension2(bsdf.Extension):
         name = ''
     
     with raises(NameError):
-        bsdf.encode(None, [MyConverter2])
+        bsdf.encode(None, [MyExtension2])
     
-    class MyConverter3(bsdf.Converter):
+    class MyExtension3(bsdf.Extension):
         name = 'x' * 1000
     
     with raises(NameError):
-        bsdf.encode(None, [MyConverter3])
+        bsdf.encode(None, [MyExtension3])
     
-    class MyConverter4(bsdf.Converter):
+    class MyExtension4(bsdf.Extension):
         name = 'x'
         cls = 4
     
     with raises(TypeError):
-        bsdf.encode(None, [MyConverter4])
+        bsdf.encode(None, [MyExtension4])
 
 
-def test_custom_converters():
+def test_custom_extensions():
     
     class MyObject1:
         def __init__(self, val):
@@ -388,24 +388,24 @@ def test_custom_converters():
     class MyObject2(MyObject1):
         pass
     
-    class MyConverter(bsdf.Converter):
+    class MyExtension(bsdf.Extension):
         name = 'myob'
         def encode(self, v):
             return v.val
         def decode(self, v):
             return MyObject1(v)
     
-    class MyConverter1(MyConverter):
+    class MyExtension1(MyExtension):
         cls = MyObject1
         def match(self, v):
             return False
     
-    class MyConverter2(MyConverter):
+    class MyExtension2(MyExtension):
         cls = MyObject1, MyObject2
         def match(self, v):
             return False
     
-    class MyConverter3(MyConverter):
+    class MyExtension3(MyExtension):
         cls = MyObject1
         # default: def match(self, v): return isinstance(v, self.cls)
     
@@ -413,35 +413,35 @@ def test_custom_converters():
     a1 = [1, MyObject1(2), 3]
     a2 = [1, MyObject1(2), MyObject2(3), 4]
     
-    # Converter 1 can only encode MyObject1
-    b1 = bsdf.encode(a1, [MyConverter1])
-    c1 = bsdf.decode(b1, [MyConverter1])
+    # Extension 1 can only encode MyObject1
+    b1 = bsdf.encode(a1, [MyExtension1])
+    c1 = bsdf.decode(b1, [MyExtension1])
     assert repr(a1) == repr(c1)
     # 
     with raises(TypeError):
-        b2 = bsdf.encode(a2, [MyConverter1])
+        b2 = bsdf.encode(a2, [MyExtension1])
     
-    # Converter 2 can encode both
-    b1 = bsdf.encode(a1, [MyConverter2])
-    c1 = bsdf.decode(b1, [MyConverter2])
+    # Extension 2 can encode both
+    b1 = bsdf.encode(a1, [MyExtension2])
+    c1 = bsdf.decode(b1, [MyExtension2])
     assert repr(a1) == repr(c1)
     #
-    b2 = bsdf.encode(a2, [MyConverter2])
-    c2 = bsdf.decode(b2, [MyConverter2])
+    b2 = bsdf.encode(a2, [MyExtension2])
+    c2 = bsdf.decode(b2, [MyExtension2])
     assert repr(a2).replace('ct2', 'ct1') == repr(c2)
     
-    # Converter 3 can encode both too
-    b3 = bsdf.encode(a1, [MyConverter2])
-    c3 = bsdf.decode(b1, [MyConverter2])
+    # Extension 3 can encode both too
+    b3 = bsdf.encode(a1, [MyExtension2])
+    c3 = bsdf.decode(b1, [MyExtension2])
     assert repr(a1) == repr(c1)
     #
-    b3 = bsdf.encode(a2, [MyConverter3])
-    c3 = bsdf.decode(b2, [MyConverter3])
+    b3 = bsdf.encode(a2, [MyExtension3])
+    c3 = bsdf.decode(b2, [MyExtension3])
     assert repr(a2).replace('ct2', 'ct1') == repr(c2)
 
     # Overwriting works
-    b3 = bsdf.encode(a2, [MyConverter1, MyConverter3])
-    c3 = bsdf.decode(b2, [MyConverter1, MyConverter3])
+    b3 = bsdf.encode(a2, [MyExtension1, MyExtension3])
+    c3 = bsdf.decode(b2, [MyExtension1, MyExtension3])
     assert repr(a2).replace('ct2', 'ct1') == repr(c2)
 
 

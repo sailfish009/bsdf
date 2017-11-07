@@ -38,11 +38,11 @@ A minimal BSDF implementation must support:
 * the basic data types: null, bool, int, float, string, list, mapping,
   and uncompressed binary blobs.
 * reading unclosed streams (at the end of a data structure).
-* preferably most standard converters.
+* preferably most standard extensions.
 
 Implementations are encouraged to support:
 
-* user-defined converters.
+* support user-defined extensions.
 * compressed binary blobs (zlib and bz2).
 
 Further implementations can be made more powerful by supporting:
@@ -56,8 +56,8 @@ Further implementations can be made more powerful by supporting:
 
 Each data value is identified using a 1 byte character in the ASCII
 range. If this identifier is a capital letter (smaller than ASCII 95),
-it means that it's a value to be converted. If so, the next item is a
-string (see below for its encoding) representing the converter name.
+it means that it's a value to be converted via an extension. If so, the next
+item is a string (see below for its encoding) representing the extension name.
 Next is the data itself. All words are stored in little endian format.
 
 
@@ -156,77 +156,3 @@ Streams are identified by the size encoding which starts with 255,
 followed by an unsigned 64 bit integer. This allows to later "close"
 the stream by changing the 255 to 253 and writing the real size in the next 8
 bytes.
-
-
-## Converters
-
-This section specifies a set of converters; a specifification
-of how certain objects can be encoded, and how they are named.
-
-Data to be converted is identified by its identifier byte to be in uppercase.
-In such a case, there will be a string before the data, which identifies
-the converter. Any data element can potentially be converted, even null.
-
-How users specify converters is specific to the implementation, but
-converters will generally consist of 4 elements:
-
-* A name to identify it with. This will be encoded along with the data,
-  so better keep it short. Custom converters do well to prefix the name with
-  the context (e.g. 'mylibrary.myconverter'), to avoid name clashes.
-* A type, so that the BSDF encoder can use the converter when an object
-  of such type is being serialized.
-* An encoder function to convert the special object to more basic
-  objects (although these can again be convertable).
-* A decoder function to convert basic objects into the special data type.
-
-We distinguish between regular converters, which should be seen as a
-suggestion by which certain types of data can be encoded, and standard
-converters, which users are stongly encouraged to follow, and which
-implementations are encouraged to support by default.
-
-This is a work in progress and the specifications below are subject to change.
-The standardization of a base set of convertes should settle soonish after the
-BSDF format itself has stabalized. 
-
-It is worth noting that if an implementation does not support a converter and/or
-the user did not specify a certain converter, the data will be loaded in its
-"raw" form (e.g. a complex number as a list of two floats) and a warning will
-be displayed.
-
-
-### Complex numbers (standard)
-
-* name: "c"
-* encoding: a list with two elements (the real and the imaginary part).
-
-
-### N-dimensional arrays (standard)
-
-* name: "ndarray"
-* encoding: a dict with elements:
-    * 'dtype', a string that specifies the data type. Minimal support
-      should be 'uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
-      'float32', and preferably 'uint64', 'int64' and 'float64'.
-    * 'shape', a list with as many elements (integers) as the array has
-      dimensions. The first changing dimension first.
-    * 'data', a blob of bytes representing the contiguous data.
-
-We might add an "order" field at a later point. This will need to be
-investigated/discussed further. Until then, C-order (row-major) should
-be assumed where it matters.
-
-
-### 2D image data
-
-* name: 'image2d'
-* encoding: a 2D or 3D ndarray
-
-If the data is 3D, it has shape[-1] channels.
-
-
-### 3D image data
-
-* name: 'image3d'
-* encoding: a 3D or 4D ndarray
-
-If the data is 4D, it has shape[-1] channels.

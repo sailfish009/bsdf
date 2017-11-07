@@ -100,8 +100,8 @@ def _isidentifier(s):
 class BsdfSerializer(object):
     """ Instances of this class represent a BSDF encoder/decoder.
 
-    It acts as a placeholder for a set of converters and encoding/decoding
-    options. Use this to predefine converters and options for high
+    It acts as a placeholder for a set of extensions and encoding/decoding
+    options. Use this to predefine extensions and options for high
     performance encoding/decoding. For general use, see the functions
     `save()`, `encode()`, `load()`, and `decode()`.
 
@@ -128,13 +128,13 @@ class BsdfSerializer(object):
       file is open in a+ mode.
     """
 
-    def __init__(self, converters=None, **options):
-        self._converters = {}  # name -> converter
-        self._converters_by_cls = {}  # cls -> (name, converter.encode)
-        if converters is None:
-            converters = standard_converters
-        for converter in converters:
-            self.add_converter(converter)
+    def __init__(self, extensions=None, **options):
+        self._extensions = {}  # name -> extension
+        self._extensions_by_cls = {}  # cls -> (name, extension.encode)
+        if extensions is None:
+            extensions = standard_extensions
+        for extension in extensions:
+            self.add_extension(extension)
         self._parse_options(**options)
 
     def _parse_options(self,
@@ -158,29 +158,29 @@ class BsdfSerializer(object):
         self._load_streaming = bool(load_streaming)
         self._lazy_blob = bool(lazy_blob)
 
-    def add_converter(self, converter_class):
-        """ Add a converter to this serializer instance, which must be
-        a subclass of Converter.
+    def add_extension(self, extension_class):
+        """ Add an extension to this serializer instance, which must be
+        a subclass of Extension.
         """
         # Check class
-        if not (isinstance(converter_class, type) and
-                issubclass(converter_class, Converter)):
-            raise TypeError('add_converter() expects a Converter class.')
-        converter = converter_class()
+        if not (isinstance(extension_class, type) and
+                issubclass(extension_class, Extension)):
+            raise TypeError('add_extension() expects a Extension class.')
+        extension = extension_class()
         
         # Get name
-        name = converter.name
+        name = extension.name
         if not isinstance(name, str):
-            raise TypeError('Converter name must be str.')
+            raise TypeError('Extension name must be str.')
         if len(name) == 0 or len(name) > 250:
-            raise NameError('Converter names must be nonempty and shorter '
+            raise NameError('Extension names must be nonempty and shorter '
                             'than 251 chars.')
-        if name in self._converters:
-            logger.warn('Overwriting converter "%s", '
+        if name in self._extensions:
+            logger.warn('Overwriting extension "%s", '
                         'consider removing first' % name)
         
         # Get classes
-        cls = converter.cls
+        cls = extension.cls
         if not cls:
             clss = []
         elif isinstance(cls, (tuple, list)):
@@ -189,33 +189,33 @@ class BsdfSerializer(object):
             clss = [cls]
         for cls in clss:
             if not isinstance(cls, type):
-                raise TypeError('Converter classes must be types.')
+                raise TypeError('Extension classes must be types.')
         
         # Store
         for cls in clss:
-            self._converters_by_cls[cls] = name, converter.encode
-        self._converters[name] = converter
+            self._extensions_by_cls[cls] = name, extension.encode
+        self._extensions[name] = extension
 
-    def remove_converter(self, name):
+    def remove_extension(self, name):
         """ Remove a converted by its unique name.
         """
         if not isinstance(name, str):
-            raise TypeError('Converter name must be str.')
-        if name in self._converters:
-            self._converters.pop(name)
-        for cls in list(self._converters_by_cls.keys()):
-            if self._converters_by_cls[cls][0] == name:
-                self._converters_by_cls.pop(cls)
+            raise TypeError('Extension name must be str.')
+        if name in self._extensions:
+            self._extensions.pop(name)
+        for cls in list(self._extensions_by_cls.keys()):
+            if self._extensions_by_cls[cls][0] == name:
+                self._extensions_by_cls.pop(cls)
 
-    def _encode(self, f, value, streams, converter_id):
+    def _encode(self, f, value, streams, extension_id):
         """ Main encoder function.
         """
 
         # todo: put these closures outside
-        if converter_id is not None:
-            bb = converter_id.encode('UTF-8')
-            converter_patch = lencode(len(bb)) + bb
-            x = lambda i: i.upper() + converter_patch  # noqa
+        if extension_id is not None:
+            bb = extension_id.encode('UTF-8')
+            extension_patch = lencode(len(bb)) + bb
+            x = lambda i: i.upper() + extension_patch  # noqa
         else:
             x = lambda i: i  # noqa
 
@@ -277,10 +277,10 @@ class BsdfSerializer(object):
             value._activate(f, self._encode, self._decode)  # noqa
         else:
             # Try if the value is of a type we know
-            x = self._converters_by_cls.get(value.__class__, None)
+            x = self._extensions_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
             if x is None:
-                for name, c in self._converters.items():
+                for name, c in self._extensions.items():
                     if c.match(value):
                         x = name, c.encode
                         break
@@ -288,14 +288,14 @@ class BsdfSerializer(object):
                     x = None
             # Success or fail
             if x is not None:
-                converter_id2, converter_func = x
-                if converter_id == converter_id2:
-                    raise ValueError('Circular recursion in converter func!')
-                self._encode(f, converter_func(value),
-                             streams, converter_id2)
+                extension_id2, extension_func = x
+                if extension_id == extension_id2:
+                    raise ValueError('Circular recursion in extension func!')
+                self._encode(f, extension_func(value),
+                             streams, extension_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
-                     'handled by a converter.')
+                     'handled by an extension.')
                 raise TypeError(t % value.__class__.__name__)
 
     def _decode(self, f):
@@ -312,9 +312,9 @@ class BsdfSerializer(object):
         elif char != c:
             n = strunpack('<B', f.read(1))[0]
             # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - noneed
-            converter_id = f.read(n).decode('UTF-8')
+            extension_id = f.read(n).decode('UTF-8')
         else:
-            converter_id = None
+            extension_id = None
 
         if c == b'v':
             value = None
@@ -373,14 +373,14 @@ class BsdfSerializer(object):
         else:
             raise RuntimeError('Parse error %r' % char)
 
-        # Convert value if we have a converter for it
-        if converter_id is not None:
-            converter = self._converters.get(converter_id, None)
-            if converter is not None:
-                value = converter.decode(value)
+        # Convert value if we have an extension for it
+        if extension_id is not None:
+            extension = self._extensions.get(extension_id, None)
+            if extension is not None:
+                value = extension.decode(value)
             else:
                 # todo: warn/log instead of print
-                print('no converter found for %r' % converter_id)
+                print('no extension found for %r' % extension_id)
 
         return value
 
@@ -684,20 +684,20 @@ class Blob(object):
 # %% High-level functions
 
 
-def encode(ob, converters=None, **options):
+def encode(ob, extensions=None, **options):
     """ Save (BSDF-encode) the given object to bytes.
-    See `BSDFSerializer` for details on converters and options.
+    See `BSDFSerializer` for details on extensions and options.
     """
-    s = BsdfSerializer(converters, **options)
+    s = BsdfSerializer(extensions, **options)
     return s.encode(ob)
 
 
 # todo: allow f and ob to be reversed
-def save(f, ob, converters=None, **options):
+def save(f, ob, extensions=None, **options):
     """ Save (BSDF-encode) the given object to the given filename or
-    file object. See` BSDFSerializer` for details on converters and options.
+    file object. See` BSDFSerializer` for details on extensions and options.
     """
-    s = BsdfSerializer(converters, **options)
+    s = BsdfSerializer(extensions, **options)
     if isinstance(f, string_types):
         with open(f, 'wb') as fp:
             return s.save(fp, ob)
@@ -705,19 +705,19 @@ def save(f, ob, converters=None, **options):
         return s.save(f, ob)
 
 
-def decode(bb, converters=None, **options):
+def decode(bb, extensions=None, **options):
     """ Load a (BSDF-encoded) structure from bytes.
-    See `BSDFSerializer` for details on converters and options.
+    See `BSDFSerializer` for details on extensions and options.
     """
-    s = BsdfSerializer(converters, **options)
+    s = BsdfSerializer(extensions, **options)
     return s.decode(bb)
 
 
-def load(f, converters=None, **options):
+def load(f, extensions=None, **options):
     """ Load a (BSDF-encoded) structure from the given filename or file object.
-    See `BSDFSerializer` for details on converters and options.
+    See `BSDFSerializer` for details on extensions and options.
     """
-    s = BsdfSerializer(converters, **options)
+    s = BsdfSerializer(extensions, **options)
     if isinstance(f, string_types):
         with open(f, 'rb') as fp:
             return s.load(fp)
@@ -730,30 +730,30 @@ loads = decode
 dumps = encode
 
 
-# %% Standard converters
+# %% Standard extensions
 
-# Defining converters as a dict would be more compact and feel lighter, but
+# Defining extensions as a dict would be more compact and feel lighter, but
 # that would only allow lambdas, which is too limiting, e.g. for ndarray
-# converter.
+# extension.
 
-class Converter:
-    """ Base converter class to implement BSDF converters for special data types.
+class Extension:
+    """ Base extension class to implement BSDF extensions for special data types.
     
-    Converter classes are provided to the BSDF serializer, which
-    instantiates the class. That way, the converter can be somewhat dynamic:
-    e.g. the NDArrayConverter exposes the ndarray class only when numpy
+    Extension classes are provided to the BSDF serializer, which
+    instantiates the class. That way, the extension can be somewhat dynamic:
+    e.g. the NDArrayExtension exposes the ndarray class only when numpy
     is imported.
     
-    A converter instance must have two attributes. These can be attribiutes of
+    A extension instance must have two attributes. These can be attribiutes of
     the class, or of the instance set in ``__init__()``:
     
     * name (str): the name by which encoded values will be identified.
     * cls (type): the type (or list of types) to match values with.
-      This is optional, but it makes the encoder select converters faster. 
+      This is optional, but it makes the encoder select extensions faster. 
     
     Further, it needs 3 methods:
     
-    * `match(value) -> bool`: return whether the converter can convert the
+    * `match(value) -> bool`: return whether the extension can convert the
       given value. The default is ``isinstance(value, self.cls)``.
     * `encode(value) -> encoded_value`: the function to encode a value to
       more basic data types.
@@ -766,7 +766,7 @@ class Converter:
     cls = ()
     
     def __repr__(self):
-        return '<BSDF converter %r at 0x%s>' % (self.name, hex(id(self)))
+        return '<BSDF extension %r at 0x%s>' % (self.name, hex(id(self)))
     
     def match(self, v):
         return isinstance(v, self.cls)
@@ -778,7 +778,7 @@ class Converter:
         return v
 
 
-class ComplexConverter(Converter):
+class ComplexExtension(Extension):
     
     name = 'c'
     cls = complex
@@ -790,7 +790,7 @@ class ComplexConverter(Converter):
         return complex(v[0], v[1])
 
 
-class NDArrayConverter(Converter):
+class NDArrayExtension(Extension):
     
     name = 'ndarray'
     
@@ -817,4 +817,4 @@ class NDArrayConverter(Converter):
         return a
 
 
-standard_converters = [ComplexConverter, NDArrayConverter]
+standard_extensions = [ComplexExtension, NDArrayExtension]

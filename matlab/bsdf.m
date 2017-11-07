@@ -4,7 +4,7 @@ function result = bsdf(varargin)
 % Read more at https://gitlab.com/almarklein/bsdf.
 %
 % This is a well tested, but relatively minimal implementation: it does
-% not (yet) support custom converters, and (zlib) compression is only
+% not (yet) support custom extensions, and (zlib) compression is only
 % supported in Matlab (not Octave).
 %
 % Usage:
@@ -284,11 +284,11 @@ function bsdf_encode(f, value, opt)
         if numel(value) == 0  % null
             fwrite(f, 'v');
         elseif numel(value) == 1  % scalar
-            if ~isreal(value)  % Standard converter: complex
+            if ~isreal(value)  % Standard extension: complex
                 fwrite(f, 'L');  % "This is a special list", next is its type
-                converter_id = 'c';
-                write_length(f, length(converter_id));
-                fwrite(f, converter_id);                    
+                extension_id = 'c';
+                write_length(f, length(extension_id));
+                fwrite(f, extension_id);                    
                 write_length(f, 2);
                 bsdf_encode(f, double(real(value)), opt);
                 bsdf_encode(f, double(imag(value)), opt);
@@ -331,9 +331,9 @@ function value = bsdf_decode(f)
         error('bsdf:eof', 'end of file');
     elseif ~isequal(c, the_char)
         n = fread(f, 1, 'uint8');
-        converter_id = fread(f, n, '*char')';
+        extension_id = fread(f, n, '*char')';
     else
-        converter_id = '';
+        extension_id = '';
     end
     
     if c == 'v'
@@ -432,12 +432,12 @@ function value = bsdf_decode(f)
         % Skip extra space
         fread(f, allocated_size - used_size, '*uint8');
     else
-        error([mfilename ': unknown data type ' c ' ' converter_id]);
+        error([mfilename ': unknown data type ' c ' ' extension_id]);
     end
     
     % Convert value if we can
-    if converter_id
-        if converter_id == 'c'
+    if extension_id
+        if extension_id == 'c'
             value = complex(value{1}, value{2});
         else
             % slicently ignore ...

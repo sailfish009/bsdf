@@ -38,7 +38,7 @@ BSDF differs from most of them by its flexibility for encoding binary data,
 and its simple extension mechanism.
 
 It's worth noting that BSDF does not support typed arrays as one of its base
-types, but the converter for typed nd-arrays is a standard converter available
+types, but the extension for typed nd-arrays is a standard extension available
 in most implementations.
 
 

@@ -3,7 +3,7 @@
 This is the implementation of the BSDF format for Matlab/Octave. It's
 in good shape and well tested. Though it could do with some love from 
 a Matlab expert to optimize the code and/or improve the implementation,
-e.g. by allowing custom converters.
+e.g. by allowing custom extensions.
 
 
 ## Installation

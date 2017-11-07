@@ -23,7 +23,7 @@ checksums, and can be resized.
 
 Via an efficient extension mechanism, other data types (including custom
 ones), can be serialized based on the aforementioned types. Standard
-extensions are available for common data types, such as nd-arrays.
+[extensions](EXTENSIONS.md) are available for common data types, such as nd-arrays.
 
 BSDF is a binary format; by giving up on human readability, we were able to
 make BSDF simple, compact and fast. See the [full specification](SPEC.md), or

@@ -4,7 +4,7 @@
 % The tests that use actual filenames are sufficiently covered
 % by the testservice.py.
 %
-% In Matlab functions are not objects, so creating custom converters will
+% In Matlab functions are not objects, so creating custom extensions will
 % probably need to be class based or something. We leave that for later.
 
 IS_OCTAVE = (exist ("OCTAVE_VERSION", "builtin") > 0);

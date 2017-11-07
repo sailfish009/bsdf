@@ -33,8 +33,8 @@ Advanced use:
 
 ```python
 
-# Setup a serializer with converters and options
-serializer = bsdf.BsdfSerializer([bsdf.complex_converter],
+# Setup a serializer with extensions and options
+serializer = bsdf.BsdfSerializer([bsdf.ComplexExtension],
                                  compression='bz2')
 # Use it
 bb = serializer.encode(my_object1)
@@ -44,36 +44,36 @@ my_object2 = serializer.loadb(bb)
 
 ## Reference
 
-### function `encode(ob, converters=None, **options)`
+### function `encode(ob, extensions=None, **options)`
 
 Save (BSDF-encode) the given object to bytes.
-See `BSDFSerializer` for details on converters and options.
+See `BSDFSerializer` for details on extensions and options.
 
 
-### function `decode(bb, converters=None, **options)`
+### function `decode(bb, extensions=None, **options)`
 
 Load a (BSDF-encoded) structure from bytes.
-See `BSDFSerializer` for details on converters and options.
+See `BSDFSerializer` for details on extensions and options.
 
 
-### function `save(f, ob, converters=None, **options)`
+### function `save(f, ob, extensions=None, **options)`
 
 Save (BSDF-encode) the given object to the given filename or
-file object. See` BSDFSerializer` for details on converters and options.
+file object. See` BSDFSerializer` for details on extensions and options.
 
 
-### function `load(f, converters=None, **options)`
+### function `load(f, extensions=None, **options)`
 
 Load a (BSDF-encoded) structure from the given filename or file object.
-See `BSDFSerializer` for details on converters and options.
+See `BSDFSerializer` for details on extensions and options.
 
 
-### class `BsdfSerializer(converters=None, **options)`
+### class `BsdfSerializer(extensions=None, **options)`
 
 Instances of this class represent a BSDF encoder/decoder.
 
-It acts as a placeholder for a set of converters and encoding/decoding
-options. Use this to predefine converters and options for high
+It acts as a placeholder for a set of extensions and encoding/decoding
+options. Use this to predefine extensions and options for high
 performance encoding/decoding. For general use, see the functions
 `save()`, `encode()`, `load()`, and `decode()`.
 
@@ -100,20 +100,13 @@ Options for decoding:
   file is open in a+ mode.
 
 
-#### method `add_converter(name, cls, encoder, decoder)`
+#### method `add_extension(extension_class)`
 
-Add a converter to this serializer instance, consisting of:
-
-* name (str): a unique name for this converter (less than 251 chars).
-* cls (type): the class to use in ``isinstance`` during encoding, or
-  a list of classes to trigger on.
-* encoder (function): the function to encode an instance with,
-  which should return a structure of encodable objects.
-* decoder (function): the function to decode the aforementioned
-  structure with.
+Add an extension to this serializer instance, which must be
+a subclass of Extension.
 
 
-#### method `remove_converter(name)`
+#### method `remove_extension(name)`
 
 Remove a converted by its unique name.
 
