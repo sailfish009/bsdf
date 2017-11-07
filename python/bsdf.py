@@ -736,8 +736,8 @@ dumps = encode
 # that would only allow lambdas, which is too limiting, e.g. for ndarray
 # extension.
 
-class Extension:
-    """ Base extension class to implement BSDF extensions for special data types.
+class Extension(object):
+    """ Base class to implement BSDF extensions for special data types.
 
     Extension classes are provided to the BSDF serializer, which
     instantiates the class. That way, the extension can be somewhat dynamic:
@@ -800,7 +800,9 @@ class NDArrayExtension(Extension):
             self.cls = np.ndarray
 
     def match(self, v):
-        return hasattr(v, 'shape') and hasattr(v, 'dtype') and hasattr(v, 'tobytes')
+        return (hasattr(v, 'shape') and
+                hasattr(v, 'dtype') and
+                hasattr(v, 'tobytes'))
 
     def encode(self, v):
         return dict(shape=v.shape,
