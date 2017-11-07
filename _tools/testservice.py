@@ -320,7 +320,7 @@ def test_bsdf_to_bsdf(**excludes):
     assert data1 != data2
     assert all([(abs(d1-d2) < 0.001) for d1, d2 in zip(data1, data2)])
     
-    # Test converters using complex number
+    # Test extension using complex number
     fname1, fname2 = get_filenames('.bsdf', '.bsdf')
     data1 = 3 + 4j
     try:
@@ -335,8 +335,8 @@ def test_bsdf_to_bsdf(**excludes):
     assert isinstance(data2, complex)
     assert data1 == data2
     
-    # Deal with unknown converters by leaving data through
-    class MyConverter(bsdf.Converter):
+    # Deal with unknown extensions by leaving data through
+    class MyExtension(bsdf.Extension):
         name = 'test.foo'
         cls = threading.Thread
         def encode(self, v):
@@ -347,7 +347,7 @@ def test_bsdf_to_bsdf(**excludes):
     fname1, fname2 = get_filenames('.bsdf', '.bsdf')
     data1 = ['hi', threading.Thread(), 'there']
     try:
-        bsdf.save(fname1, data1, [MyConverter])
+        bsdf.save(fname1, data1, [MyExtension])
         invoke_runner(fname1, fname2)
         data2 = bsdf.load(fname2)
     except Exception:
