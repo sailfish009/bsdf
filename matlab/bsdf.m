@@ -109,7 +109,6 @@ function result = bsdf(varargin)
 
 end
 
-
 function r = isoctave()
     persistent IS_OCTAVE;
     if isempty(IS_OCTAVE)
@@ -314,8 +313,32 @@ function bsdf_encode(f, value, opt)
                 fwrite(f, value, 'float64');
             end
 
-        else  % array
-            error([mfilename ': arrays are not yet supported (' class(value) ' ' mat2str(size(value)) ')']);
+        else  % ndarray (standard extension)
+            class2dtype = struct('logical','bool', ...
+                     'single','float32', 'double','float64', ...
+                     'int8','int8', 'int16','int16', 'int32','int32', ...
+                      'uint8','uint8', 'uint16','uint16', 'uint32','uint32');
+            % Pack into a dict
+            fwrite(f, 'M');  % "This is a special dict", next is its type
+            extension_id = 'ndarray';
+            write_length(f, length(extension_id));
+            fwrite(f, extension_id);
+            write_length(f, 3);
+            %
+            shape = size(value);
+            key = 'shape'; write_length(f, length(key)); fwrite(f, key);
+            fwrite(f, 'l');
+            write_length(f, length(shape));
+            for i = 1:length(shape); fwrite(f, 'h'); fwrite(f, shape(i), 'int16'); end
+            %
+            key = 'dtype'; write_length(f, length(key)); fwrite(f, key);
+            bsdf_encode(f, class2dtype.(class(value)), opt);
+            % permuting to make the shape right
+            key = 'data'; write_length(f, length(key)); fwrite(f, key);
+            tmp = length(size(value));
+            value_p = permute( value, linspace(tmp,1,tmp));
+            data = typecast(value_p(:), 'uint8');
+            bsdf_encode(f, data, opt);
         end
     else
         error([mfilename ': cannot serialize ' class(value)]);
@@ -437,10 +460,32 @@ function value = bsdf_decode(f)
 
     % Convert value if we can
     if extension_id
-        if extension_id == 'c'
+        if strcmp(extension_id, 'c')
             value = complex(value{1}, value{2});
+        elseif strcmp(extension_id, 'ndarray')
+            dtype2class = struct('bool','logical', ...
+                'float32','single', 'float64','double', ...
+                'int8','int8', 'int16','int16', 'int32','int32', ...
+                'uint8','uint8', 'uint16','uint16', 'uint32','uint32');   
+            dtype = value.dtype;
+            shape = cell2mat(value.shape);
+            value = typecast(value.data, dtype2class.(dtype));            
+            if prod(shape) ~= numel(value)  
+                disp(['Warning: prod(shape) != size']);
+            else
+                % in Matlab an array always has two dimensions ...
+                if numel(shape) == 1;  shape = [1 shape];  end;
+                % In matlab the indexing occurs (z,y,x), but a(2)
+                % corresponds to a(2,1,1). As our convention says the
+                % x-dimension changes fastest, we need to do some reshaping and
+                % permuting...
+                value = reshape(value, fliplr(shape));                
+                tmp = length(shape);
+                value = permute( value, linspace(tmp,1,tmp));                
+            end
+
         else
-            % slicently ignore ...
+            % silently ignore ...
         end
     end
 end
