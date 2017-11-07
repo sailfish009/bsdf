@@ -70,6 +70,12 @@ def main(test_dir_, *exe_, excludes=None):
 
 ## Helper functions
 
+
+def print_dot():
+    print('.', end='')
+    sys.stdout.flush()
+
+
 def invoke_runner(fname1, fname2):
     """ Invoke the runner in a new process to convert the data. """
     
@@ -99,8 +105,7 @@ def compare_data(data1, data2):
     """ Compare the data, raise error if it fails. """
     
     if data1 == data2:
-        print('.', end='')
-        sys.stdout.flush()
+        pass
     else:
        
         if isinstance(data1, dict) and len(data1) > 0 and len(list(data1.keys())[0]) > 63:
@@ -266,6 +271,7 @@ def test_bsdf_to_json(**excludes):
         fname1, fname2 = get_filenames('.bsdf', '.json')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
+        print_dot()
 
 
 def test_json_to_bsdf(**excludes):
@@ -274,6 +280,7 @@ def test_json_to_bsdf(**excludes):
         fname1, fname2 = get_filenames('.json', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
+        print_dot()
 
 
 def test_bsdf_to_bsdf(**excludes):
@@ -283,6 +290,7 @@ def test_bsdf_to_bsdf(**excludes):
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
+        print_dot()
     
     # Singletons, some JSON implementations choke on these
     for data1 in [None, False, True, 3.4, '', 'hello', [], {}, b'', b'xx']:
@@ -290,6 +298,7 @@ def test_bsdf_to_bsdf(**excludes):
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
         assert str(data1) == str(data2), str((data1, data2))  # because False != 0
+        print_dot()
     
     for data1 in [0, 1, 0.0, 1.0, 4]:
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
@@ -297,6 +306,7 @@ def test_bsdf_to_bsdf(**excludes):
         compare_data(data1, data2)
         if 'roundfloatisnotint' not in excludes:
             assert str(data1) == str(data2), str((data1, data2))  # because 0.0 != 0
+        print_dot()
     
     # Special values
     for data1 in [float('nan'), float('inf'), float('-inf')]:
@@ -304,6 +314,7 @@ def test_bsdf_to_bsdf(**excludes):
         data2 = convert_data(fname1, fname2, data1)
         #compare_data(data1, data2)
         assert str(data1) == str(data2)  # because nan != nan
+        print_dot()
     
     # Use float32 for encoding floats
     fname1, fname2 = get_filenames('.bsdf', '.bsdf')
@@ -319,43 +330,7 @@ def test_bsdf_to_bsdf(**excludes):
         remove(fname1, fname2)
     assert data1 != data2
     assert all([(abs(d1-d2) < 0.001) for d1, d2 in zip(data1, data2)])
-    
-    # Test extension using complex number
-    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-    data1 = 3 + 4j
-    try:
-        bsdf.save(fname1, data1)
-        invoke_runner(fname1, fname2)
-        data2 = bsdf.load(fname2)
-    except Exception:
-        print(data1)
-        raise
-    finally:
-        remove(fname1, fname2)
-    assert isinstance(data2, complex)
-    assert data1 == data2
-    
-    # Deal with unknown extensions by leaving data through
-    class MyExtension(bsdf.Extension):
-        name = 'test.foo'
-        cls = threading.Thread
-        def encode(self, v):
-            return [7, 42]
-        def decode(self, v):
-            return None
-    
-    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
-    data1 = ['hi', threading.Thread(), 'there']
-    try:
-        bsdf.save(fname1, data1, [MyExtension])
-        invoke_runner(fname1, fname2)
-        data2 = bsdf.load(fname2)
-    except Exception:
-        print(data1)
-        raise
-    finally:
-        remove(fname1, fname2)
-    assert data2 == ['hi', [7, 42], 'there']
+    print_dot()
     
     # Test bytes / blobs
     # We do not test compression in shared tests, since its not a strict requirement
@@ -380,6 +355,68 @@ def test_bsdf_to_bsdf(**excludes):
     invoke_runner(fname1, fname2)
     data2 = bsdf.load(fname2)
     assert data2 == [3, 4, 5, [6, 7]]
+    print_dot()
+
+
+def test_bsdf_to_bsdf_extensions(**excludes):
+    
+    # Test extension using complex number
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    data1 = 3 + 4j
+    try:
+        bsdf.save(fname1, data1)
+        invoke_runner(fname1, fname2)
+        data2 = bsdf.load(fname2)
+    except Exception:
+        print(data1)
+        raise
+    finally:
+        remove(fname1, fname2)
+    assert isinstance(data2, complex)
+    assert data1 == data2
+    print_dot()
+    
+    # Test extension using nd arrays
+    if 'ndarray' not in excludes:
+        import numpy as np
+        data1 = np.arange(12).reshape((3, 4))
+        try:
+            bsdf.save(fname1, data1)
+            invoke_runner(fname1, fname2)
+            data2 = bsdf.load(fname2)
+        except Exception:
+            print(data1)
+            raise
+        finally:
+            remove(fname1, fname2)
+        assert isinstance(data2, np.ndarray)
+        assert data2.shape == data1.shape
+        assert data2.dtype == data1.dtype
+        assert np.all(data1 == data2)
+        print_dot()
+    
+    # Deal with unknown extensions by leaving data through
+    class MyExtension(bsdf.Extension):
+        name = 'test.foo'
+        cls = threading.Thread
+        def encode(self, v):
+            return [7, 42]
+        def decode(self, v):
+            return None
+    
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    data1 = ['hi', threading.Thread(), 'there']
+    try:
+        bsdf.save(fname1, data1, [MyExtension])
+        invoke_runner(fname1, fname2)
+        data2 = bsdf.load(fname2)
+    except Exception:
+        print(data1)
+        raise
+    finally:
+        remove(fname1, fname2)
+    assert data2 == ['hi', [7, 42], 'there']
+    print_dot()
 
 
 def test_bsdf_to_bsdf_random(**excludes):
@@ -396,6 +433,7 @@ def test_bsdf_to_bsdf_random(**excludes):
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
+        print_dot()
     
     # Process a few random lists
     for iter in range(8):
@@ -405,6 +443,7 @@ def test_bsdf_to_bsdf_random(**excludes):
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         compare_data(data1, data2)
+        print_dot()
 
 
 ## Run the tests
