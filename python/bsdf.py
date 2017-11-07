@@ -158,16 +158,18 @@ class BsdfSerializer(object):
         self._load_streaming = bool(load_streaming)
         self._lazy_blob = bool(lazy_blob)
 
-    def add_converter(self, converter):
+    def add_converter(self, converter_class):
         """ Add a converter to this serializer instance, which must be
         a subclass of Converter.
         """
-        # Check classes
-        if not isinstance(converter, Converter):
-            raise TypeError('add_converter() expects a Converter instance.')
+        # Check class
+        if not (isinstance(converter_class, type) and
+                issubclass(converter_class, Converter)):
+            raise TypeError('add_converter() expects a Converter class.')
+        converter = converter_class()
         
         # Get name
-        name = converter.get_name()
+        name = converter.name
         if not isinstance(name, str):
             raise TypeError('Converter name must be str.')
         if len(name) == 0 or len(name) > 250:
@@ -178,7 +180,7 @@ class BsdfSerializer(object):
                         'consider removing first' % name)
         
         # Get classes
-        cls = converter.get_type()
+        cls = converter.cls
         if not cls:
             clss = []
         elif isinstance(cls, (tuple, list)):
@@ -737,29 +739,37 @@ dumps = encode
 class Converter:
     """ Base converter class to implement BSDF converters for special data types.
     
-    A converter must have 5 methods. The first two are called when the
-    BSDF serializer initializes, the others are called as needed:
+    Converter classes are provided to the BSDF serializer, which
+    instantiates the class. That way, the converter can be somewhat dynamic:
+    e.g. the NDArrayConverter exposes the ndarray class only when numpy
+    is imported.
     
-    * `get_name() -> str`: the name by which encoded values will be identified.
-      Must be unique, so it is recommended to prefix with a project name.
-    * `get_type() -> type`: the type (or list of types) to match values with.
-      This is optional, but it makes the encoder select converters faster.
+    A converter instance must have two attributes. These can be attribiutes of
+    the class, or of the instance set in ``__init__()``:
+    
+    * name (str): the name by which encoded values will be identified.
+    * cls (type): the type (or list of types) to match values with.
+      This is optional, but it makes the encoder select converters faster. 
+    
+    Further, it needs 3 methods:
+    
     * `match(value) -> bool`: return whether the converter can convert the
-      given value. A good default is ``isinstance(v, cls)``.
-    * `encode(value) -> encoded_value`: a function to encode a value to
+      given value. The default is ``isinstance(value, self.cls)``.
+    * `encode(value) -> encoded_value`: the function to encode a value to
       more basic data types.
-    * `decode(encoded_value) -> value`: a function to decode an encoded value.
+    * `decode(encoded_value) -> value`: the function to decode an encoded value
+      back to its intended representation.
     
     """
     
-    def get_name(self):
-        raise NotImplementedError()
+    name = ''
+    cls = ()
     
-    def get_type(self):
-        return ()
+    def __repr__(self):
+        return '<BSDF converter %r at 0x%s>' % (self.name, hex(id(self)))
     
     def match(self, v):
-        return False
+        return isinstance(v, self.cls)
     
     def encode(self, v):
         return v
@@ -770,14 +780,8 @@ class Converter:
 
 class ComplexConverter(Converter):
     
-    def get_name(self):
-        return 'c'
-    
-    def get_type(self):
-        return complex
-    
-    def match(self, v):
-        return isinstance(v, complex)
+    name = 'c'
+    cls = complex
     
     def encode(self, v):
         return (v.real, v.imag)
@@ -788,14 +792,12 @@ class ComplexConverter(Converter):
 
 class NDArrayConverter(Converter):
     
-    def get_name(self):
-        return 'ndarray'
+    name = 'ndarray'
     
-    def get_type(self):
+    def __init__(self):
         if 'numpy' in sys.modules:
             import numpy as np
-            return (np.ndarray, )
-        return ()
+            self.cls = np.ndarray
     
     def match(self, v):
         return hasattr(v, 'shape') and hasattr(v, 'dtype') and hasattr(v, 'tobytes')
@@ -806,10 +808,13 @@ class NDArrayConverter(Converter):
                     data=v.tobytes())
     
     def decode(self, v):
-        import numpy as np
+        try:
+            import numpy as np
+        except ImportError:
+            return v
         a = np.frombuffer(v['data'], dtype=v['dtype'])
         a.shape = v['shape']
         return a
 
 
-standard_converters = [ComplexConverter(), NDArrayConverter()]
+standard_converters = [ComplexConverter, NDArrayConverter]

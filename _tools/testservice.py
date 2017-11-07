@@ -336,11 +336,18 @@ def test_bsdf_to_bsdf(**excludes):
     assert data1 == data2
     
     # Deal with unknown converters by leaving data through
-    myconverter = 'test.foo', threading.Thread, lambda ctx, v: [7, 42], lambda ctx, v: None
+    class MyConverter(bsdf.Converter):
+        name = 'test.foo'
+        cls = threading.Thread
+        def encode(self, v):
+            return [7, 42]
+        def decode(self, v):
+            return None
+    
     fname1, fname2 = get_filenames('.bsdf', '.bsdf')
     data1 = ['hi', threading.Thread(), 'there']
     try:
-        bsdf.save(fname1, data1, [myconverter])
+        bsdf.save(fname1, data1, [MyConverter])
         invoke_runner(fname1, fname2)
         data2 = bsdf.load(fname2)
     except Exception:
