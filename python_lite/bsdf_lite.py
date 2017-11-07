@@ -111,7 +111,7 @@ class BsdfLiteSerializer(object):
                 issubclass(extension_class, Extension)):
             raise TypeError('add_extension() expects a Extension class.')
         extension = extension_class()
-        
+
         # Get name
         name = extension.name
         if not isinstance(name, str):
@@ -122,7 +122,7 @@ class BsdfLiteSerializer(object):
         if name in self._extensions:
             logger.warn('Overwriting extension "%s", '
                         'consider removing first' % name)
-        
+
         # Get classes
         cls = extension.cls
         if not cls:
@@ -134,7 +134,7 @@ class BsdfLiteSerializer(object):
         for cls in clss:
             if not isinstance(cls, type):
                 raise TypeError('Extension classes must be types.')
-        
+
         # Store
         for cls in clss:
             self._extensions_by_cls[cls] = name, extension.encode
@@ -150,7 +150,7 @@ class BsdfLiteSerializer(object):
         for cls in list(self._extensions_by_cls.keys()):
             if self._extensions_by_cls[cls][0] == name:
                 self._extensions_by_cls.pop(cls)
-    
+
     def _encode(self, f, value, streams, extension_id):
         """ Main encoder function.
         """
@@ -428,75 +428,75 @@ class BsdfLiteSerializer(object):
 
 class Extension:
     """ Base extension class to implement BSDF extensions for special data types.
-    
+
     Extension classes are provided to the BSDF serializer, which
     instantiates the class. That way, the extension can be somewhat dynamic:
     e.g. the NDArrayExtension exposes the ndarray class only when numpy
     is imported.
-    
+
     A extension instance must have two attributes. These can be attribiutes of
     the class, or of the instance set in ``__init__()``:
-    
+
     * name (str): the name by which encoded values will be identified.
     * cls (type): the type (or list of types) to match values with.
-      This is optional, but it makes the encoder select extensions faster. 
-    
+      This is optional, but it makes the encoder select extensions faster.
+
     Further, it needs 3 methods:
-    
+
     * `match(value) -> bool`: return whether the extension can convert the
       given value. The default is ``isinstance(value, self.cls)``.
     * `encode(value) -> encoded_value`: the function to encode a value to
       more basic data types.
     * `decode(encoded_value) -> value`: the function to decode an encoded value
       back to its intended representation.
-    
+
     """
-    
+
     name = ''
     cls = ()
-    
+
     def __repr__(self):
         return '<BSDF extension %r at 0x%s>' % (self.name, hex(id(self)))
-    
+
     def match(self, v):
         return isinstance(v, self.cls)
-    
+
     def encode(self, v):
         return v
-    
+
     def decode(self, v):
         return v
 
 
 class ComplexExtension(Extension):
-    
+
     name = 'c'
     cls = complex
-    
+
     def encode(self, v):
         return (v.real, v.imag)
-    
+
     def decode(self, v):
         return complex(v[0], v[1])
 
 
 class NDArrayExtension(Extension):
-    
+
     name = 'ndarray'
-    
+
     def __init__(self):
         if 'numpy' in sys.modules:
             import numpy as np
             self.cls = np.ndarray
-    
+
     def match(self, v):
         return hasattr(v, 'shape') and hasattr(v, 'dtype') and hasattr(v, 'tobytes')
-    
+
     def encode(self, v):
         return dict(shape=v.shape,
                     dtype=str(v.dtype),
                     data=v.tobytes())
-    
+
     def decode(self, v):
         try:
             import numpy as np

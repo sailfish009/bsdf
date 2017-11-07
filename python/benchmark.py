@@ -53,18 +53,18 @@ for fname, n in [('rand01', 100),
                  ]:
     print('-' * 10 + ' ' + fname + ' ' + str(n))
     d = json.load(open('../_data/%s.json' % fname, 'rt', encoding='utf-8'))
-    
+
     r1, t1 = timeit(json.dumps, d)
     r2, t2 = timeit(lib.dumps, d, n)
-    
+
     print('encoding:', t1, t2, int(100*t1/t2), '%' )
-    
+
     d1, t1 = timeit(json.loads, r1, n)
     d2, t2 = timeit(lib.loads, r2, n)
-    
+
     print('decoding', t1, t2, int(100*t1/t2), '%' )
-    
-    
+
+
     print(len(str(d1)), len(str(d2)))
     print('%0.0f%%' % (100*len(r2)/len(r1)))
     print('equal:', d1 == d2)

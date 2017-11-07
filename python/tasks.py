@@ -74,11 +74,11 @@ def _get_reference():
     sys.path.insert(0, this_dir)
     import bsdf
     import inspect
-    
+
     parts = []
-    
+
     for ob in (bsdf.encode, bsdf.decode, bsdf.save, bsdf.load, bsdf.BsdfSerializer, bsdf.Extension):
-        
+
         sig = str(inspect.signature(ob))
         if isinstance(ob, type):
             parts.append('### class `{}{}`\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
@@ -90,7 +90,7 @@ def _get_reference():
             parts.append('##')
         else:
             parts.append('### function `{}{}`\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
-    
+
     return '\n'.join(parts)
 
 

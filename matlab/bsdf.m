@@ -24,18 +24,18 @@ function result = bsdf(varargin)
 
 % This file is freely distributed under the terms of the 2-clause BSD License.
 % Copyright (C) 2017 Almar Klein
-    
+
     VERSION = [2, 0, 0];
-    
+
     % Get options
     vararginn = varargin;
     [opt, n_opt] = parse_options(vararginn(2:end));
     opt.VERSION = VERSION;
     nargs = nargin - n_opt * 2;
-    
+
     if nargs >= 1; arg1 = varargin{1}; end
     if nargs >= 2; arg2 = varargin{2}; end
-    
+
     if nargs == 1
         % filename, bytes, or object
         if isa(arg1, 'char') && sum(arg1 == sprintf('\n')) == 0  % newline function n/a in Octave
@@ -51,7 +51,7 @@ function result = bsdf(varargin)
                 rethrow(e);
             end
             result = data;
-        
+
         elseif isa(arg1, 'uint8') && numel(arg1) == max(size(arg1))
             % Load from bytes
             tempfilename = 'bsdf_temp_file.bsdf';
@@ -68,11 +68,11 @@ function result = bsdf(varargin)
             end
             delete(tempfilename);
             result = data;
-        
+
         else
             % Serialize to bytes
             tempfilename = 'bsdf_temp_file.bsdf';
-            f = our_fopen(tempfilename, 'w');            
+            f = our_fopen(tempfilename, 'w');
             try
                 save(f, arg1, opt);
                 fclose(f);
@@ -86,7 +86,7 @@ function result = bsdf(varargin)
             delete(tempfilename);
             result = bytes;
         end
-        
+
     elseif nargs == 2
         % Write to file, looks like file? Does not have to exist yet, of course
         if ~isa(arg1, 'char')
@@ -101,10 +101,10 @@ function result = bsdf(varargin)
             fclose(f);
             rethrow(e);
         end
-      
+
     else
         error([mfilename ': Need one or two input arguments.']);
-        
+
     end
 
 end
@@ -128,13 +128,13 @@ function [opt, count] = parse_options(args)
         if isa(element, 'char') && ~isempty(val)
             opt.(element) = val;
             val = [];
-            count = count + 1;            
+            count = count + 1;
         else
             if isempty(val)
                 val = element;
             else
                 break;
-            end            
+            end
         end
     end
 end
@@ -194,8 +194,8 @@ end
 function ob = load(f, opt)
     % Get header
     head = fread(f, 4, '*uint8');
-    assert(isequal(head, [66; 83; 68; 70]), 'Not a valid BSDF file');    
-    % Process version 
+    assert(isequal(head, [66; 83; 68; 70]), 'Not a valid BSDF file');
+    % Process version
     major_version = fread(f, 1, '*uint8');
     minor_version = fread(f, 1, '*uint8');
     if major_version ~= opt.VERSION(1)
@@ -223,7 +223,7 @@ function bsdf_encode(f, value, opt)
         end
 
     elseif isa(value, 'cell')
-        fwrite(f, 'l');            
+        fwrite(f, 'l');
         write_length(f, length(value));
         for i=1:length(value)
             bsdf_encode(f, value{i}, opt);
@@ -234,10 +234,10 @@ function bsdf_encode(f, value, opt)
         value_b = string_encode(value);
         write_length(f, length(value_b));
         fwrite(f, value_b);
-    
+
     elseif isa(value, 'logical')
         if value; fwrite(f, 'y'); else; fwrite(f, 'n'); end
-    
+
     elseif isa(value, 'uint8') && numel(value) == max(size(value))
         % blob (at the top to grab all uint8 instances (also empty and 1-length bytes)
         extra_size = 0;
@@ -247,7 +247,7 @@ function bsdf_encode(f, value, opt)
         elseif compression == 1
             % Use java to do zlib compression
             ff = java.io.ByteArrayOutputStream();
-            g = java.util.zip.DeflaterOutputStream(ff);    
+            g = java.util.zip.DeflaterOutputStream(ff);
             g.write(value);
             g.close();
             % get the result from java
@@ -262,7 +262,7 @@ function bsdf_encode(f, value, opt)
         used_size = numel(compressed);
         allocated_size = used_size + extra_size;
         % Write
-        fwrite(f, 'b');                
+        fwrite(f, 'b');
         write_length(f, allocated_size);
         write_length(f, used_size);
         write_length(f, data_size);
@@ -278,9 +278,9 @@ function bsdf_encode(f, value, opt)
         end
         fwrite(f, compressed, 'uint8');
         fwrite(f, zeros(extra_size, 1), 'uint8');
-    
+
     elseif isa(value, 'numeric')
-        
+
         if numel(value) == 0  % null
             fwrite(f, 'v');
         elseif numel(value) == 1  % scalar
@@ -288,7 +288,7 @@ function bsdf_encode(f, value, opt)
                 fwrite(f, 'L');  % "This is a special list", next is its type
                 extension_id = 'c';
                 write_length(f, length(extension_id));
-                fwrite(f, extension_id);                    
+                fwrite(f, extension_id);
                 write_length(f, 2);
                 bsdf_encode(f, double(real(value)), opt);
                 bsdf_encode(f, double(imag(value)), opt);
@@ -319,14 +319,14 @@ function bsdf_encode(f, value, opt)
         end
     else
         error([mfilename ': cannot serialize ' class(value)]);
-    end      
+    end
 end
 
 
 function value = bsdf_decode(f)
     the_char = fread(f, 1, '*char')';
     c = lower(the_char);
-    
+
     if numel(the_char) == 0
         error('bsdf:eof', 'end of file');
     elseif ~isequal(c, the_char)
@@ -335,7 +335,7 @@ function value = bsdf_decode(f)
     else
         extension_id = '';
     end
-    
+
     if c == 'v'
         value = [];  % null
     elseif c == 'y'
@@ -350,12 +350,12 @@ function value = bsdf_decode(f)
         value = fread(f, 1, 'float32');  % float32 -> double
     elseif c == 'd'
         value = fread(f, 1, 'float64');  % float64 -> double
-    elseif c == 's'        
+    elseif c == 's'
         n = fread(f, 1, '*uint8');
         if n == 253; n = fread(f, 1, 'uint64'); end
         value = string_decode(fread(f, n, '*uint8'));
     elseif c == 'l'
-        n = fread(f, 1, '*uint8');        
+        n = fread(f, 1, '*uint8');
         if n == 255
             % Stream - may be open or closed. If its closed, we use the
             % Given length as a hint, but stay on our guard.
@@ -382,7 +382,7 @@ function value = bsdf_decode(f)
             for i=1:n
                 value{i} = bsdf_decode(f);
             end
-        end        
+        end
     elseif c == 'm'
         n = fread(f, 1, '*uint8');
         if n == 253; n = fread(f, 1, 'uint64'); end
@@ -392,7 +392,7 @@ function value = bsdf_decode(f)
             if n_name == 253; n_name = fread(f, 1, 'uint64'); end
             name = fread(f, n_name, '*char')';
             value.(name) = bsdf_decode(f);
-        end       
+        end
     elseif c == 'b'
         % Blob of bytes - header is 5 to 42 bytes
         allocated_size = fread(f, 1, '*uint8');
@@ -422,19 +422,19 @@ function value = bsdf_decode(f)
             b = java.util.zip.InflaterInputStream(a);
             isc = InterruptibleStreamCopier.getInterruptibleStreamCopier;
             cc = java.io.ByteArrayOutputStream;
-            isc.copyStream(b, cc);        
+            isc.copyStream(b, cc);
             value = typecast(cc.toByteArray, 'uint8')';
         elseif compression == 2
             error([mfilename ': bz2 compression not supported.']);
         else
             error([mfilename ': unsupported compression.']);
-        end        
+        end
         % Skip extra space
         fread(f, allocated_size - used_size, '*uint8');
     else
         error([mfilename ': unknown data type ' c ' ' extension_id]);
     end
-    
+
     % Convert value if we can
     if extension_id
         if extension_id == 'c'

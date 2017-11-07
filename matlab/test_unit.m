@@ -17,7 +17,7 @@ c = bsdf(b);
 assert(isequal(a, c));
 
 % Float32 makes smaller files
-data = {3, 4, zeros(1000, 0, 'uint8')};    
+data = {3, 4, zeros(1000, 0, 'uint8')};
 b1 = bsdf(data, 'float64', 1);
 b2 = bsdf(data, 'float64', 0);
 b3 = bsdf(data, 'float64', 0, 'compression', 0);  % test options
@@ -26,15 +26,15 @@ assert(numel(b2) == numel(b3));
 
 if IS_OCTAVE
     % Octave specific tests ...
-    
+
 else
     % Matlab specific tests ...
-    
+
     % Compression makes smaller files
-    data = {3, 4, zeros(1000, 1, 'uint8')};    
+    data = {3, 4, zeros(1000, 1, 'uint8')};
     b1 = bsdf(data, 'compression', 0);
-    b2 = bsdf(data, 'compression', 1);    
-    assert(numel(b1) > 10 * numel(b2));        
+    b2 = bsdf(data, 'compression', 1);
+    assert(numel(b1) > 10 * numel(b2));
 end
 
 disp('All tests succeeded.')

@@ -15,10 +15,10 @@ def call(*cmd):
 @task
 def test_shared(ctx, octave=False, matlab=False):
     """ Run BSDF tests using the shared test service. Use with either --octave or --matlab flag."""
-    
+
     sys.path.insert(0, os.path.join(this_dir, '..', '_tools'))
     import testservice
-    
+
     if octave and matlab:
         sys.exit('Choose either --octave or --matlab, not both.')
     elif octave:
@@ -36,7 +36,7 @@ def test_shared(ctx, octave=False, matlab=False):
 @task
 def test_unit(ctx, octave=False, matlab=False):
     """ Run unit tests for Matlab BSDF implementation. Use with either --octave or --matlab flag."""
-    
+
     if octave and matlab:
         sys.exit('Choose either --octave or --matlab, not both.')
     elif octave:

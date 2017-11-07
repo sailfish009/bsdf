@@ -1,4 +1,4 @@
-""" Script that defines (and collects from subdirs) tasks for invoke. 
+""" Script that defines (and collects from subdirs) tasks for invoke.
 """
 
 import os
@@ -19,13 +19,13 @@ for dname in os.listdir(ROOT_DIR):
     filename = os.path.join(ROOT_DIR, dname, 'tasks.py')
     if not os.path.isfile(filename):
         continue
-    
+
     # Load the module, simulate importing it
     os.chdir(os.path.join(ROOT_DIR, dname))
     module = {'__file__': filename, '__name__': 'tasks'}
     exec(open(filename, 'rb').read().decode(), module)
     os.chdir(ROOT_DIR)
-    
+
     # Add all tasks from this subdir
     collection = Collection()
     ns.add_collection(collection, dname.replace('_', '-'))
@@ -50,19 +50,19 @@ if len(sys.argv) == 2 and sys.argv[1] in ns.collections.keys():
 @task(default=True)
 def help(ctx):
     """ Get help on BSDF's development workflow. """
-    
+
     print("""BSDF development workflow
-    
+
     BSDF uses the "invoke" utility to make it easy to invoke tasks such
     as tests. Invoke is a Python utility, so the tasks are defined in
     Python, but most tasks consist of a specific CLI command.
-    
+
     You can cd into each sub directory and use invoke to execute tasks specific
     for that subdir. Use "invoke -l" to get a list of available tasks.
-    
+
     Alternatively, you can use invoke from the root directory in which case
     each task is prefixed with the subdir's name.
-    
+
     Get started by typing "invoke -l".
     """)
 
@@ -70,11 +70,11 @@ def help(ctx):
 @task
 def build_pages(ctx, show=False):
     """ Build the BSDF website from the markdown files. """
-    
+
     sys.path.insert(0, os.path.join(ROOT_DIR, '_tools'))
     import pages
     import webbrowser
-    
+
     pages.build()
     if show:
         webbrowser.open(os.path.join(ROOT_DIR, '_pages', 'index.html'))
@@ -82,22 +82,28 @@ def build_pages(ctx, show=False):
 
 @ns.add_task
 @task
-def check_line_endings(ctx, show=False):
-    """ Check line endings of all source files. """
-    
+def check_whitespace(ctx, show=False):
+    """ Check/fix line endings and trailing whitespace of all source files. """
+
     for dname in os.listdir(ROOT_DIR):
         if dname.startswith(('.', '_')) or ' ' in dname:
             continue
         dirname = os.path.join(ROOT_DIR, dname)
         if os.path.isfile(dirname):
-            _check_line_endings(dirname)
+            _check_whitespace(dirname)
         else:
             for fname in os.listdir(dirname):
                 filename = os.path.join(dirname, fname)
                 if os.path.isfile(filename) and not fname.startswith('.'):
-                    _check_line_endings(filename)
-            
-def _check_line_endings(filename):
+                    _check_whitespace(filename)
+
+def _check_whitespace(filename):
     text = open(filename, 'rb').read().decode()
     if '\r' in text:
         print('Detected \\r in ', filename)
+    if filename.endswith(('.py', '.m', '.js')):
+        nl = '\r\n' if filename.endswith('.m') else '\n'
+        lines = text.splitlines() + ['']
+        lines = [line.rstrip() for line in lines]
+        with open(filename, 'wb') as f:
+            f.write(nl.join(lines).encode())
