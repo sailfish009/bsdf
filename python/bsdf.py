@@ -28,6 +28,7 @@ import logging
 import re
 import struct
 import sys
+import types
 import zlib
 from io import BytesIO
 
@@ -54,10 +55,12 @@ if PY3:
     string_types = str
     unicode_types = str
     integer_types = int
+    classtypes = type
 else:  # pragma: no cover
     string_types = basestring  # noqa
     unicode_types = unicode  # noqa
     integer_types = (int, long)  # noqa
+    classtypes = type, types.ClassType
 
 # Shorthands
 spack = struct.pack
@@ -188,7 +191,7 @@ class BsdfSerializer(object):
         else:
             clss = [cls]
         for cls in clss:
-            if not isinstance(cls, type):
+            if not isinstance(cls, classtypes):
                 raise TypeError('Extension classes must be types.')
 
         # Store
