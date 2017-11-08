@@ -284,7 +284,7 @@ function encode_object(f, value, extensions, extension_id) {
             f.push_bytes(compressed);
             f.push_bytes(new Uint8Array(allocated_size - used_size));
         } else {
-            // Try extensions
+            // Try extensions (for objects)
             for (var iext=0; iext<extensions.length; iext++) {
                 var ext = extensions[iext];
                 if (ext.match(value)) {
@@ -295,6 +295,14 @@ function encode_object(f, value, extensions, extension_id) {
             throw "cannot encode object " + value.constructor.name;
         }
     } else {
+        // Try extensions (for other types)
+        for (var iext=0; iext<extensions.length; iext++) {
+            var ext = extensions[iext];
+            if (ext.match(value)) {
+                encode_object(f, ext.encode(value), extensions, ext.name);
+                return;
+            }
+        }
         throw "cannot encode type " + typeof(value);
     }
 }

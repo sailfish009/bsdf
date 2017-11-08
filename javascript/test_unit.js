@@ -172,11 +172,69 @@ function test_integer_encoding(){
 }
 
 
+function test_extensions1() {
+	var data1 = [3, 4, undefined];
+
+	var myext = {name: 'test.undefined',
+	         match: function (v) { return v === undefined; },
+	         encode: function (v) { return null; },
+	         decode: function (v) { return undefined; }
+	         };
+
+	// we cannot encode the data without an extension
+	var caught = false;
+	try {
+		var bytes = bsdf.encode(data1);
+	} catch(e) {
+		caught = true;
+	}
+	assert(caught);
+
+	var bytes = bsdf.encode(data1, [myext]);
+	var data2 = bsdf.decode(bytes);
+	var data3 = bsdf.decode(bytes, [myext]);
+	assert(data2[2] === null, 'not null', data2[2]);  // raw value
+	assert(data3[2] === undefined, 'not undefined', data3);
+}
+
+function test_extensions2() {
+	// A type that we want to encode
+	function MyOb(val) {
+		this.val = val;
+	}
+
+	// The extension that can encode/decode it
+	var myext = {name: 'test.myob',
+	         match: function (v) { return v instanceof MyOb; },
+	         encode: function (v) { return v.val; },
+	         decode: function (v) { return new MyOb(v); }
+	         };
+
+	var data1 = new MyOb(42);
+
+	var caught = false;
+	try {
+		var bytes = bsdf.encode(data1);
+	} catch(e) {
+		caught = true;
+	}
+	assert(caught);
+
+	var bytes = bsdf.encode(data1, [myext]);
+	var data2 = bsdf.decode(bytes);
+	var data3 = bsdf.decode(bytes, [myext]);
+	assert(data2 == 42);  // raw value
+	assert(data3.val == 42);
+}
+
+
 //----
 
-test_basics_ints(); console.log('test_basics_ints passed')
-test_basics_floats(); console.log('test_basics_floats passed')
-test_bytes(); console.log('test_bytes passed')
-test_integer_encoding(); console.log('test_integer_encoding passed')
+test_basics_ints(); console.log('test_basics_ints passed');
+test_basics_floats(); console.log('test_basics_floats passed');
+test_bytes(); console.log('test_bytes passed');
+test_integer_encoding(); console.log('test_integer_encoding passed');
+test_extensions1(); console.log('test_extensions1 passed');
+test_extensions2(); console.log('test_extensions2 passed');
 
 console.log('all tests passed');
