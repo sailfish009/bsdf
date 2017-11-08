@@ -163,7 +163,6 @@ def convert_data(fname1, fname2, data1):
     finally:
         remove(fname1, fname2)
 
-
 def load(fname):
     """ Load from json or bsdf, depending on the extension. """
     if fname.endswith('.json'):
@@ -338,10 +337,28 @@ def test_bsdf_to_bsdf(**excludes):
                   [5, 6, bsdf.Blob(b'foo', compression=0, extra_size=20, use_checksum=False), 7],
                   [5, 6, bsdf.Blob(b'foo', compression=0, extra_size=10, use_checksum=True), 7],
                  ]:
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
         # Compare, but turn blobs into bytes
         data1 = [x.get_bytes() if isinstance(x, bsdf.Blob) else x for x in data1]
         compare_data(data1, data2)
+        print_dot()
+    
+    # Test alignment
+    for i in range(9):
+        data1 = ['x' * i, b'd']  # ord('d') == 100
+        fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+        try:
+            save(fname1, data1)
+            invoke_runner(fname1, fname2)
+            raw2 = open(fname2, 'rb').read()
+        except Exception:
+            print(data1)
+            raise
+        finally:
+            remove(fname1, fname2)
+        index = raw2.find(100)
+        assert index % 8 == 0
     
     # Test unclosed stream
     s = bsdf.ListStream()
@@ -379,21 +396,32 @@ def test_bsdf_to_bsdf_extensions(**excludes):
     # Test extension using nd arrays
     if 'ndarray' not in excludes:
         import numpy as np
-        data1 = np.arange(12).reshape((3, 4))
-        try:
-            bsdf.save(fname1, data1)
-            invoke_runner(fname1, fname2)
-            data2 = bsdf.load(fname2)
-        except Exception:
-            print(data1)
-            raise
-        finally:
-            remove(fname1, fname2)
-        assert isinstance(data2, np.ndarray)
-        assert data2.shape == data1.shape
-        assert data2.dtype == data1.dtype
-        assert np.all(data1 == data2)
-        print_dot()
+        
+        for dtype in ['uint8', 'int16', 'int32', 'float32']:
+            for shape in [(24, ), (24, 1), (1, 24), (4, 6), (2, 3, 4)]:
+                # uint8 is tricky since it may represent bytes in e.g. Matlab
+                if 'uint8_1d' in excludes:
+                    if dtype == 'uint8' and len(shape) == 1 or min(shape) == 1:
+                        continue
+                data1 = np.arange(24, dtype=dtype)
+                data1.shape = shape
+                try:
+                    bsdf.save(fname1, data1)
+                    invoke_runner(fname1, fname2)
+                    data2 = bsdf.load(fname2)
+                except Exception:
+                    print(data1)
+                    raise
+                finally:
+                    remove(fname1, fname2)
+                assert isinstance(data2, np.ndarray)
+                if shape == (24, ):  # Matlab ...
+                    assert data2.shape == (24, ) or data2.shape == (24, 1) or data2.shape == (1, 24)
+                else:
+                    assert data2.shape == shape
+                assert data2.dtype == dtype
+                assert np.all(data1 == data2)
+                print_dot()
     
     # Deal with unknown extensions by leaving data through
     class MyExtension(bsdf.Extension):
