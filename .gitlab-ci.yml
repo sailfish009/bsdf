@@ -3,7 +3,7 @@
 # ---------- Python lite
 
 job_python_lite_py34:
-  image: python:3.4
+  image: almarklein/py34
   script:
     - cd python_lite
     - pip install invoke flake8 pytest pytest-cov
@@ -20,6 +20,8 @@ job_python_lite_py34:
 
 job_python_py27:
   image: python:2.7
+  variables:
+    BSDF_TEST_EXCLUDES: 'ndarray'
   script:
     - cd python
     - pip install invoke pytest pytest-cov
@@ -33,6 +35,8 @@ job_python_py27:
 
 job_python_pypy3:
   image: pypy:3
+  variables:
+    BSDF_TEST_EXCLUDES: 'ndarray'
   script:
     - cd python
     - pip install invoke pytest pytest-cov
@@ -45,7 +49,7 @@ job_python_pypy3:
 
 
 job_python_py34:
-  image: python:3.4
+  image: almarklein/py34
   script:
     - cd python
     - pip install invoke pytest pytest-cov

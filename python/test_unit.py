@@ -10,7 +10,7 @@ import sys
 import array
 import tempfile
 
-from pytest import raises
+from pytest import raises, skip
 
 import bsdf
 

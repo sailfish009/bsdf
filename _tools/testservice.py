@@ -49,6 +49,8 @@ def main(test_dir_, *exe_, excludes=None):
     global test_dir, exe, exe_name, runner
     
     excludes = dict((e, True) for e in (excludes or []))
+    for e in os.getenv('BSDF_TEST_EXCLUDES', '').split(','):
+        excludes[e.strip()] = True
     # Set exe and test_dir
     test_dir = test_dir_
     exe = list(exe_)

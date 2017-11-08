@@ -561,7 +561,7 @@ class Blob(object):
             f.write(b'\x00')
         # Byte alignment (only necessary for uncompressed data)
         if self.compression == 0:
-            alignment = 8 - (f.tell() + 1) % 8  # +1 for the byte about to write
+            alignment = 8 - (f.tell() + 1) % 8  # +1 for the byte to write
             f.write(spack('<B', alignment))  # padding for byte alignment
             f.write(b'\x00' * alignment)
         else:
