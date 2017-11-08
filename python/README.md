@@ -11,11 +11,6 @@ At this point, copy [bsdf.py](bsdf.py) to a place where Python can find it.
 There are no dependencies except Python 2.7 or Python 3.4+.
 
 
-## Development
-
-Run `invoke -l` in this directory for available tasks (like tests).
-
-
 ## Usage
 
 Simple use:
@@ -153,7 +148,7 @@ Load a BSDF-encoded object from the given file object.
 ##
 ### class `Extension()`
 
-Base extension class to implement BSDF extensions for special data types.
+Base class to implement BSDF extensions for special data types.
 
 Extension classes are provided to the BSDF serializer, which
 instantiates the class. That way, the extension can be somewhat dynamic:
@@ -165,7 +160,7 @@ the class, or of the instance set in ``__init__()``:
 
 * name (str): the name by which encoded values will be identified.
 * cls (type): the type (or list of types) to match values with.
-  This is optional, but it makes the encoder select extensions faster. 
+  This is optional, but it makes the encoder select extensions faster.
 
 Further, it needs 3 methods:
 

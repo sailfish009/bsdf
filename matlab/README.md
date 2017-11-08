@@ -15,10 +15,6 @@ e.g. by doing:
 addpath('/path/to/bsdf');
 ```
 
-## Development
-
-Run `invoke -l` in this directory for available tasks (like tests).
-
 
 ## Usage
 

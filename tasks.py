@@ -74,7 +74,13 @@ def build_pages(ctx, show=False):
     sys.path.insert(0, os.path.join(ROOT_DIR, '_tools'))
     import pages
     import webbrowser
-
+    
+    # Update all readmes first
+    lines = subprocess.getoutput(['invoke', '-l']).splitlines()
+    lines = [line.strip().split(' ')[0] for line in lines if line.count('.update-readme')]
+    for line in lines:
+        print(subprocess.getoutput(['invoke', line]))
+    
     pages.build()
     if show:
         webbrowser.open(os.path.join(ROOT_DIR, '_pages', 'index.html'))

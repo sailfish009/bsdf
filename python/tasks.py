@@ -64,8 +64,10 @@ def update_readme(ctx):
     if i1 > 0:
         lines = lines[:i1+1] + ['', _get_reference(), ''] + lines[i2:]
     # Write back
-    with open(os.path.join(this_dir, 'README.md'), 'wb') as f:
+    filename = os.path.join(this_dir, 'README.md')
+    with open(filename, 'wb') as f:
         f.write('\n'.join(lines).encode())
+    print('Updated', filename)
 
 
 def _get_reference():

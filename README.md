@@ -22,23 +22,25 @@ bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
 checksums, and can be resized.
 
 Via an efficient extension mechanism, other data types (including custom
-ones), can be serialized based on the aforementioned types. Standard
-[extensions](EXTENSIONS.md) are available for common data types, such as nd-arrays.
+ones), can be serialized. Standard [extensions](EXTENSIONS.md) for common data
+types work out of the box, such as nd-arrays and complex numbers.
 
-BSDF is a binary format; by giving up on human readability, we were able to
-make BSDF simple, compact and fast. See the [full specification](SPEC.md), or
+BSDF is a binary format; by giving up on human readability, BSDF can be simple,
+compact and fast. See the [full specification](SPEC.md), or
 how it [compares](COMPARISON.md) to other formats.
 
 
 ## Status
 
 Things are taking shape quickly, but at this point I still take the right to change
-the spec without notice (e.g. #9). Once I've collected some initial feedback, the spec
+the spec without notice. Once I've collected some initial feedback, the spec
 will be stable (before 2018 at the latest). There are a few tasks left (#7) before
-I'll shout about BSDF from rooftops.
+I'll shout about BSDF from the rooftops.
 
 
 ## Implementations
+
+BSDF is currently available for the following languages:
 
 * The [Python](python) implementation in the form of [bsdf.py](python/bsdf.py).
 * The [lite Python](python_lite) implementation in the form of [bsdf_lite.py](python_lite/bsdf_lite.py).

@@ -54,13 +54,16 @@ def build():
         # Build menu
         menu = []
         for is_imp in (False, True):
+            menu.append('<hr>' if is_imp else '')
             for pagename in sorted(pages, key=lambda n: (n!='index', n)):
                 if is_imp != page_is_implementation[pagename]:
                     continue
-                menu.append("<a href='{}.html'>{}</a>".format(pagename, 'BSDF' if pagename == 'index' else pagename))
+                pagenamestr = pagename.capitalize() if not is_imp else pagename
+                menu.append("<a href='{}.html'>{}</a>".format(pagename, 'BSDF' if pagename == 'index' else pagenamestr))
                 if pagename == name:
                     menu += ["&nbsp;&nbsp;&nbsp;<a href='#{}'>{}</a>".format(title, title) for title in headers]
             menu.append('')
+        menu.append('<hr>')
         menu.append("<a href='http://gitlab.com/almarklein/bsdf'>Source at Gitlab</a>")
         menus[name] = '<br />'.join(menu)
     

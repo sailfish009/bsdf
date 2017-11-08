@@ -1,52 +1,58 @@
 # BSDF extensions
 
-BSDF can be extended by providing the serializer with objects that can encode
-certain data types using more basic data types.
-
-This section specifies how certain objects can be encoded, and how these
-extensions should be named. If everyone adheres to these specifcations, data
-will be easier to share.
-
-Data to be converted is identified by its identifier byte being in uppercase.
-In such a case, there will be a string before the data, which identifies
-the extension. Any data element can potentially be converted, even null.
-
-How users specify extensions is specific to the implementation, but
-extensions will generally consist of 4 elements:
+BSDF can encode special kinds of data by providing the serializer with
+extensions. How users specify extensions is specific to the
+implementation, but they will typically consist of 4 elements:
 
 * A name to identify it with. This will be encoded along with the data,
-  so better keep it short. Custom extensions are best prefixed with
+  so better keep it short, although custom extensions are best prefixed with
   the context (e.g. 'mylibrary.myextension'), to avoid name clashes.
 * A type and/or a match function, so that the BSDF encoder can determine
   what objects must be serialized.
-* An encoder function to convert the special object to more basic objects
-  (can be of BSDF base types or types handled by lower level extensions).
-* A decoder function to convert basic objects into the special data type.
+* An encoder function to convert the special object to more basic objects.
+* A decoder function to reconstruct the special object from the basic objects.
 
-BSDF defines standard extensions, which users are stongly encouraged
-to follow, and which implementations are encouraged to support by
-default. For custom extensions to work, a user should take care that the
-extension is used during encoding and decoding. When an extension is not
-available during decoding, the object is represented in its underlying
-basic form.
+### How it works
+
+Extensions encode a high level data types into more basic data types, such
+as the base BSDF types, or types supported by other extensions. Upon decoding,
+the extension reconstructs the high level data from the "lower level" data.
+When an extension is not available during decoding, a warning is produced, 
+and the object is represented in its underlying basic form.
+
+Extensions add very little overhead in speed (unlike e.g. JSON). In terms
+of memory, each object being converted needs a little extra memory to encode
+the extension's name.
+
+### Kinds of extensions
+
+Everyone can write their own extension and use it in their own work.
+
+The purpose of this document is to specify ways to convert common data types,
+and how these extensions should be named. If everyone adheres to these
+specifcations, data will be easier to share.
+
+BSDF also defines a small set of standard extensions, which users are stongly
+encouraged to follow, and which all BSDF implementations are encouraged
+to support by default.
+
+
+### Status
 
 This is a work in progress and the specifications below are subject to change.
 The standardization of a base set of extensions should settle soonish after the
 BSDF format itself has stabilized. 
 
-It is worth noting that if an implementation does not support an extension and/or
-the user did not specify a certain extension, the data will be loaded in its
-"raw" form (e.g. a complex number as a list of two floats) and a warning will
-be displayed.
 
+## Standard extensions
 
-### Complex numbers (standard)
+### Complex numbers
 
 * name: "c"
 * encoding: a list with two elements (the real and the imaginary part).
 
 
-### N-dimensional arrays (standard)
+### N-dimensional arrays
 
 * name: "ndarray"
 * encoding: a dict with elements:
@@ -61,6 +67,8 @@ We might add an "order" field at a later point. This will need to be
 investigated/discussed further. Until then, C-order (row-major) should
 be assumed where it matters.
 
+
+## Other extensions
 
 ### 2D image data
 
