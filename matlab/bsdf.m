@@ -269,7 +269,7 @@ function bsdf_encode(f, value, opt)
         fwrite(f, 0, 'uint8');  % no checksum
         % Byte alignment (only necessary for uncompressed data)
         if compression == 0
-            alignment = mod(ftell(f) + 1, 8);  % +1 for the byte about to write
+            alignment = 8 - mod(ftell(f) + 1, 8);  % +1 for the byte about to write
             fwrite(f, alignment, 'uint8');
             fwrite(f, zeros(alignment, 1), 'uint8');
         else
@@ -466,11 +466,11 @@ function value = bsdf_decode(f)
             dtype2class = struct('bool','logical', ...
                 'float32','single', 'float64','double', ...
                 'int8','int8', 'int16','int16', 'int32','int32', ...
-                'uint8','uint8', 'uint16','uint16', 'uint32','uint32');   
+                'uint8','uint8', 'uint16','uint16', 'uint32','uint32');
             dtype = value.dtype;
             shape = cell2mat(value.shape);
-            value = typecast(value.data, dtype2class.(dtype));            
-            if prod(shape) ~= numel(value)  
+            value = typecast(value.data, dtype2class.(dtype));
+            if prod(shape) ~= numel(value)
                 disp(['Warning: prod(shape) != size']);
             else
                 % in Matlab an array always has two dimensions ...
@@ -479,9 +479,9 @@ function value = bsdf_decode(f)
                 % corresponds to a(2,1,1). As our convention says the
                 % x-dimension changes fastest, we need to do some reshaping and
                 % permuting...
-                value = reshape(value, fliplr(shape));                
+                value = reshape(value, fliplr(shape));
                 tmp = length(shape);
-                value = permute( value, linspace(tmp,1,tmp));                
+                value = permute( value, linspace(tmp,1,tmp));
             end
 
         else

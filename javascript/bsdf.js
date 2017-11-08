@@ -274,7 +274,7 @@ function encode_object(f, value, extensions, extension_id) {
             f.push_uint8(0);  // no checksum
             // Byte alignment
             if (compression == 0) {
-                var alignment = (f.tell() + 1) % 8;  // +1 for the byte to write
+                var alignment = 8 - (f.tell() + 1) % 8;  // +1 for the byte to write
                 f.push_uint8(alignment);
                 for (var j=0; j<alignment; j++) { f.push_uint8(0); }
             } else {

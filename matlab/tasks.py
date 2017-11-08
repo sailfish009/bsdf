@@ -19,15 +19,19 @@ def test_shared(ctx, octave=False, matlab=False):
     sys.path.insert(0, os.path.join(this_dir, '..', '_tools'))
     import testservice
 
+    excludes = dict(uint8_1d=True)
+
     if octave and matlab:
         sys.exit('Choose either --octave or --matlab, not both.')
     elif octave:
         testservice.main(this_dir, 'octave-cli', '-q', '--eval',
-                         'testservice_runner(\'{fname1}\', \'{fname2}\');')
+                         'testservice_runner(\'{fname1}\', \'{fname2}\');',
+                         excludes=excludes)
     elif matlab:
         testservice.main(this_dir, 'matlab',
                          '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
-                         'testservice_runner(\'{fname1}\', \'{fname2}\');exit();')
+                         'testservice_runner(\'{fname1}\', \'{fname2}\');exit();',
+                         excludes=excludes)
     else:
         sys.exit('Choose either --octave or --matlab.')
 
