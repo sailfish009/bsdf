@@ -9,11 +9,12 @@ many programming languages. However, the format allows implementations
 to support powerful mechanics such as lazy loading of binary data, and
 streamed reading/writing.
 
-Implementations currently exist for multiple languages. Each implementation is
-[continuously tested](https://gitlab.com/almarklein/bsdf/pipelines) to ensure compatibility.
+BSDF is a binary format; by giving up on human readability, BSDF can be simple,
+compact and fast. See the [full specification](SPEC.md), or
+how it [compares](COMPARISON.md) to other formats.
 
 
-## Format
+## Data types and extensions
 
 BSDF supports 8 base types: null, booleans, integers, floats, strings/text,
 (heterogenous) lists, mappings (i.e. dictionaries), and binary blobs. Integers
@@ -22,25 +23,21 @@ bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
 checksums, and can be resized.
 
 Via an efficient extension mechanism, other data types (including custom
-ones), can be serialized. Standard [extensions](EXTENSIONS.md) for common data
-types work out of the box, such as nd-arrays and complex numbers.
-
-BSDF is a binary format; by giving up on human readability, BSDF can be simple,
-compact and fast. See the [full specification](SPEC.md), or
-how it [compares](COMPARISON.md) to other formats.
-
+ones), can be serialized. The standard [extensions](EXTENSIONS.md) work out
+of the box, supporting e.g. nd-arrays and complex numbers.
 
 ## Status
 
 Things are taking shape quickly, but at this point I still take the right to change
 the spec without notice. Once I've collected some initial feedback, the spec
-will be stable (before 2018 at the latest). There are a few tasks left (#7) before
-I'll shout about BSDF from the rooftops.
+will be stable (before 2018). There are a few tasks left (#7) before I consider
+it "mature".
 
 
 ## Implementations
 
-BSDF is currently available for the following languages:
+Implementations currently exist for multiple languages. Each implementation is
+[continuously tested](https://gitlab.com/almarklein/bsdf/pipelines) to ensure compatibility.
 
 * The [Python](python) implementation in the form of [bsdf.py](python/bsdf.py).
 * The [lite Python](python_lite) implementation in the form of [bsdf_lite.py](python_lite/bsdf_lite.py).
