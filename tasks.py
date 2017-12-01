@@ -81,9 +81,9 @@ def build_pages(ctx, show=False):
     for line in lines:
         print(subprocess.getoutput(['invoke', line]))
     
-    pages.build()
+    pages.build(True, False)
     if show:
-        webbrowser.open(os.path.join(ROOT_DIR, '_pages', 'index.html'))
+        webbrowser.open(os.path.join(ROOT_DIR, '_docs', '_pages', 'index.html'))
 
 
 @ns.add_task

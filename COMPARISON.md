@@ -1,4 +1,4 @@
-# Comparison with other formats
+# Comparing BSDF with other formats
 
 The question that arises with any new format:
 *Why, oh Why? Why yet another format!?*

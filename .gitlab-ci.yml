@@ -122,7 +122,7 @@ pages:  # this name matters
     - invoke python.update-readme
     - invoke python-lite.update-readme
     - invoke build-pages
-    - mv _pages public  # the name of the artifact matters
+    - mv _docs/_pages public  # the name of the artifact matters
   artifacts:
     paths:
       - public

@@ -1,4 +1,4 @@
-# BSDF format specification
+# The BSDF format specification
 
 
 ## Purpose and features

@@ -1,4 +1,4 @@
-# BSDF extensions
+# Extending BSDF
 
 BSDF can encode special kinds of data by providing the serializer with
 extensions. How users specify extensions is specific to the

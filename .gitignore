@@ -1,6 +1,8 @@
 # This package
 _data/*
-_pages/*
+_docs/_pages/*
+_docs/_build/*
+_docs/*.rst
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
