@@ -71,7 +71,7 @@ def help(ctx):
 def build_pages(ctx, show=False):
     """ Build the BSDF website from the markdown files. """
 
-    sys.path.insert(0, os.path.join(ROOT_DIR, '_tools'))
+    sys.path.insert(0, os.path.join(ROOT_DIR, '_docs'))
     import pages
     import webbrowser
     

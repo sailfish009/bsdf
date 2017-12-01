@@ -202,7 +202,7 @@ def build(pages=True, rst=False):
         if rst:
             toc = ''
             if page.name == 'index':
-                toc = 'Contents\n========\n\n.. toctree::\n    :maxdepth: 1\n\n'
+                toc = 'Contents\n--------\n\n.. toctree::\n    :maxdepth: 1\n\n'
                 for p in sorted(pages.values(), key=lambda p: (p.is_implementation, p.name)):
                     if p.name != 'index':
                         toc += '    %s\n' % p.name
