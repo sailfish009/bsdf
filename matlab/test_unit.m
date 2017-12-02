@@ -9,20 +9,25 @@
 
 IS_OCTAVE = (exist ("OCTAVE_VERSION", "builtin") > 0);
 
+bsdf = Bsdf();
+assert(isequal(bsdf.compression, false));
+
+
 % Test that we serialize directly
 % (even though bsdf.m will use a tempfile at the moment)
 a = {'hello', 3};
-b = bsdf(a);
-c = bsdf(b);
+b = bsdf.encode(a);
+c = bsdf.decode(b);
 assert(isequal(a, c));
 
 % Float32 makes smaller files
 data = {3, 4, zeros(1000, 0, 'uint8')};
-b1 = bsdf(data, 'float64', 1);
-b2 = bsdf(data, 'float64', 0);
-b3 = bsdf(data, 'float64', 0, 'compression', 0);  % test options
+bsdf.float64 = 1;
+b1 = bsdf.encode(data);
+bsdf.float64 = 0;
+b2 = bsdf.encode(data);
 assert(numel(b1) > numel(b2));
-assert(numel(b2) == numel(b3));
+bsdf.float64 = 1;
 
 if IS_OCTAVE
     % Octave specific tests ...
@@ -32,8 +37,10 @@ else
 
     % Compression makes smaller files
     data = {3, 4, zeros(1000, 1, 'uint8')};
-    b1 = bsdf(data, 'compression', 0);
-    b2 = bsdf(data, 'compression', 1);
+    bsdf.compression = 0;
+    b1 = bsdf.encode(data);
+    bsdf.compression = 1;
+    b2 = bsdf.encode(data);
     assert(numel(b1) > 10 * numel(b2));
 end
 
