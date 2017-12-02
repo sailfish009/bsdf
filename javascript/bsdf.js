@@ -137,7 +137,7 @@ BsdfSerializer.prototype.encode = function (d) {
     f.push_char('B'); f.push_char('S'); f.push_char('D'); f.push_char('F');
     f.push_uint8(VERSION[0]); f.push_uint8(VERSION[1]);
     // Encode and return result
-    encode_object(f, d, this.extensions);
+    this.encode_object(f, d);
     return f.get_result();
 };
 
@@ -157,7 +157,7 @@ BsdfSerializer.prototype.decode = function (buf, extensions) {
         console.log('BSDF Warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
     }
     // Decode
-    return decode_object(f, this.extensions);
+    return this.decode_object(f);
 };
 
 
@@ -288,7 +288,7 @@ function encode_type_id(f, c, extension_id) {
     }
 }
 
-function encode_object(f, value, extensions, extension_id) {
+BsdfSerializer.prototype.encode_object = function (f, value, extension_id) {
     var iext, ext;
 
     if (value === null) { encode_type_id(f, 'v', extension_id); }
@@ -317,7 +317,7 @@ function encode_object(f, value, extensions, extension_id) {
             var n = value.length;
             f.push_size(n);
             for (var i=0; i<n; i++) {
-                encode_object(f, value[i], extensions);
+                this.encode_object(f, value[i]);
             }
         } else if (value.constructor === Object) {  // mapping / dict
             encode_type_id(f, 'm', extension_id);
@@ -325,7 +325,7 @@ function encode_object(f, value, extensions, extension_id) {
             f.push_size(nm);
             for (var key in value) {
                 f.push_str(key);
-                encode_object(f, value[key], extensions);
+                this.encode_object(f, value[key]);
             }
         } else if (value instanceof ArrayBuffer || value instanceof DataView) {  // bytes
             if (value instanceof ArrayBuffer) { value = new DataView(value); }
@@ -362,10 +362,10 @@ function encode_object(f, value, extensions, extension_id) {
             f.push_bytes(new Uint8Array(allocated_size - used_size));
         } else {
             // Try extensions (for objects)
-            for (iext=0; iext<extensions.length; iext++) {
-                ext = extensions[iext];
-                if (ext.match(value)) {
-                    encode_object(f, ext.encode(value), extensions, ext.name);
+            for (iext=0; iext<this.extensions.length; iext++) {
+                ext = this.extensions[iext];
+                if (ext.match(this, value)) {
+                    this.encode_object(f, ext.encode(this, value), ext.name);
                     return;
                 }
             }
@@ -375,16 +375,16 @@ function encode_object(f, value, extensions, extension_id) {
         }
     } else {
         // Try extensions (for other types)
-        for (iext=0; iext<extensions.length; iext++) {
-            ext = extensions[iext];
-            if (ext.match(value)) {
-                encode_object(f, ext.encode(value), extensions, ext.name);
+        for (iext=0; iext<this.extensions.length; iext++) {
+            ext = this.extensions[iext];
+            if (ext.match(this, value)) {
+                this.encode_object(f, ext.encode(this, value), ext.name);
                 return;
             }
         }
         throw "cannot encode type " + typeof(value);
     }
-}
+};
 
 //---- decoder
 
@@ -484,7 +484,7 @@ function BytesReader(buf) {
 
 }
 
-function decode_object(f, extensions) {
+BsdfSerializer.prototype.decode_object = function (f) {
 
     var char = f.get_char();
     var c = char.toLowerCase();
@@ -522,7 +522,7 @@ function decode_object(f, extensions) {
             // Streaming
             value = [];
             try {
-                while (true) { value.push(decode_object(f, extensions)); }
+                while (true) { value.push(this.decode_object(f)); }
             } catch(err) {
                 if (err instanceof EOFError) { /* ok */ } else { throw err; }
             }
@@ -530,7 +530,7 @@ function decode_object(f, extensions) {
             // Normal
             value = new Array(n);
             for (var i=0; i<n; i++) {
-                value[i] = decode_object(f, extensions);
+                value[i] = this.decode_object(f);
             }
         }
     } else if (c == 'm') {
@@ -538,7 +538,7 @@ function decode_object(f, extensions) {
         value = {};
         for (var j=0; j<nm; j++) {
             var key = f.get_str();
-            value[key] = decode_object(f, extensions);
+            value[key] = this.decode_object(f);
         }
     } else if (c == 'b') {
         // Get sizes
@@ -568,15 +568,15 @@ function decode_object(f, extensions) {
 
     // Convert using an extension?
     if (extension_id !== null) {
-        var ext = extensions[extension_id];
+        var ext = this.extensions[extension_id];
         if (ext) {
-            value = ext.decode(value);
+            value = ext.decode(this, value);
         } else {
             console.log('No known extension for "' + extension_id + '", value passes in raw form.');
         }
     }
     return value;
-}
+};
 
 
 // To be able to support complex numbers
@@ -597,22 +597,22 @@ if (typeof window == 'undefined') { rootns = global; } else { rootns = window; }
 
 var complex_extension = {
     name: 'c',
-    match: function(v) { return v instanceof Complex; },
-    encode: function(v) { return [v.real, v.imag]; },
-    decode: function(v) { return new Complex(v[0], v[1]); }
+    match: function(s, v) { return v instanceof Complex; },
+    encode: function(s, v) { return [v.real, v.imag]; },
+    decode: function(s, v) { return new Complex(v[0], v[1]); }
 };
 
 var ndarray_extension = {
     name: 'ndarray',
-    match: function(v) {
+    match: function(s, v) {
         return v.BYTES_PER_ELEMENT !== undefined && v.constructor.name.endsWith('Array');
     },
-    encode: function(v) {
+    encode: function(s, v) {
         return {shape: v.shape || [v.length],
                 dtype: v.constructor.name.slice(0, -5).toLowerCase(),
                 data: new DataView(v.buffer, v.byteOffset, v.byteLength)};
     },
-    decode: function(v) {
+    decode: function(s, v) {
         var cls = rootns[v.dtype[0].toUpperCase() + v.dtype.slice(1) + 'Array'];
         var value = new cls(v.data.buffer, v.data.byteOffset, v.data.byteLength / cls.BYTES_PER_ELEMENT);
         value.shape = v.shape;

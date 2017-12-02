@@ -174,12 +174,18 @@ function test_integer_encoding(){
 
 function test_extensions1() {
 	var data1 = [3, 4, undefined];
+	var serializer;
 
 	var myext = {name: 'test.undefined',
-	         match: function (v) { return v === undefined; },
-	         encode: function (v) { return null; },
-	         decode: function (v) { return undefined; }
+	         match: function (s, v) { assert(s===serializer, 'ext arg 1 must be serialzier');
+	         						  return v === undefined; },
+	         encode: function (s, v) { assert(s===serializer, 'ext arg 1 must be serialzier');
+	         						   return null; },
+	         decode: function (s, v) { assert(s===serializer, 'ext arg 1 must be serialzier');
+	         						   return undefined; }
 	         };
+
+	var serializer = new bsdf.BsdfSerializer([myext]);
 
 	// we cannot encode the data without an extension
 	var caught = false;
@@ -190,14 +196,17 @@ function test_extensions1() {
 	}
 	assert(caught);
 
-	var bytes = bsdf.encode(data1, [myext]);
+	serializer.add_extension(myext);
+
+	var bytes = serializer.encode(data1);
 	var data2 = bsdf.decode(bytes);
-	var data3 = bsdf.decode(bytes, [myext]);
+	var data3 = serializer.decode(bytes);
 	assert(data2[2] === null, 'not null', data2[2]);  // raw value
 	assert(data3[2] === undefined, 'not undefined', data3);
 }
 
 function test_extensions2() {
+
 	// A type that we want to encode
 	function MyOb(val) {
 		this.val = val;
@@ -205,9 +214,9 @@ function test_extensions2() {
 
 	// The extension that can encode/decode it
 	var myext = {name: 'test.myob',
-	         match: function (v) { return v instanceof MyOb; },
-	         encode: function (v) { return v.val; },
-	         decode: function (v) { return new MyOb(v); }
+	         match: function (s, v) { return v instanceof MyOb; },
+	         encode: function (s, v) { return v.val; },
+	         decode: function (s, v) { return new MyOb(v); }
 	         };
 
 	var data1 = new MyOb(42);
