@@ -284,17 +284,17 @@ class BsdfSerializer(object):
             # Maybe its a subclass of a type we know
             if x is None:
                 for name, c in self._extensions.items():
-                    if c.match(value):
+                    if c.match(self, value):
                         x = name, c.encode
                         break
                 else:
                     x = None
             # Success or fail
             if x is not None:
-                extension_id2, extension_func = x
+                extension_id2, extension_encode = x
                 if extension_id == extension_id2:
                     raise ValueError('Circular recursion in extension func!')
-                self._encode(f, extension_func(value),
+                self._encode(f, extension_encode(self, value),
                              streams, extension_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
@@ -380,7 +380,7 @@ class BsdfSerializer(object):
         if extension_id is not None:
             extension = self._extensions.get(extension_id, None)
             if extension is not None:
-                value = extension.decode(value)
+                value = extension.decode(self, value)
             else:
                 # todo: warn/log instead of print
                 print('no extension found for %r' % extension_id)
@@ -756,12 +756,12 @@ class Extension(object):
 
     Further, it needs 3 methods:
 
-    * `match(value) -> bool`: return whether the extension can convert the
-      given value. The default is ``isinstance(value, self.cls)``.
-    * `encode(value) -> encoded_value`: the function to encode a value to
-      more basic data types.
-    * `decode(encoded_value) -> value`: the function to decode an encoded value
-      back to its intended representation.
+    * `match(serializer, value) -> bool`: return whether the extension can
+      convert the given value. The default is ``isinstance(value, self.cls)``.
+    * `encode(serializer, value) -> encoded_value`: the function to encode a
+      value to more basic data types.
+    * `decode(serializer, encoded_value) -> value`: the function to decode an
+      encoded value back to its intended representation.
 
     """
 
@@ -771,13 +771,13 @@ class Extension(object):
     def __repr__(self):
         return '<BSDF extension %r at 0x%s>' % (self.name, hex(id(self)))
 
-    def match(self, v):
+    def match(self, s, v):
         return isinstance(v, self.cls)
 
-    def encode(self, v):
+    def encode(self, s, v):
         return v
 
-    def decode(self, v):
+    def decode(self, s, v):
         return v
 
 
@@ -786,10 +786,10 @@ class ComplexExtension(Extension):
     name = 'c'
     cls = complex
 
-    def encode(self, v):
+    def encode(self, s, v):
         return (v.real, v.imag)
 
-    def decode(self, v):
+    def decode(self, s, v):
         return complex(v[0], v[1])
 
 
@@ -802,17 +802,17 @@ class NDArrayExtension(Extension):
             import numpy as np
             self.cls = np.ndarray
 
-    def match(self, v):
+    def match(self, s, v):
         return (hasattr(v, 'shape') and
                 hasattr(v, 'dtype') and
                 hasattr(v, 'tobytes'))
 
-    def encode(self, v):
+    def encode(self, s, v):
         return dict(shape=v.shape,
                     dtype=str(v.dtype),
                     data=v.tobytes())
 
-    def decode(self, v):
+    def decode(self, s, v):
         try:
             import numpy as np
         except ImportError:

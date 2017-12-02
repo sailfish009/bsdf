@@ -317,10 +317,10 @@ def test_custom_extension_array():
         name = 'array'
         cls = array.array
 
-        def encode(self, arr):
+        def encode(self, s, arr):
             return dict(typecode=str(arr.typecode),
                         data=arr.tostring())
-        def decode(self, d):
+        def decode(self, s, d):
             a = array.array(d['typecode'])
             a.fromstring(d['data'])
             return a
@@ -390,19 +390,21 @@ def test_custom_extensions():
 
     class MyExtension(bsdf.Extension):
         name = 'myob'
-        def encode(self, v):
+        def encode(self, s, v):
+            assert isinstance(s, bsdf.BsdfSerializer)
             return v.val
-        def decode(self, v):
+        def decode(self, s, v):
+            assert isinstance(s, bsdf.BsdfSerializer)
             return MyObject1(v)
 
     class MyExtension1(MyExtension):
         cls = MyObject1
-        def match(self, v):
+        def match(self, s, v):
             return False
 
     class MyExtension2(MyExtension):
         cls = MyObject1, MyObject2
-        def match(self, v):
+        def match(self, s, v):
             return False
 
     class MyExtension3(MyExtension):

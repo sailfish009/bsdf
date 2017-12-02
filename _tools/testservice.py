@@ -429,9 +429,9 @@ def test_bsdf_to_bsdf_extensions(**excludes):
     class MyExtension(bsdf.Extension):
         name = 'test.foo'
         cls = threading.Thread
-        def encode(self, v):
+        def encode(self, s, v):
             return [7, 42]
-        def decode(self, v):
+        def decode(self, s, v):
             return None
     
     fname1, fname2 = get_filenames('.bsdf', '.bsdf')
