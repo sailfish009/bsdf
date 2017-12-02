@@ -34,11 +34,11 @@ class MyFunctionExtension(bsdf.Extension):
     function is in the global scope.
     """
     name = 'my.func'
-    def match(self, f):
+    def match(self, s, f):
         return callable(f)
-    def encode(self, f):
+    def encode(self, s, f):
         return f.__name__
-    def decode(self, name):
+    def decode(self, s, name):
         return globals()[name]  # in reality, one would do a smarter lookup here
 
 # Setup a serializer with extensions and options
@@ -164,12 +164,12 @@ the class, or of the instance set in ``__init__()``:
 
 Further, it needs 3 methods:
 
-* `match(value) -> bool`: return whether the extension can convert the
-  given value. The default is ``isinstance(value, self.cls)``.
-* `encode(value) -> encoded_value`: the function to encode a value to
-  more basic data types.
-* `decode(encoded_value) -> value`: the function to decode an encoded value
-  back to its intended representation.
+* `match(serializer, value) -> bool`: return whether the extension can
+  convert the given value. The default is ``isinstance(value, self.cls)``.
+* `encode(serializer, value) -> encoded_value`: the function to encode a
+  value to more basic data types.
+* `decode(serializer, encoded_value) -> value`: the function to decode an
+  encoded value back to its intended representation.
 
 
 ##

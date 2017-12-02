@@ -44,12 +44,17 @@ Implementations currently exist for multiple languages. Each implementation is
 
 * The [Python](python) implementation in the form of [bsdf.py](python/bsdf.py).
 * The [lite Python](python_lite) implementation in the form of [bsdf_lite.py](python_lite/bsdf_lite.py).
-* The [Matlab / Octave](matlab) implementation in the form of [bsdf.m](matlab/bsdf.m).
+* The [Matlab / Octave](matlab) implementation in the form of [Bsdf.m](matlab/Bsdf.m).
 * The [JavaScript](javascript) implementation in the form of [bsdf.js](javascript/bsdf.js).
 
 We'd like implementations for other languages (such as R and Julia).
 BSDF is designed to be easy to implement; perhaps you want to
 [contribute](CONTRIBUTING.md)?
+
+We aim for the implementations to have similar API's: a class whose
+instances hold extensions and options, and has `encode()`, `decode()`,
+`save()`,`load()`, and `add_extension()` methods. Optionally, an implementation
+can provide convenience functions.
 
 
 ## Installation
@@ -79,7 +84,9 @@ In JavaScript:
 ```js
 > bsdf = require('bsdf.js')
 { encode: [Function: bsdf_encode],
-  decode: [Function: bsdf_decode] }
+  decode: [Function: bsdf_decode],
+  BsdfSerializer: [Function: BsdfSerializer],
+  standard_extensions: ...}
 > b = bsdf.encode(['just some objects', {foo: true, bar: null}, 42.001])
 ArrayBuffer { byteLength: 48 }
 > bsdf.decode(b)
@@ -89,11 +96,12 @@ ArrayBuffer { byteLength: 48 }
 In Matlab / Octave:
 
 ```matlab
->> b = bsdf({'just some objects', struct('foo', true, 'bar', []), 42.001});
+>> bsdf = Bsdf()
+>> b = bsdf.encode({'just some objects', struct('foo', true, 'bar', []), 42.001});
 >> size(b)
 ans =
    48    1
->> bsdf(b)
+>> bsdf.decode(b)
 ans =
 {
   [1,1] = just some objects

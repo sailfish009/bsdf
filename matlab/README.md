@@ -8,7 +8,7 @@ e.g. by allowing custom extensions.
 
 ## Installation
 
-Download [bsdf.m](bsdf.m) and place it in a directory where Matlab can find it,
+Download [Bsdf.m](Bsdf.m) and place it in a directory where Matlab can find it,
 e.g. by doing:
 
 ```matlab
@@ -18,16 +18,17 @@ addpath('/path/to/bsdf');
 
 ## Usage
 
-Functionality is provided via a single `bsdf` function:
+Functionality is provided via a single `Bsdf` class:
 
 ```matlab
-data = bsdf(filename)  % to load data from file
-data = bsdf(bytes)     % to load data from bytes
-bsdf(filename, data)   % to save data to file
-bytes = bsdf(data)     % to serialize data to bytes (a uint8 array)
+bsdf = Bsdf()
+bsdf.save(filename, data)   % to save data to file
+data = bsdf.load(filename)  % to load data from file
+blob = bsdf.encode(data)    % to serialize data to bytes (a uint8 array)
+data = bsdf.decode(blob)    % to load data from bytes       
 ```
 
-Options (for writing) can be provided via argument pairs:
+Options (for writing) are provided as object properties:
     
 * compression: the compression for binary blobs, 0 for raw, 1 for zlib
   (not available in Octave).
