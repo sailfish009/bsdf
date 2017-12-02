@@ -13,6 +13,8 @@ BSDF is a binary format; by giving up on human readability, BSDF can be simple,
 compact and fast. See the [full specification](SPEC.md), or
 how it [compares](COMPARISON.md) to other formats.
 
+The source code is at [Gitlab](http://gitlab.com/almarklein/bsdf).
+
 
 ## Data types and extensions
 
@@ -25,6 +27,7 @@ checksums, and can be resized.
 Via an efficient extension mechanism, other data types (including custom
 ones), can be serialized. The standard [extensions](EXTENSIONS.md) work out
 of the box, supporting e.g. nd-arrays and complex numbers.
+
 
 ## Status
 
