@@ -86,6 +86,81 @@ function utf8decode(buf) {
 }
 
 
+// ================== API
+
+function bsdf_encode(d, extensions) {
+    var s = new BsdfSerializer(extensions);
+    return s.encode(d);
+}
+
+function bsdf_decode(buf, extensions) {
+    var s = new BsdfSerializer(extensions);
+    return s.decode(buf);
+}
+
+function BsdfSerializer(extensions) {
+    /* A placeholder for a BSDF serializer with associated extensions.
+     * Other formats also use it to associate options, but we don't have any.
+     */
+    this.extensions = [];
+    if (extensions === undefined) { extensions = standard_extensions; }
+    if (!Array.isArray(extensions)) { throw "Extensions must be an array."; }
+    for (var i=0; i<extensions.length; i++) {
+        this.add_extension(extensions[i]);
+    }
+}
+
+BsdfSerializer.prototype.add_extension = function (e) {
+    // We use an array also as a dict for quick lookup
+    if (this.extensions[e.name] !== undefined) {
+        // Overwrite existing
+        for (var i=0; i<this.extensions.length; i++) {
+            if (this.extensions[i].name == e.name) { this.extensions[i] = e; break; }
+        }
+    } else {
+        // Append
+        this.extensions.push(e);
+        this.extensions[e.name] = e;
+    }
+};
+
+BsdfSerializer.prototype.remove_extension = function (e) {
+    delete this.extensions[e.name];
+    for (var i=0; i<this.extensions.length; i++) {
+        if (this.extensions[i].name == name) { this.extensions.splice(i, 1); break; }
+    }
+};
+
+BsdfSerializer.prototype.encode = function (d) {
+    // Write head and version
+    var f = ByteBuilder();
+    f.push_char('B'); f.push_char('S'); f.push_char('D'); f.push_char('F');
+    f.push_uint8(VERSION[0]); f.push_uint8(VERSION[1]);
+    // Encode and return result
+    encode_object(f, d, this.extensions);
+    return f.get_result();
+};
+
+BsdfSerializer.prototype.decode = function (buf, extensions) {
+    // Read and check head
+    var f = BytesReader(buf);
+    var head = f.get_char() + f.get_char() + f.get_char() + f.get_char();
+    if (head != 'BSDF') {
+        throw "This does not look like BSDF encoded data: " + head;
+    }
+    // Read and check version
+    var major_version = f.get_uint8();
+    var minor_version = f.get_uint8();
+    if (major_version != VERSION[0]) {
+        throw ('Reading file with different major version ' + major_version + ' from the implementation ' + VERSION[0]);
+    } else if (minor_version > VERSION[1]){
+        console.log('BSDF Warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
+    }
+    // Decode
+    return decode_object(f, this.extensions);
+};
+
+
 //---- encoder
 
 function ByteBuilder() {
@@ -513,80 +588,6 @@ function Complex(real, imag) {
 function EOFError(msg) {
     this.msg = msg;
 }
-
-// ================== API
-
-function bsdf_encode(d, extensions) {
-    var s = new BsdfSerializer(extensions);
-    return s.encode(d);
-}
-
-function bsdf_decode(buf, extensions) {
-    var s = new BsdfSerializer(extensions);
-    return s.decode(buf);
-}
-
-function BsdfSerializer(extensions) {
-    /* A placeholder for a BSDF serializer with associated extensions.
-     * Other formats also use it to associate options, but we don't have any.
-     */
-    this.extensions = [];
-    if (extensions === undefined) { extensions = standard_extensions; }
-    if (!Array.isArray(extensions)) { throw "Extensions must be an array."; }
-    for (var i=0; i<extensions.length; i++) {
-        this.add_extension(extensions[i]);
-    }
-}
-
-BsdfSerializer.prototype.add_extension = function (e) {
-    // We use an array also as a dict for quick lookup
-    if (this.extensions[e.name] !== undefined) {
-        // Overwrite existing
-        for (var i=0; i<this.extensions.length; i++) {
-            if (this.extensions[i].name == e.name) { this.extensions[i] = e; break; }
-        }
-    } else {
-        // Append
-        this.extensions.push(e);
-        this.extensions[e.name] = e;
-    }
-};
-
-BsdfSerializer.prototype.remove_extension = function (e) {
-    delete this.extensions[e.name];
-    for (var i=0; i<this.extensions.length; i++) {
-        if (this.extensions[i].name == name) { this.extensions.splice(i, 1); break; }
-    }
-};
-
-BsdfSerializer.prototype.encode = function (d) {
-    // Write head and version
-    var f = ByteBuilder();
-    f.push_char('B'); f.push_char('S'); f.push_char('D'); f.push_char('F');
-    f.push_uint8(VERSION[0]); f.push_uint8(VERSION[1]);
-    // Encode and return result
-    encode_object(f, d, this.extensions);
-    return f.get_result();
-};
-
-BsdfSerializer.prototype.decode = function (buf, extensions) {
-    // Read and check head
-    var f = BytesReader(buf);
-    var head = f.get_char() + f.get_char() + f.get_char() + f.get_char();
-    if (head != 'BSDF') {
-        throw "This does not look like BSDF encoded data: " + head;
-    }
-    // Read and check version
-    var major_version = f.get_uint8();
-    var minor_version = f.get_uint8();
-    if (major_version != VERSION[0]) {
-        throw ('Reading file with different major version ' + major_version + ' from the implementation ' + VERSION[0]);
-    } else if (minor_version > VERSION[1]){
-        console.log('BSDF Warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
-    }
-    // Decode
-    return decode_object(f, this.extensions);
-};
 
 
 // ================== Standard extensions
