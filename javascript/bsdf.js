@@ -11,6 +11,7 @@
  * make a copy with `a = new Uint8Array(a)`.
  *
  * See http://gitlab.com/almarklein/bsdf for more information.
+ * This code is distributed under the terms of the 2-clause BSD license.
  *
  */
 
@@ -77,9 +78,9 @@ function utf8decode(buf) {
     for (var i = -1; i < iz; ) {
         var c = buf[++i]; // lead byte
         ary.push(c < 0x80 ? c : // ASCII(0x00 ~ 0x7f)
-                c < 0xe0 ? ((c & 0x1f) <<  6 | (buf[++i] & 0x3f)) :
+                 c < 0xe0 ? ((c & 0x1f) <<  6 | (buf[++i] & 0x3f)) :
                             ((c & 0x0f) << 12 | (buf[++i] & 0x3f) << 6
-                                            | (buf[++i] & 0x3f)));
+                                              | (buf[++i] & 0x3f)));
     }
     return String.fromCharCode.apply(null, ary);
 }
@@ -213,6 +214,7 @@ function encode_type_id(f, c, extension_id) {
 }
 
 function encode_object(f, value, extensions, extension_id) {
+    var iext, ext;
 
     if (value === null) { encode_type_id(f, 'v', extension_id); }
     //else if (typeof value == 'undefined') { encode_type_id(f, 'v', extension_id); }
@@ -285,19 +287,21 @@ function encode_object(f, value, extensions, extension_id) {
             f.push_bytes(new Uint8Array(allocated_size - used_size));
         } else {
             // Try extensions (for objects)
-            for (var iext=0; iext<extensions.length; iext++) {
-                var ext = extensions[iext];
+            for (iext=0; iext<extensions.length; iext++) {
+                ext = extensions[iext];
                 if (ext.match(value)) {
                     encode_object(f, ext.encode(value), extensions, ext.name);
                     return;
                 }
             }
-            throw "cannot encode object " + value.constructor.name;
+            var cls = Object.getPrototypeOf(value);
+            var cname = cls.__name__ || cls.constructor.name;  // __name__ is a PyScript thing
+            throw "cannot encode object of type " + cname;
         }
     } else {
         // Try extensions (for other types)
-        for (var iext=0; iext<extensions.length; iext++) {
-            var ext = extensions[iext];
+        for (iext=0; iext<extensions.length; iext++) {
+            ext = extensions[iext];
             if (ext.match(value)) {
                 encode_object(f, ext.encode(value), extensions, ext.name);
                 return;
@@ -513,32 +517,66 @@ function EOFError(msg) {
 // ================== API
 
 function bsdf_encode(d, extensions) {
-    // Prepare extensions - extensions are stored as an array
+    var s = new BsdfSerializer(extensions);
+    return s.encode(d);
+}
+
+function bsdf_decode(buf, extensions) {
+    var s = new BsdfSerializer(extensions);
+    return s.decode(buf);
+}
+
+function BsdfSerializer(extensions) {
+    /* A placeholder for a BSDF serializer with associated extensions.
+     * Other formats also use it to associate options, but we don't have any.
+     */
+    this.extensions = [];
     if (extensions === undefined) { extensions = standard_extensions; }
     if (!Array.isArray(extensions)) { throw "Extensions must be an array."; }
+    for (var i=0; i<extensions.length; i++) {
+        this.add_extension(extensions[i]);
+    }
+}
+
+BsdfSerializer.prototype.add_extension = function (e) {
+    // We use an array also as a dict for quick lookup
+    if (this.extensions[e.name] !== undefined) {
+        // Overwrite existing
+        for (var i=0; i<this.extensions.length; i++) {
+            if (this.extensions[i].name == e.name) { this.extensions[i] = e; break; }
+        }
+    } else {
+        // Append
+        this.extensions.push(e);
+        this.extensions[e.name] = e;
+    }
+};
+
+BsdfSerializer.prototype.remove_extension = function (e) {
+    delete this.extensions[e.name];
+    for (var i=0; i<this.extensions.length; i++) {
+        if (this.extensions[i].name == name) { this.extensions.splice(i, 1); break; }
+    }
+};
+
+BsdfSerializer.prototype.encode = function (d) {
     // Write head and version
     var f = ByteBuilder();
     f.push_char('B'); f.push_char('S'); f.push_char('D'); f.push_char('F');
     f.push_uint8(VERSION[0]); f.push_uint8(VERSION[1]);
     // Encode and return result
-    encode_object(f, d, extensions);
+    encode_object(f, d, this.extensions);
     return f.get_result();
-}
+};
 
-function bsdf_decode(buf, extensions) {
-    // Prepare extensions - extensions are stored as an object
-    if (extensions === undefined) { extensions = standard_extensions; }
-    if (!Array.isArray(extensions)) { throw "Extensions must be an array."; }
-    var ext = {};
-    for (var i=0; i<extensions.length; i++) { ext[extensions[i].name] = extensions[i]; }
-    // Write head and version
+BsdfSerializer.prototype.decode = function (buf, extensions) {
+    // Read and check head
     var f = BytesReader(buf);
-    // Check head
     var head = f.get_char() + f.get_char() + f.get_char() + f.get_char();
     if (head != 'BSDF') {
         throw "This does not look like BSDF encoded data: " + head;
     }
-    // Check version
+    // Read and check version
     var major_version = f.get_uint8();
     var minor_version = f.get_uint8();
     if (major_version != VERSION[0]) {
@@ -547,8 +585,8 @@ function bsdf_decode(buf, extensions) {
         console.log('BSDF Warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
     }
     // Decode
-    return decode_object(f, ext);
-}
+    return decode_object(f, this.extensions);
+};
 
 
 // ================== Standard extensions
@@ -584,6 +622,5 @@ var ndarray_extension = {
 var standard_extensions = [complex_extension, ndarray_extension];
 
 // ================== the UMD module suffix
-exports = {encode: bsdf_encode, decode: bsdf_decode, standard_extensions: standard_extensions};
-return exports;
+return {encode: bsdf_encode, decode: bsdf_decode, BsdfSerializer: BsdfSerializer, standard_extensions: standard_extensions};
 }));
