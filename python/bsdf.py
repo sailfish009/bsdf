@@ -91,11 +91,11 @@ def lendecode(f):
     return n
 
 
-def encode_type_id(b, extension_id):
+def encode_type_id(b, ext_id):
     """ Encode the type identifier, with or without extension id.
     """
-    if extension_id is not None:
-        bb = extension_id.encode('UTF-8')
+    if ext_id is not None:
+        bb = ext_id.encode('UTF-8')
         return b.upper() + lencode(len(bb)) + bb  # noqa
     else:
         return b  # noqa
@@ -220,37 +220,37 @@ class BsdfSerializer(object):
             if self._extensions_by_cls[cls][0] == name:
                 self._extensions_by_cls.pop(cls)
 
-    def _encode(self, f, value, streams, extension_id):
+    def _encode(self, f, value, streams, ext_id):
         """ Main encoder function.
         """
         x = encode_type_id
-        
+
         if value is None:
-            f.write(x(b'v', extension_id))  # V for void
+            f.write(x(b'v', ext_id))  # V for void
         elif value is True:
-            f.write(x(b'y', extension_id))  # Y for yes
+            f.write(x(b'y', ext_id))  # Y for yes
         elif value is False:
-            f.write(x(b'n', extension_id))  # N for no
+            f.write(x(b'n', ext_id))  # N for no
         elif isinstance(value, integer_types):
             if -32768 <= value <= 32767:
-                f.write(x(b'h', extension_id) + spack('h', value))  # H for ...
+                f.write(x(b'h', ext_id) + spack('h', value))  # H for ...
             else:
-                f.write(x(b'i', extension_id) + spack('<q', value))  # I for int
+                f.write(x(b'i', ext_id) + spack('<q', value))  # I for int
         elif isinstance(value, float):
             if self._float64:
-                f.write(x(b'd', extension_id) + spack('<d', value))  # D for double
+                f.write(x(b'd', ext_id) + spack('<d', value))  # D for double
             else:
-                f.write(x(b'f', extension_id) + spack('<f', value))  # f for float
+                f.write(x(b'f', ext_id) + spack('<f', value))  # f for float
         elif isinstance(value, unicode_types):
             bb = value.encode('UTF-8')
-            f.write(x(b's', extension_id) + lencode(len(bb)))  # S for str
+            f.write(x(b's', ext_id) + lencode(len(bb)))  # S for str
             f.write(bb)
         elif isinstance(value, (list, tuple)):
-            f.write(x(b'l', extension_id) + lencode(len(value)))  # L for list
+            f.write(x(b'l', ext_id) + lencode(len(value)))  # L for list
             for v in value:
                 self._encode(f, v, streams, None)
         elif isinstance(value, dict):
-            f.write(x(b'm', extension_id) + lencode(len(value)))  # M for mapping
+            f.write(x(b'm', ext_id) + lencode(len(value)))  # M for mapping
             for key, v in value.items():
                 if PY3:
                     assert key.isidentifier()  # faster
@@ -262,17 +262,17 @@ class BsdfSerializer(object):
                 f.write(name_b)
                 self._encode(f, v, streams, None)
         elif isinstance(value, bytes):
-            f.write(x(b'b', extension_id))  # B for blob
+            f.write(x(b'b', ext_id))  # B for blob
             blob = Blob(value, compression=self._compression,
                         use_checksum=self._use_checksum)
             blob._to_file(f)  # noqa
         elif isinstance(value, Blob):
-            f.write(x(b'b', extension_id))  # B for blob
+            f.write(x(b'b', ext_id))  # B for blob
             value._to_file(f)  # noqa
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
-                f.write(x(b'l', extension_id) + spack('<BQ', 255, 0))  # L for list
+                f.write(x(b'l', ext_id) + spack('<BQ', 255, 0))  # L for list
             else:
                 raise TypeError('Only ListStream is supported')
             # Mark this as *the* stream, and activate the stream.
@@ -283,22 +283,22 @@ class BsdfSerializer(object):
             value._activate(f, self._encode, self._decode)  # noqa
         else:
             # Try if the value is of a type we know
-            x = self._extensions_by_cls.get(value.__class__, None)
+            ex = self._extensions_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
-            if x is None:
+            if ex is None:
                 for name, c in self._extensions.items():
                     if c.match(self, value):
-                        x = name, c.encode
+                        ex = name, c.encode
                         break
                 else:
-                    x = None
+                    ex = None
             # Success or fail
-            if x is not None:
-                extension_id2, extension_encode = x
-                if extension_id == extension_id2:
+            if ex is not None:
+                ext_id2, extension_encode = ex
+                if ext_id == ext_id2:
                     raise ValueError('Circular recursion in extension func!')
                 self._encode(f, extension_encode(self, value),
-                             streams, extension_id2)
+                             streams, ext_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
                      'handled by an extension.')
@@ -318,9 +318,9 @@ class BsdfSerializer(object):
         elif char != c:
             n = strunpack('<B', f.read(1))[0]
             # if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa - noneed
-            extension_id = f.read(n).decode('UTF-8')
+            ext_id = f.read(n).decode('UTF-8')
         else:
-            extension_id = None
+            ext_id = None
 
         if c == b'v':
             value = None
@@ -380,13 +380,13 @@ class BsdfSerializer(object):
             raise RuntimeError('Parse error %r' % char)
 
         # Convert value if we have an extension for it
-        if extension_id is not None:
-            extension = self._extensions.get(extension_id, None)
+        if ext_id is not None:
+            extension = self._extensions.get(ext_id, None)
             if extension is not None:
                 value = extension.decode(self, value)
             else:
                 # todo: warn/log instead of print
-                print('no extension found for %r' % extension_id)
+                print('no extension found for %r' % ext_id)
 
         return value
 
