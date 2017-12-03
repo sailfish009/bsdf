@@ -58,6 +58,16 @@ def lendecode(f):
     return n
 
 
+def encode_type_id(b, extension_id):
+    """ Encode the type identifier, with or without extension id.
+    """
+    if extension_id is not None:
+        bb = extension_id.encode('UTF-8')
+        return b.upper() + lencode(len(bb)) + bb  # noqa
+    else:
+        return b  # noqa
+
+
 class BsdfLiteSerializer(object):
     """ Instances of this class represent a BSDF encoder/decoder.
 
@@ -155,39 +165,34 @@ class BsdfLiteSerializer(object):
         """ Main encoder function.
         """
 
-        if extension_id is not None:
-            bb = extension_id.encode('UTF-8')
-            extension_patch = lencode(len(bb)) + bb
-            x = lambda i: i.upper() + extension_patch  # noqa
-        else:
-            x = lambda i: i  # noqa
+        x = encode_type_id
 
         if value is None:
-            f.write(x(b'v'))  # V for void
+            f.write(x(b'v', extension_id))  # V for void
         elif value is True:
-            f.write(x(b'y'))  # Y for yes
+            f.write(x(b'y', extension_id))  # Y for yes
         elif value is False:
-            f.write(x(b'n'))  # N for no
+            f.write(x(b'n', extension_id))  # N for no
         elif isinstance(value, int):
             if -32768 <= value <= 32767:
-                f.write(x(b'h') + spack('h', value))  # H for ...
+                f.write(x(b'h', extension_id) + spack('h', value))  # H for ...
             else:
-                f.write(x(b'i') + spack('<q', value))  # I for int
+                f.write(x(b'i', extension_id) + spack('<q', value))  # I for int
         elif isinstance(value, float):
             if self._float64:
-                f.write(x(b'd') + spack('<d', value))  # D for double
+                f.write(x(b'd', extension_id) + spack('<d', value))  # D for double
             else:
-                f.write(x(b'f') + spack('<f', value))  # f for float
+                f.write(x(b'f', extension_id) + spack('<f', value))  # f for float
         elif isinstance(value, str):
             bb = value.encode('UTF-8')
-            f.write(x(b's') + lencode(len(bb)))  # S for str
+            f.write(x(b's', extension_id) + lencode(len(bb)))  # S for str
             f.write(bb)
         elif isinstance(value, (list, tuple)):
-            f.write(x(b'l') + lencode(len(value)))  # L for list
+            f.write(x(b'l', extension_id) + lencode(len(value)))  # L for list
             for v in value:
                 self._encode(f, v, streams, None)
         elif isinstance(value, dict):
-            f.write(x(b'm') + lencode(len(value)))  # M for mapping
+            f.write(x(b'm', extension_id) + lencode(len(value)))  # M for mapping
             for key, v in value.items():
                 assert key.isidentifier()
                 name_b = key.encode('UTF-8')
@@ -195,7 +200,7 @@ class BsdfLiteSerializer(object):
                 f.write(name_b)
                 self._encode(f, v, streams, None)
         elif isinstance(value, bytes):
-            f.write(b'b')  # B for blob
+            f.write(x(b'b', extension_id))  # B for blob
             # Compress
             compression = self._compression
             if compression == 0:
@@ -238,18 +243,18 @@ class BsdfLiteSerializer(object):
             f.write(b'\x00' * (allocated_size - used_size))
         else:
             # Try if the value is of a type we know
-            x = self._extensions_by_cls.get(value.__class__, None)
+            ex = self._extensions_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
-            if x is None:
+            if ex is None:
                 for name, c in self._extensions.items():
                     if c.match(self, value):
-                        x = name, c.encode
+                        ex = name, c.encode
                         break
                 else:
-                    x = None
+                    ex = None
             # Success or fail
-            if x is not None:
-                extension_id2, extension_encode = x
+            if ex is not None:
+                extension_id2, extension_encode = ex
                 if extension_id == extension_id2:
                     raise ValueError('Circular recursion in extension func!')
                 self._encode(f, extension_encode(self, value),

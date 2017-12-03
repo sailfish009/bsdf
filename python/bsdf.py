@@ -91,6 +91,16 @@ def lendecode(f):
     return n
 
 
+def encode_type_id(b, extension_id):
+    """ Encode the type identifier, with or without extension id.
+    """
+    if extension_id is not None:
+        bb = extension_id.encode('UTF-8')
+        return b.upper() + lencode(len(bb)) + bb  # noqa
+    else:
+        return b  # noqa
+
+
 def _isidentifier(s):
     """ Use of str.isidentifier() for Legacy Python, but slower.
     """
@@ -213,41 +223,34 @@ class BsdfSerializer(object):
     def _encode(self, f, value, streams, extension_id):
         """ Main encoder function.
         """
-
-        # todo: put these closures outside
-        if extension_id is not None:
-            bb = extension_id.encode('UTF-8')
-            extension_patch = lencode(len(bb)) + bb
-            x = lambda i: i.upper() + extension_patch  # noqa
-        else:
-            x = lambda i: i  # noqa
-
+        x = encode_type_id
+        
         if value is None:
-            f.write(x(b'v'))  # V for void
+            f.write(x(b'v', extension_id))  # V for void
         elif value is True:
-            f.write(x(b'y'))  # Y for yes
+            f.write(x(b'y', extension_id))  # Y for yes
         elif value is False:
-            f.write(x(b'n'))  # N for no
+            f.write(x(b'n', extension_id))  # N for no
         elif isinstance(value, integer_types):
             if -32768 <= value <= 32767:
-                f.write(x(b'h') + spack('h', value))  # H for ...
+                f.write(x(b'h', extension_id) + spack('h', value))  # H for ...
             else:
-                f.write(x(b'i') + spack('<q', value))  # I for int
+                f.write(x(b'i', extension_id) + spack('<q', value))  # I for int
         elif isinstance(value, float):
             if self._float64:
-                f.write(x(b'd') + spack('<d', value))  # D for double
+                f.write(x(b'd', extension_id) + spack('<d', value))  # D for double
             else:
-                f.write(x(b'f') + spack('<f', value))  # f for float
+                f.write(x(b'f', extension_id) + spack('<f', value))  # f for float
         elif isinstance(value, unicode_types):
             bb = value.encode('UTF-8')
-            f.write(x(b's') + lencode(len(bb)))  # S for str
+            f.write(x(b's', extension_id) + lencode(len(bb)))  # S for str
             f.write(bb)
         elif isinstance(value, (list, tuple)):
-            f.write(x(b'l') + lencode(len(value)))  # L for list
+            f.write(x(b'l', extension_id) + lencode(len(value)))  # L for list
             for v in value:
                 self._encode(f, v, streams, None)
         elif isinstance(value, dict):
-            f.write(x(b'm') + lencode(len(value)))  # M for mapping
+            f.write(x(b'm', extension_id) + lencode(len(value)))  # M for mapping
             for key, v in value.items():
                 if PY3:
                     assert key.isidentifier()  # faster
@@ -259,17 +262,17 @@ class BsdfSerializer(object):
                 f.write(name_b)
                 self._encode(f, v, streams, None)
         elif isinstance(value, bytes):
-            f.write(b'b')  # B for blob
+            f.write(x(b'b', extension_id))  # B for blob
             blob = Blob(value, compression=self._compression,
                         use_checksum=self._use_checksum)
             blob._to_file(f)  # noqa
         elif isinstance(value, Blob):
-            f.write(b'b')  # B for blob
+            f.write(x(b'b', extension_id))  # B for blob
             value._to_file(f)  # noqa
         elif isinstance(value, BaseStream):
             # Initialize the stream
             if isinstance(value, ListStream):
-                f.write(x(b'l') + spack('<BQ', 255, 0))  # L for list
+                f.write(x(b'l', extension_id) + spack('<BQ', 255, 0))  # L for list
             else:
                 raise TypeError('Only ListStream is supported')
             # Mark this as *the* stream, and activate the stream.
