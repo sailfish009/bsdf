@@ -49,7 +49,8 @@
 
 "use strict";
 
-var VERSION = [2, 0, 0];
+var VERSION;
+VERSION = [2, 1, 0];
 
 // http://github.com/msgpack/msgpack-javascript/blob/master/msgpack.js#L181-L192
 function utf8encode(mix) {

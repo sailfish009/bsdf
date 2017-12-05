@@ -34,17 +34,16 @@ from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
-# Versioning. The version_info applies to the implementation. The major
-# and minor numbers are equal to the file format itself. The major
-# number if increased when backward incompatible changes are introduced.
-# An implementation must raise an exception when the file being read
-# has a higher major version. The minor number when new backward
-# compatible features are introduced. An implementation must display a
-# warning when the file being read has a higher minor version. The patch
-# version is increased for fixes and improving of the implementation.
-version_info = 2, 0, 0
-format_version = version_info[:2]
-__version__ = '.'.join(str(i) for i in version_info)
+# Notes on versioning: the major and minor numbers correspond to the
+# BSDF format version. The major number if increased when backward
+# incompatible changes are introduced. An implementation must raise an
+# exception when the file being read has a higher major version. The
+# minor number is increased when new backward compatible features are
+# introduced. An implementation must display a warning when the file
+# being read has a higher minor version. The patch version is increased
+# for subsequent releases of the implementation.
+VERSION = 2, 1, 0
+__version__ = '.'.join(str(i) for i in VERSION)
 
 
 # %% The encoder and decoder implementation
@@ -401,8 +400,8 @@ class BsdfSerializer(object):
         """ Write the given object to the given file object.
         """
         f.write(b'BSDF')
-        f.write(struct.pack('<B', format_version[0]))
-        f.write(struct.pack('<B', format_version[1]))
+        f.write(struct.pack('<B', VERSION[0]))
+        f.write(struct.pack('<B', VERSION[1]))
 
         # Prepare streaming, this list will have 0 or 1 item at the end
         streams = []
@@ -433,11 +432,11 @@ class BsdfSerializer(object):
         major_version = strunpack('<B', f.read(1))[0]
         minor_version = strunpack('<B', f.read(1))[0]
         file_version = '%i.%i' % (major_version, minor_version)
-        if major_version != format_version[0]:  # major version should be 2
+        if major_version != VERSION[0]:  # major version should be 2
             t = ('Reading file with different major version (%s) '
                  'from the implementation (%s).')
             raise RuntimeError(t % (__version__, file_version))
-        if minor_version > format_version[1]:  # minor should be < ours
+        if minor_version > VERSION[1]:  # minor should be < ours
             # todo: warn/log instead of print
             t = ('Warning: reading file with higher minor version (%s) '
                  'than the implementation (%s).')

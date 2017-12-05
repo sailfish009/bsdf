@@ -74,6 +74,7 @@ job_python_py36:
     - invoke test-unit
     - invoke test-shared
 
+
 # ---------- Octave / Matlab
 
 job_matlab_octave:
@@ -108,7 +109,20 @@ job_javascript_node:
     - invoke test-shared
 
 
-# ---------- Website
+# ---------- Deploy stage
+
+validation:
+  stage: deploy
+  image: almarklein/py36
+  script:
+    - pip install invoke
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke check-whitespace
+    - invoke check-versions
+
 
 pages:  # this name matters
   stage: deploy

@@ -17,7 +17,7 @@ classdef Bsdf
     %     bsdf.save(filename, data)   % to save data to file
     %     data = bsdf.load(filename)  % to load data from file
     %     blob = bsdf.encode(data)    % to serialize data to bytes (a uint8 array)
-    %     data = bsdf.decode(blob)    % to load data from bytes       
+    %     data = bsdf.decode(blob)    % to load data from bytes
     %
     %   Options (for writing) are provided as object properties:
     %
@@ -26,31 +26,32 @@ classdef Bsdf
     %   - float64: whether to export floats as 64 bit (default) or 32 bit.
     %   - use_checksum: whether to write checksums for binary blobs, not yet
     %     implemented.
-    
+
     properties (SetAccess = private, GetAccess = public)
         VERSION  % The BSDF version of this implementation
     end
-    
-    properties (SetAccess = public, GetAccess = public)        
+
+    properties (SetAccess = public, GetAccess = public)
         compression  % whether to (ZLIB) compress binary blobs (default false)
         float64  % Whether to encode float values with 64 bits (default true)
         use_checksum  % Whether to write checksums for binary blobs
     end
-    
+
     % -------------------------------------------------------------------------
-    
+
     methods (Access = public)
-    
+
         function serializer = Bsdf()
-            serializer.VERSION = [2, 0, 0];
+            VERSION = [2, 1, 0];  % Write such that the BSDF tooling can detect
+            serializer.VERSION = VERSION;
             serializer.compression = 0;
             serializer.float64 = true;
             serializer.use_checksum = false;
         end
-        
+
         function save(serializer, filename, data)
             % Save data to a file
-            
+
             if ~isa(filename, 'char')
                 error([mfilename ': Invalid filename given.']);
             end
@@ -62,12 +63,12 @@ classdef Bsdf
             catch e
                 fclose(f);
                 rethrow(e);
-            end            
+            end
         end
-        
+
         function data = load(serializer, filename)
             % Load data from a file
-            
+
             % Exists?
             if ~exist(filename, 'file');  error([mfilename ': the specified file does not exist.']);  end
             % Read file
@@ -80,10 +81,10 @@ classdef Bsdf
                 rethrow(e);
             end
         end
-        
+
         function blob = encode(serializer, data)
             % encode data to bytes (a uint8 array)
-                        
+
             tempfilename = 'bsdf_temp_file.bsdf';
             f = Bsdf.our_fopen(tempfilename, 'w');
             try
@@ -96,12 +97,12 @@ classdef Bsdf
             f = Bsdf.our_fopen(tempfilename, 'r');
             blob = fread(f, inf, '*uint8');
             fclose(f);
-            delete(tempfilename);    
+            delete(tempfilename);
         end
-        
+
         function data = decode(serializer, blob)
             % decode data from bytes (a uint8 array)
-            
+
             tempfilename = 'bsdf_temp_file.bsdf';
             f = Bsdf.our_fopen(tempfilename, 'w');
             fwrite(f, blob);
@@ -114,15 +115,15 @@ classdef Bsdf
                 fclose(f);
                 rethrow(e);
             end
-            delete(tempfilename);            
+            delete(tempfilename);
         end
-        
+
     end % of public methods
-    
+
     % -------------------------------------------------------------------------
-    
+
     methods (Access = protected)
-        
+
         function write_to_file_object(serializer, f, ob)
             % Write header
             fwrite(f, [66; 83; 68; 70]);
@@ -132,7 +133,7 @@ classdef Bsdf
             % Go!
             serializer.bsdf_encode(f, ob);
         end
-        
+
         function ob = read_from_file_object(serializer, f)
             % Get header
             head = fread(f, 4, '*uint8');
@@ -150,7 +151,7 @@ classdef Bsdf
         end
 
         function bsdf_encode(serializer, f, value)
-            
+
             if isa(value, 'struct')
                 fwrite(f, 'm');
                 keys = fieldnames(value);
@@ -221,7 +222,7 @@ classdef Bsdf
                 fwrite(f, zeros(extra_size, 1), 'uint8');
 
             elseif isa(value, 'numeric')
-                
+
                 if isequal(size(value), [0, 0])  % null - [0, n] would be array
                     fwrite(f, 'v');
                 elseif numel(value) == 1  % scalar
@@ -286,9 +287,9 @@ classdef Bsdf
                 error([mfilename ': cannot serialize ' class(value)]);
             end
         end
-        
+
         % ---------------------------------------------------------------------
-        
+
         function value = bsdf_decode(serializer, f)
             the_char = fread(f, 1, '*char')';
             c = lower(the_char);
@@ -436,14 +437,14 @@ classdef Bsdf
                 end
             end
         end
-        
-    end % of protected methods      
-    
+
+    end % of protected methods
+
     % -------------------------------------------------------------------------
-    
+
     methods (Static, Access = protected)
        % Octave won't allow local functions, so we make them, methods
-       
+
        function r = isoctave()
             persistent IS_OCTAVE;
             if isempty(IS_OCTAVE)
@@ -490,8 +491,8 @@ classdef Bsdf
                 fwrite(f, 253, 'uint8');
                 fwrite(f, x, 'uint64');
             end
-        end 
-        
+        end
+
     end % of protected static methods
-   
+
 end % of class

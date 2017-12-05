@@ -1,5 +1,7 @@
 # The BSDF format specification
 
+This document applies to BSDF format
+VERSION = 2.1.
 
 ## Purpose and features
 

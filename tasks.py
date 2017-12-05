@@ -74,16 +74,25 @@ def build_pages(ctx, show=False):
     sys.path.insert(0, os.path.join(ROOT_DIR, '_docs'))
     import pages
     import webbrowser
-    
+
     # Update all readmes first
     lines = subprocess.getoutput(['invoke', '-l']).splitlines()
     lines = [line.strip().split(' ')[0] for line in lines if line.count('.update-readme')]
     for line in lines:
         print(subprocess.getoutput(['invoke', line]))
-    
+
     pages.build(True, False)
     if show:
         webbrowser.open(os.path.join(ROOT_DIR, '_docs', '_pages', 'index.html'))
+
+
+@ns.add_task
+@task
+def check_versions(ctx, show=False):
+    """ Check that version numbers in spec and implementations match up. """
+    sys.path.insert(0, os.path.join(ROOT_DIR, '_tools'))
+    import versions
+    versions.main()
 
 
 @ns.add_task
@@ -101,9 +110,11 @@ def check_whitespace(ctx, show=False):
             for fname in os.listdir(dirname):
                 filename = os.path.join(dirname, fname)
                 if os.path.isfile(filename) and not fname.startswith('.'):
-                    _check_whitespace(filename)
+                    if not fname.endswith(('.pyc', '.xx')):
+                        _check_whitespace(filename)
 
 def _check_whitespace(filename):
+    # print('checking whitespace for', filename)
     text = open(filename, 'rb').read().decode()
     if '\r' in text:
         print('Detected \\r in ', filename)

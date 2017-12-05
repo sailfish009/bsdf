@@ -33,8 +33,9 @@ copyright = '2017, Almar Klein'
 author = 'Almar Klein'
 
 # The version info for the project you're documenting
-version = '2.1'  # The short X.Y version.
-release = '2.1'  # The full version, including alpha/beta/rc tags.
+VERSION = (2, 1)
+version = '%i.%i' % VERSION  # The short X.Y version.
+release = '%i.%i' % VERSION  # The full version, including alpha/beta/rc tags.
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
