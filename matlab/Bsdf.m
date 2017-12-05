@@ -150,7 +150,7 @@ classdef Bsdf
         end
 
         function bsdf_encode(serializer, f, value)
-
+            
             if isa(value, 'struct')
                 fwrite(f, 'm');
                 keys = fieldnames(value);
@@ -179,7 +179,7 @@ classdef Bsdf
             elseif isa(value, 'logical')
                 if value; fwrite(f, 'y'); else; fwrite(f, 'n'); end
 
-            elseif isa(value, 'uint8') && numel(value) == max(size(value))
+            elseif isa(value, 'uint8') && iscolumn(value)
                 % blob (at the top to grab all uint8 instances (also empty and 1-length bytes)
                 extra_size = 0;
                 compr = serializer.compression;
@@ -221,8 +221,8 @@ classdef Bsdf
                 fwrite(f, zeros(extra_size, 1), 'uint8');
 
             elseif isa(value, 'numeric')
-
-                if numel(value) == 0  % null
+                
+                if isequal(size(value), [0, 0])  % null - [0, n] would be array
                     fwrite(f, 'v');
                 elseif numel(value) == 1  % scalar
                     if ~isreal(value)  % Standard extension: complex
@@ -278,7 +278,7 @@ classdef Bsdf
                     % permuting to make the shape right
                     key = 'data'; Bsdf.write_length(f, length(key)); fwrite(f, key);
                     tmp = length(size(value));
-                    value_p = permute( value, linspace(tmp,1,tmp));
+                    value_p = permute(value, linspace(tmp, 1, tmp));
                     data = typecast(value_p(:), 'uint8');
                     serializer.bsdf_encode(f, data);
                 end
@@ -381,7 +381,7 @@ classdef Bsdf
                 compressed = fread(f, used_size, '*uint8');
                 % Decompress
                 if compr == 0
-                    value = compressed';
+                    value = compressed;
                 elseif compr == 1
                     import com.mathworks.mlwidgets.io.InterruptibleStreamCopier
                     a = java.io.ByteArrayInputStream(compressed);
@@ -395,6 +395,8 @@ classdef Bsdf
                 else
                     error([mfilename ': unsupported compression.']);
                 end
+                % Shape like a byte column-vector
+                value = reshape(value, [numel(value), 1]);
                 % Skip extra space
                 fread(f, allocated_size - used_size, '*uint8');
             else
@@ -424,7 +426,9 @@ classdef Bsdf
                         % permuting...
                         value = reshape(value, fliplr(shape));
                         tmp = length(shape);
-                        value = permute( value, linspace(tmp,1,tmp));
+                        value = permute(value, linspace(tmp, 1, tmp));
+                        % Note, singleton dimensions may have been dropped
+                        % and it seems that we cannot fix that :/
                     end
 
                 else

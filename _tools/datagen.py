@@ -13,7 +13,6 @@ import random
 import string
 from io import open
 
-# import numpy as np
 
 # From six.py
 PY3 = sys.version_info[0] == 3
@@ -36,7 +35,7 @@ CHARS = string.printable + (unichr(169) + unichr(181) + unichr(202) +
 NAMECHARS = str('abcdefghijklmnopqrstuvwxyz_0123456789')
 
 JSON_TYPES = ('null', 'bool', 'int', 'float', 'str', 'list', 'dict')
-ALL_TYPES = JSON_TYPES + ('notfinite', )  # + bytes
+ALL_TYPES = JSON_TYPES + ('notfinite', 'ndarray')
 
 
 names = set()
@@ -52,7 +51,7 @@ def random_name(maxn=32):
 def random_object(level, types=()):
     
     # Get what types are allowed
-    M = {'null': 1, 'bool': 2, 'int': 3, 'float': 4, 'str': 5, 'array': 6,
+    M = {'null': 1, 'bool': 2, 'int': 3, 'float': 4, 'str': 5, 'ndarray': 6,
          'list': 7, 'dict': 8, 'notfinite': 9}
     if types:
         assert all(t in M for t in types)
@@ -77,7 +76,7 @@ def random_object(level, types=()):
     elif id == 5:
         return random_string()
     elif id == 6:
-        raise RuntimeError('no arrays yet')
+        return random_ndarray()
     elif id == 7:
         return random_list(level, types=types)
     elif id == 8:
@@ -103,14 +102,17 @@ def random_string(maxn=16):
     n = random.randrange(0, maxn)
     return ''.join(random.sample(CHARS,n))
 
-def random_array(maxn=16):
+def random_ndarray(maxn=16):
+    import numpy as np
     # Get array properties
-    ndim = random.randrange(0, 4)
-    shape = random.sample(xrange(maxn), ndim)
-    dtype = random.choice() # todo: xx
+    shape = (1,)
+    while np.prod(shape) == 1:
+        ndim = random.randrange(1, 5)  # don't allow empty shape (i.e. weird scalars)
+        shape = random.sample(xrange(maxn), ndim)
+    dtype = random.choice(['int8', 'uint16', 'int32', 'float32'])
     # Create array
     if 'int' in dtype:
-        return np.random.random_integers(0,100, shape).astype(dtype)
+        return np.random.random_integers(0, 100, shape).astype(dtype)
     else:
         return np.random.random_sample(shape).astype(dtype)
 

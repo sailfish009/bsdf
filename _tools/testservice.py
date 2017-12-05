@@ -21,6 +21,7 @@ from __future__ import absolute_import, print_function, division
 
 import os
 import sys
+import math
 import time
 import json
 import random
@@ -106,44 +107,54 @@ def invoke_runner(fname1, fname2):
 def compare_data(data1, data2):
     """ Compare the data, raise error if it fails. """
     
-    if data1 == data2:
+    # Maybe we can do this fast ...
+    try:
+        if data1 == data2:
+            return
+    except Exception:
         pass
-    else:
-       
-        if isinstance(data1, dict) and len(data1) > 0 and len(list(data1.keys())[0]) > 63:
-            # Oh silly Matlab, truncate keys, because Matlab does that
-            for key in list(data1.keys()):
-                data1[key[:63]] = data1[key]
-                del data1[key]
-        
-        if data1 != data2:
-            print()
-            print('data1:', data1)
-            print('data2:', data2)
-        
-            deep_compare(data1, data2)
-            assert data1 == data2  # just in case deep_compare has a bug
+    
+    # Otherwise, dive in
+    deep_compare(data1, data2)
 
 
-def deep_compare(ob1, ob2):
+def deep_compare(ob1, ob2, **excludes):
     """ Compare two objects deeply to produce more useful assertions. """
     
-    # Allow subtypes, e.g. int/bool
-    #assert isinstance(ob1, type(ob2)) or isinstance(ob2, type(ob1)), 'type mismatch:\n{}\nvs\n{}'.format(ob1, ob2)
-    assert type(ob1) is type(ob2), 'type mismatch:\n{}\nvs\n{}'.format(ob1, ob2)
+    np = None
+    if 'ndarray' not in excludes:
+        import numpy as np
     
-    if isinstance(ob1, list):
+    if isinstance(ob1, float) and math.isnan(ob1):
+        assert math.isnan(ob2), 'one object is nan, the other is {}'.format(ob2)
+    elif np and isinstance(ob1, np.ndarray):
+        if 'strict_singleton_dims' in excludes:
+            assert (ob1.shape == ob2.shape or
+                    ((1, ) + ob1.shape) == ob2.shape or
+                    ob1.shape == (ob2.shape + (1, )))
+            ob1.shape = ob2.shape  # to enable proper value-comparison
+        else:
+            assert ob1.shape == ob2.shape, 'arrays shape mismatch: {} vs {}'.format(ob1.shape, ob2.shape)
+        assert (ob1.size == ob2.size == 0) or np.all(ob1 == ob2), 'arrays unequal'
+    elif isinstance(ob1, list):
+        assert type(ob1) is type(ob2), 'type mismatch:\n{}\nvs\n{}'.format(ob1, ob2)
         assert len(ob1) == len(ob2), 'list sizes dont match:\n{}\nvs\n{}'.format(ob1, ob2)
         for sub1, sub2 in zip(ob1, ob2):
-            deep_compare(sub1, sub2)
+            deep_compare(sub1, sub2, **excludes)
     elif isinstance(ob1, dict):
+        if len(ob1) > 0 and len(list(ob1.keys())[0]) > 63:
+            # Oh silly Matlab, truncate keys, because Matlab does that
+            for key in list(ob1.keys()):
+                ob1[key[:63]] = ob1[key]
+                del ob1[key]
+        assert type(ob1) is type(ob2), 'type mismatch:\n{}\nvs\n{}'.format(ob1, ob2)
         assert len(ob1) == len(ob2), 'dict sizes dont match:\n{}\nvs\n{}'.format(ob1, ob2)
         for key1 in ob1:
             assert key1 in ob2,  'dict key not present in dict2:\n{}\nvs\n{}'.format(key1, ob2)
         for key2 in ob2:
             assert key2 in ob1,  'dict key not present in dict1:\n{}\nvs\n{}'.format(key2, ob1)
         for key in ob1:
-            deep_compare(ob1[key], ob2[key])
+            deep_compare(ob1[key], ob2[key], **excludes)
     else:
         assert ob1 == ob2, 'Values do not match:\n{}\nvs\n{}'.format(ob1, ob2)
 
@@ -455,30 +466,45 @@ def test_bsdf_to_bsdf_random(**excludes):
     if exe_name == 'pytest':
         return
     
+    types = list(datagen.ALL_TYPES)
+    if 'ndarray' in excludes:
+        types.remove('ndarray')
+    
     # Process a few random dicts
     for iter in range(8):
         random.seed(time.time())
         
-        data1 = datagen.random_dict(6, maxn=100, types=datagen.JSON_TYPES)
+        data1 = datagen.random_dict(6, maxn=100, types=types)
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
-        compare_data(data1, data2)
+        deep_compare(data1, data2, **excludes)
         print_dot()
     
     # Process a few random lists
     for iter in range(8):
         random.seed(time.time())
         
-        data1 = datagen.random_list(6, maxn=100, types=datagen.JSON_TYPES)
+        data1 = datagen.random_list(6, maxn=100, types=types)
         fname1, fname2 = get_filenames('.bsdf', '.bsdf')
         data2 = convert_data(fname1, fname2, data1)
-        compare_data(data1, data2)
+        deep_compare(data1, data2, **excludes)
         print_dot()
 
 
 ## Run the tests
 
 if __name__ == '__main__':
+    
+    excludes = ()
+    
+    if True:  # Testing ...
+        excludes = ['uint8_1d', 'strict_singleton_dims']
+        this_dir = r'c:\dev\pylib\bsdf\matlab'
+        sys.argv[1:] = [this_dir, 'octave-cli', '-q', '--eval',
+                        'testservice_runner(\'{fname1}\', \'{fname2}\');']
+        sys.argv[1:] = [this_dir, 'matlab',
+                         '-nodisplay', '-nosplash', '-nodesktop', '-wait', '-r',
+                         'testservice_runner(\'{fname1}\', \'{fname2}\');exit();',]
     
     # Process CLI arguments
     if len(sys.argv) == 1:
@@ -489,4 +515,4 @@ if __name__ == '__main__':
     test_dir = os.path.abspath(sys.argv[1])
     
     # Call main
-    main(test_dir, *sys.argv[2:])
+    main(test_dir, *sys.argv[2:], excludes=excludes)

@@ -346,6 +346,19 @@ def test_custom_extension_array():
     assert a3 == b3
 
 
+def xx_test_array_is_really_scalar():
+    skip('No, ppl should not encode such objects.')
+    # Will, work between Python session, but may not in other langs
+    try:
+        import numpy as np
+    except ImportError:
+        skip('need numpy')
+    a = np.array(12)
+    bb1 = bsdf.encode(a)
+    bb2 = bsdf.encode(12)
+    assert bb1 == bb2
+
+
 def test_custom_extensions_fail():
 
     with raises(TypeError):

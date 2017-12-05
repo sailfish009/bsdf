@@ -19,7 +19,7 @@ def test_shared(ctx, octave=False, matlab=False):
     sys.path.insert(0, os.path.join(this_dir, '..', '_tools'))
     import testservice
 
-    excludes = ['uint8_1d']
+    excludes = ['uint8_1d', 'strict_singleton_dims']
 
     if octave and matlab:
         sys.exit('Choose either --octave or --matlab, not both.')
