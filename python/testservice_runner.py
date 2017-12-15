@@ -29,7 +29,9 @@ else:
 
 # Write data
 if fname2.endswith('.json'):
-    with open(fname2, 'wt', encoding='utf-8') as f:
+    okw = dict(mode='wt', encoding='utf-8')
+    okw = dict(mode='wb') if sys.version_info < (3, ) else okw
+    with open(fname2, **okw) as f:
         json.dump(data, f)
 elif fname2.endswith('.bsdf'):
     bsdf.save(fname2, data)

@@ -30,7 +30,7 @@ job_python_py27:
     - invoke -l
     #
     - invoke test-unit
-    #- invoke test-shared  this has issues with bytes/unicode/json
+    - invoke test-shared
 
 
 job_python_pypy3:

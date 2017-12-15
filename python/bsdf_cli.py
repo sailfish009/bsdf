@@ -11,6 +11,7 @@ import os
 import struct
 import sys
 import time
+from io import open  # pypy and py27 compat
 
 import bsdf
 
@@ -200,7 +201,9 @@ def cmd_convert(filename1, filename2):
 
     try:
         if fname2.endswith('.json'):
-            with open(filename2, 'wt', encoding='utf-8') as f:
+            okw = dict(mode='wt', encoding='utf-8')
+            okw = dict(mode='wb') if sys.version_info < (3, ) else okw
+            with open(filename2, **okw) as f:
                 json.dump(data, f)
         elif fname2.endswith('.bsdf'):
             with open(filename2, 'wb') as f:

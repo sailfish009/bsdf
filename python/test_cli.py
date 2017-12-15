@@ -2,13 +2,13 @@
 Tests for the CLI
 """
 
-import io
 import os
 import sys
 import time
 import random
 import tempfile
 import subprocess
+from io import open  # pypy and py27 compat
 
 import bsdf
 import bsdf_cli
@@ -18,11 +18,28 @@ this_dir = os.path.dirname(__file__)
 tempfilename = os.path.join(tempfile.gettempdir(), 'bsdf_cli_test.bsdf')
 
 
+class StringIO:
+    def __init__(self):
+        self._parts = []
+        self.closed = False
+        self.isatty = False
+    
+    def write(self, msg):
+        self._parts.append(msg)
+        return len(msg)
+    
+    def getvalue(self):
+        return ''.join(self._parts)
+    
+    def flush(self):
+        pass
+
+
 def run_local(*args):
     ori_argv = sys.argv[1:]
     ori_stdout = sys.stdout
     sys.argv[1:] = args
-    sys.stdout = io.StringIO()
+    sys.stdout = StringIO()
     try:
         bsdf_cli.main()
     except SystemExit as err:
@@ -79,12 +96,12 @@ def test_wrong_commands():
     # Wrong number of args
     r, e = run_local('version', 'foo')
     assert not r
-    assert 'positional arguments' in e.lower()
+    assert 'positional arguments' in e.lower() or 'no arguments' in e.lower()
     
     # Wrong kwargs
     r, e = run_local('version', '--foo')
     assert not r
-    assert 'unexpected keyword argument' in e.lower()
+    assert 'keyword argument' in e.lower() or 'no arguments' in e.lower()
 
 
 def test_version():
@@ -164,8 +181,11 @@ def test_convert():
     assert not r
     assert 'unknown' in e.lower() and 'extension' in e.lower() and 'save' in e
     
-    # Cannot convert bytes
-    bsdf.save(tempfilename, bsdf.Blob(b'xx'))
+    if sys.version_info < (3, ):
+        return
+        
+    # Cannot convert bytes and nan
+    bsdf.save(tempfilename, [bsdf.Blob(b'xx'), float('nan')])
     r, e = run_local('convert', tempfilename1, tempfilename2)
     assert not r
     assert 'not JSON serializable' in e
@@ -238,13 +258,13 @@ def test_view():
     assert r.count('4') >= 5
     
     # Test string truncation
-    too_long = 'x' * 200
-    just_right = 'x' + '_' * 38 + 'x'
+    too_long = u'x' * 200
+    just_right = u'x' + '_' * 38 + 'x'
     data1 = [too_long, just_right]
     bsdf.save(tempfilename, data1)
     r, e = run_local('view', tempfilename)
     assert not e
-    assert too_long not in r and ('x'* 39 + u'\u2026') in r
+    assert too_long not in r and ('x'* 39 + u'\u2026') in r.replace('\\u2026', u'\u2026')
     assert just_right in r
     
     # Test float32 for cov
