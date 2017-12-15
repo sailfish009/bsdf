@@ -316,7 +316,7 @@ def _view_decode(f, depth, maxdepth, noindent=False):
         if n_s == 253: n_s = strunpack('<Q', f.read(8))[0]  # noqa
         value = f.read(n_s).decode('UTF-8')
         if len(value) > 40:
-            value = value[:39] + '…'
+            value = value[:39] + u'\u2026'
         printval(repr(value))
     elif c == b'l':
         n = strunpack('<B', f.read(1))[0]

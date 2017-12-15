@@ -244,7 +244,7 @@ def test_view():
     bsdf.save(tempfilename, data1)
     r, e = run_local('view', tempfilename)
     assert not e
-    assert too_long not in r and ('x'* 39 + '…') in r
+    assert too_long not in r and ('x'* 39 + u'\u2026') in r
     assert just_right in r
     
     # Test float32 for cov
