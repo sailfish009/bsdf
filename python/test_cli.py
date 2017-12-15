@@ -274,7 +274,13 @@ def test_view_random():
     sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '_tools')))
     import datagen
     
+    excludes = {}
+    for e in os.getenv('BSDF_TEST_EXCLUDES', '').split(','):
+        excludes[e.strip()] = True
+    
     types = list(datagen.ALL_TYPES)
+    if 'ndarray' in excludes:
+        types.remove('ndarray')
     
     # Process a few random dicts
     for iter in range(8):

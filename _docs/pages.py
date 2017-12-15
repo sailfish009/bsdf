@@ -175,7 +175,7 @@ def build(pages=True, rst=False):
             for pagename in sorted(pages, key=lambda n: (n!='index', n)):
                 if is_imp != pages[pagename].is_implementation:
                     continue
-                pagenamestr = pagename.capitalize() if not is_imp else pagename
+                pagenamestr = pagename  #.capitalize() if not is_imp else pagename
                 menu.append("<a href='{}.html'>{}</a>".format(pagename, 'BSDF' if pagename == 'index' else pagenamestr))
                 if pagename == page.name:
                     menu += ["&nbsp;&nbsp;&nbsp;<a href='#{}'>{}</a>".format(title, title)
