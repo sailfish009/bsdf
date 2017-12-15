@@ -30,7 +30,7 @@ job_python_py27:
     - invoke -l
     #
     - invoke test-unit
-    - invoke test-shared
+    #- invoke test-shared  test service runs on Python 3.x
 
 
 job_python_pypy3:
