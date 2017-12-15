@@ -17,7 +17,7 @@ def call(*cmd):
 def lint(ctx):
     """ Run style tests with flake8. """
     # Print nice messages when all is well; flake8 does not celebrate.
-    ret_code = subprocess.call(['flake8', 'bsdf.py'], cwd=this_dir)
+    ret_code = subprocess.call(['flake8', 'bsdf.py', 'bsdf_cli.py'], cwd=this_dir)
     if ret_code == 0:
         print('No style errors found')
     sys.exit(ret_code)
@@ -25,7 +25,7 @@ def lint(ctx):
 @task
 def test_unit(ctx):
     """ Run all unit tests with pytest. """
-    call('pytest', '-v', '-x', '--cov', 'bsdf', '--cov-report', 'html', '.')
+    call('pytest', '-v', '-x', '--cov', 'bsdf', '--cov', 'bsdf_cli', '--cov-report', 'html', '.')
 
 @task
 def test_shared(ctx, exe=sys.executable):

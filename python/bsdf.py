@@ -825,3 +825,9 @@ class NDArrayExtension(Extension):
 
 
 standard_extensions = [ComplexExtension, NDArrayExtension]
+
+
+if __name__ == '__main__':
+    # Invoke CLI
+    import bsdf_cli
+    bsdf_cli.main()
