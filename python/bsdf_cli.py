@@ -3,6 +3,9 @@ Implements the command line interface for BSDF,
 which is generally invoked when running bsdf.py as a script.
 """
 
+
+from __future__ import absolute_import, division, print_function
+
 import json
 import os
 import struct
