@@ -34,7 +34,8 @@ class Page:
         """ Fix the markdown links based on the pages that we know.
         """
         base_url = 'http://gitlab.com/almarklein/bsdf/tree/master/'
-        text = text.replace('](bsdf.', '](%s%s/bsdf.' % (base_url, self.name))
+        for n in ('bsdf.', 'Bsdf.', 'bsdf_'):
+            text = text.replace('](%s' % n, '](%s%s/%s' % (base_url, self.name, n))
         for n in page_names:
             text = text.replace('](%s)' % n, '](%s.html)' % n)
             text = text.replace('](%s.md)' % n.upper(), '](%s.html)' % n)
