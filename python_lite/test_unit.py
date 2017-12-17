@@ -83,6 +83,47 @@ def test_parse_errors():
         s.decode(b'BSDF\x02\x00r\x07')
         #                         \ r is not a known type
 
+def test_parse_errors(capsys):
+    V = bsdf_lite.VERSION
+    assert V[0] > 0 and V[0] < 255  # or our tests will fail
+    assert V[1] > 0 and V[1] < 255
+    
+    s = bsdf_lite.BsdfLiteSerializer()
+    
+    def header(*version):
+        return ('BSDF' + chr(version[0]) + chr(version[1])).encode()
+    
+    assert s.decode(header(*V) + b'v') == None
+    assert s.decode(header(*V) + b'h\x07\x00') == 7
+
+    # Not BSDF
+    with raises(RuntimeError) as err:
+        assert s.decode(b'BZDF\x02\x00v')
+    assert ' not ' in str(err) and 'BSDF' in str(err)
+    
+    # Major version mismatch
+    with raises(RuntimeError) as err1:
+        assert s.decode(header(V[0] - 1, V[1]) + b'v')
+    with raises(RuntimeError) as err2:
+        assert s.decode(header(V[0] + 1, V[1]) + b'v')
+    for err in (err1, err2):
+        assert 'different major version' in str(err)
+        assert bsdf_lite.__version__ in str(err)
+    
+    # Smaller minor version is ok, larger minor version displays warning
+    capsys.readouterr()
+    s.decode(header(V[0], V[1] - 1) + b'v')
+    out, err = capsys.readouterr()
+    assert not out and not err
+    s.decode(header(V[0], V[1] + 1) + b'v')
+    out, err = capsys.readouterr()
+    assert not out and 'higher minor version' in err
+    
+    # Wrong types
+    with raises(RuntimeError):
+        s.decode(b'BSDF\x02\x00r\x07')
+        #                         \ r is not a known type
+
 
 def test_options():
 
@@ -199,6 +240,64 @@ def test_float32():
     #
     assert s.decode(b1) == [3, 4, 5]
     assert s.decode(b2) == [300000, 400000, 500000]
+
+
+class MyObject1:
+    def __init__(self, val):
+        self.val = val
+    def __repr__(self):
+        return '<%s %r>' % (self.__class__.__name__, self.val)
+
+class MyObject2(MyObject1):
+    pass
+
+
+def test_extension_recurse():
+
+    class MyExt1(bsdf_lite.Extension):
+        name = 'myob1'
+        cls = MyObject1
+        
+        def encode(self, s, v):
+            return v.val
+        
+        def decode(self, s, v):
+            return MyObject1(v)
+    
+    class MyExt2(bsdf_lite.Extension):
+        name = 'myob2'
+        cls = MyObject2
+        
+        def encode(self, s, v):
+            # encode a MyObject2 as MyObject1
+            return MyObject1(v.val)
+        
+        def decode(self, s, v):
+            # decode a MyObject2 from MyObject1
+            return MyObject2(v.val)
+    
+    class MyExt3(bsdf_lite.Extension):
+        name = 'myob2'
+        cls = MyObject2
+        
+        def encode(self, s, v):
+            # encode a MyObject2 as [MyObject1]
+            return [MyObject1(v.val)]
+        
+        def decode(self, s, v):
+            # decode a MyObject2 from MyObject1
+            return MyObject2(v[0].val)
+    
+    s = bsdf_lite.BsdfLiteSerializer([MyExt1, MyExt2])
+    
+    a = MyObject2(14)
+    with raises(ValueError):
+        b = s.encode(a)
+    
+    s = bsdf_lite.BsdfLiteSerializer([MyExt1, MyExt3])
+    b = s.encode(a)
+    c = s.decode(b)
+    assert repr(a) == repr(c)
 
 
 if __name__ == '__main__':

@@ -129,7 +129,7 @@ class BsdfLiteSerializer(object):
             raise NameError('Extension names must be nonempty and shorter '
                             'than 251 chars.')
         if name in self._extensions:
-            logger.warn('Overwriting extension "%s", '
+            logger.warn('BSDF warning: overwriting extension "%s", '
                         'consider removing first' % name)
 
         # Get classes
@@ -241,6 +241,11 @@ class BsdfLiteSerializer(object):
             f.write(compressed)
             f.write(b'\x00' * (allocated_size - used_size))
         else:
+            if ext_id is not None:
+                raise ValueError(
+                    'Extension %s wronfully encodes object to another '
+                    'extension object (though it may encode to a list/dict '
+                    'that contains other extension objects).' % ext_id)
             # Try if the value is of a type we know
             ex = self._extensions_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
@@ -254,8 +259,6 @@ class BsdfLiteSerializer(object):
             # Success or fail
             if ex is not None:
                 ext_id2, extension_encode = ex
-                if ext_id == ext_id2:
-                    raise ValueError('Circular recursion in extension func!')
                 self._encode(f, extension_encode(self, value),
                              streams, ext_id2)
             else:
@@ -364,8 +367,7 @@ class BsdfLiteSerializer(object):
             if extension is not None:
                 value = extension.decode(self, value)
             else:
-                # todo: warn/log instead of print
-                print('no extension found for %r' % ext_id)
+                logger.warn('BSDF warning: no extension found for %r' % ext_id)
 
         return value
 
@@ -416,10 +418,9 @@ class BsdfLiteSerializer(object):
                  'from the implementation (%s).')
             raise RuntimeError(t % (__version__, file_version))
         if minor_version > VERSION[1]:  # minor should be < ours
-            # todo: warn/log instead of print
-            t = ('Warning: reading file with higher minor version (%s) '
+            t = ('BSDF warning: reading file with higher minor version (%s) '
                  'than the implementation (%s).')
-            print(t % (__version__, file_version))
+            logger.warn(t % (__version__, file_version))
 
         return self._decode(f)
 
@@ -466,10 +467,10 @@ class Extension(object):
         return isinstance(v, self.cls)
 
     def encode(self, s, v):
-        return v
+        raise NotImplementedError()
 
     def decode(self, s, v):
-        return v
+        raise NotImplementedError()
 
 
 class ComplexExtension(Extension):
@@ -493,7 +494,7 @@ class NDArrayExtension(Extension):
             import numpy as np
             self.cls = np.ndarray
 
-    def match(self, s, v):
+    def match(self, s, v):  # e.g. for nd arrays in JS
         return (hasattr(v, 'shape') and
                 hasattr(v, 'dtype') and
                 hasattr(v, 'tobytes'))
