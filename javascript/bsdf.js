@@ -155,7 +155,7 @@ BsdfSerializer.prototype.decode = function (buf, extensions) {
     if (major_version != VERSION[0]) {
         throw ('Reading file with different major version ' + major_version + ' from the implementation ' + VERSION[0]);
     } else if (minor_version > VERSION[1]){
-        console.log('BSDF Warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
+        console.warn('BSDF warning: reading file with higher minor version ' + minor_version + ' than the implementation ' + VERSION[1]);
     }
     // Decode
     return this.decode_object(f);
@@ -375,6 +375,11 @@ BsdfSerializer.prototype.encode_object = function (f, value, extension_id) {
             throw "cannot encode object of type " + cname;
         }
     } else {
+        if (typeof extension_id != 'undefined') {
+            throw ('Extension ' + extension_id + ' wronfully encodes object to another ' +
+                   'extension object (though it may encode to a list/dict ' +
+                   'that contains other extension objects).');
+        }
         // Try extensions (for other types)
         for (iext=0; iext<this.extensions.length; iext++) {
             ext = this.extensions[iext];
@@ -573,7 +578,7 @@ BsdfSerializer.prototype.decode_object = function (f) {
         if (ext) {
             value = ext.decode(this, value);
         } else {
-            console.log('No known extension for "' + extension_id + '", value passes in raw form.');
+            console.warn('BSDF warning: no known extension for "' + extension_id + '", value passes in raw form.');
         }
     }
     return value;
