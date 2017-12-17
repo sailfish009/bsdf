@@ -144,7 +144,7 @@ classdef Bsdf
             if major_version ~= serializer.VERSION(1)
                 error([mfilename ': file major version does not match implementation version.']);
             elseif minor_version > serializer.VERSION(2)
-                warning([mfilename ': file minor version is higher than implementation.'])
+                warning('BSDF: file minor version is higher than implementation.')
             end
             % Go!
             ob = serializer.bsdf_decode(f);
@@ -417,7 +417,7 @@ classdef Bsdf
                     shape = cell2mat(value.shape);
                     value = typecast(value.data, dtype2class.(dtype));
                     if prod(shape) ~= numel(value)
-                        disp(['Warning: prod(shape) != size']);
+                        warning('BSDF: prod(shape) != size');
                     else
                         % in Matlab an array always has two dimensions ...
                         if numel(shape) == 1;  shape = [1 shape];  end
@@ -433,7 +433,8 @@ classdef Bsdf
                     end
 
                 else
-                    % silently ignore ...
+                    % Ignore, but warn ...
+                    warning(['BSDF: no known extension for ' extension_id]);
                 end
             end
         end

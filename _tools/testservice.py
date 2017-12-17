@@ -97,7 +97,7 @@ def invoke_runner(fname1, fname2):
         out, err = p.communicate()
         out = out.decode(errors="replace")
         err = '\n'.join([line for line in err.decode(errors="replace").splitlines()
-                         if not line.startswith('BSDF warning')])
+                         if not line.lower().startswith(('warning: bsdf:', 'bsdf warning:'))])
         if p.returncode != 0 or err:
             rename_as_error(fname1, fname2)
             raise RuntimeWarning('{} failed:\n{}\n{}'.format(exe_name, out, err))
