@@ -100,7 +100,7 @@ def encode_type_id(b, ext_id):
         return b  # noqa
 
 
-def _isidentifier(s):
+def _isidentifier(s):  # pragma: no cover
     """ Use of str.isidentifier() for Legacy Python, but slower.
     """
     # http://stackoverflow.com/questions/2544972/
@@ -188,7 +188,7 @@ class BsdfSerializer(object):
             raise NameError('Extension names must be nonempty and shorter '
                             'than 251 chars.')
         if name in self._extensions:
-            logger.warn('Overwriting extension "%s", '
+            logger.warn('BSDF warning: overwriting extension "%s", '
                         'consider removing first' % name)
 
         # Get classes
@@ -253,7 +253,7 @@ class BsdfSerializer(object):
             for key, v in value.items():
                 if PY3:
                     assert key.isidentifier()  # faster
-                else:
+                else:  # pragma: no cover
                     assert _isidentifier(key)
                 # yield ' ' * indent + key
                 name_b = key.encode('UTF-8')
@@ -281,6 +281,11 @@ class BsdfSerializer(object):
             streams.append(value)
             value._activate(f, self._encode, self._decode)  # noqa
         else:
+            if ext_id is not None:
+                raise ValueError(
+                    'Extension %s wronfully encodes object to another '
+                    'extension object (though it may encode to a list/dict '
+                    'that contains other extension objects).' % ext_id)
             # Try if the value is of a type we know
             ex = self._extensions_by_cls.get(value.__class__, None)
             # Maybe its a subclass of a type we know
@@ -294,8 +299,6 @@ class BsdfSerializer(object):
             # Success or fail
             if ex is not None:
                 ext_id2, extension_encode = ex
-                if ext_id == ext_id2:
-                    raise ValueError('Circular recursion in extension func!')
                 self._encode(f, extension_encode(self, value),
                              streams, ext_id2)
             else:
@@ -384,8 +387,7 @@ class BsdfSerializer(object):
             if extension is not None:
                 value = extension.decode(self, value)
             else:
-                # todo: warn/log instead of print
-                print('no extension found for %r' % ext_id)
+                logger.warn('BSDF warning: no extension found for %r' % ext_id)
 
         return value
 
@@ -437,10 +439,9 @@ class BsdfSerializer(object):
                  'from the implementation (%s).')
             raise RuntimeError(t % (__version__, file_version))
         if minor_version > VERSION[1]:  # minor should be < ours
-            # todo: warn/log instead of print
-            t = ('Warning: reading file with higher minor version (%s) '
+            t = ('BSDF warning: reading file with higher minor version (%s) '
                  'than the implementation (%s).')
-            print(t % (__version__, file_version))
+            logger.warn(t % (__version__, file_version))
 
         return self._decode(f)
 
@@ -777,10 +778,10 @@ class Extension(object):
         return isinstance(v, self.cls)
 
     def encode(self, s, v):
-        return v
+        raise NotImplementedError()
 
     def decode(self, s, v):
-        return v
+        raise NotImplementedError()
 
 
 class ComplexExtension(Extension):
@@ -804,7 +805,7 @@ class NDArrayExtension(Extension):
             import numpy as np
             self.cls = np.ndarray
 
-    def match(self, s, v):
+    def match(self, s, v):  # pragma: no cover - e.g. work for nd arrays in JS
         return (hasattr(v, 'shape') and
                 hasattr(v, 'dtype') and
                 hasattr(v, 'tobytes'))
@@ -817,7 +818,7 @@ class NDArrayExtension(Extension):
     def decode(self, s, v):
         try:
             import numpy as np
-        except ImportError:
+        except ImportError:  # pragma: no cover
             return v
         a = np.frombuffer(v['data'], dtype=v['dtype'])
         a.shape = v['shape']

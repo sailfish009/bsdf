@@ -148,6 +148,11 @@ def test_create():
     r, e = run_local('create', tempfilename, '[3,4,5]*10')
     data = bsdf.load(tempfilename)
     assert data == [3, 4, 5] * 10
+    
+    # Fail
+    r, e = run_local('create', tempfilename, '1/0')
+    assert not r
+    assert 'could not evaluate' in e.lower()
 
 
 def test_convert():

@@ -95,11 +95,12 @@ def invoke_runner(fname1, fname2):
         p = subprocess.Popen(exe2, cwd=test_dir,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
+        out = out.decode(errors="replace")
+        err = '\n'.join([line for line in err.decode(errors="replace").splitlines()
+                         if not line.startswith('BSDF warning')])
         if p.returncode != 0 or err:
             rename_as_error(fname1, fname2)
-            raise RuntimeWarning('{} failed:\n{}\n{}'.format(exe_name,
-                                                             out.decode(errors="replace"),
-                                                             err.decode(errors="replace")))
+            raise RuntimeWarning('{} failed:\n{}\n{}'.format(exe_name, out, err))
     
     assert os.path.isfile(fname2)
 
@@ -497,7 +498,7 @@ if __name__ == '__main__':
     
     excludes = ()
     
-    if True:  # Testing ...
+    if False:
         excludes = ['uint8_1d', 'strict_singleton_dims']
         this_dir = r'c:\dev\pylib\bsdf\matlab'
         sys.argv[1:] = [this_dir, 'octave-cli', '-q', '--eval',

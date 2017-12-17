@@ -58,24 +58,40 @@ def test_length_encoding():
     assert bsdf.lendecode(io.BytesIO(b'\xfd\x00\x00\x00\x00\x01\x00\x00\x00')) == 2**32
 
 
-def test_parse_errors():
-
-    assert bsdf.decode(b'BSDF\x02\x00v') == None
-    assert bsdf.decode(b'BSDF\x02\x00h\x07\x00') == 7
+def test_parse_errors(capsys):
+    V = bsdf.VERSION
+    assert V[0] > 0 and V[0] < 255  # or our tests will fail
+    assert V[1] > 0 and V[1] < 255
+    
+    def header(*version):
+        return ('BSDF' + chr(version[0]) + chr(version[1])).encode()
+    
+    assert bsdf.decode(header(*V) + b'v') == None
+    assert bsdf.decode(header(*V) + b'h\x07\x00') == 7
 
     # Not BSDF
-    with raises(RuntimeError):
+    with raises(RuntimeError) as err:
         assert bsdf.decode(b'BZDF\x02\x00v')
-
-    # Version mismatch
-    with raises(RuntimeError):
-        assert bsdf.decode(b'BSDF\x03\x00v')
-    with raises(RuntimeError):
-        assert bsdf.decode(b'BSDF\x01\x00v')
-
+    assert ' not ' in str(err) and 'BSDF' in str(err)
+    
+    # Major version mismatch
+    with raises(RuntimeError) as err1:
+        assert bsdf.decode(header(V[0] - 1, V[1]) + b'v')
+    with raises(RuntimeError) as err2:
+        assert bsdf.decode(header(V[0] + 1, V[1]) + b'v')
+    for err in (err1, err2):
+        assert 'different major version' in str(err)
+        assert bsdf.__version__ in str(err)
+    
     # Smaller minor version is ok, larger minor version displays warning
-    bsdf.decode(b'BSDF\x02\x01v')
-
+    capsys.readouterr()
+    bsdf.decode(header(V[0], V[1] - 1) + b'v')
+    out, err = capsys.readouterr()
+    assert not out and not err
+    bsdf.decode(header(V[0], V[1] + 1) + b'v')
+    out, err = capsys.readouterr()
+    assert not out and 'higher minor version' in err
+    
     # Wrong types
     with raises(RuntimeError):
         bsdf.decode(b'BSDF\x02\x00r\x07')
@@ -236,6 +252,14 @@ def test_float32():
     assert bsdf.decode(b2) == [300000, 400000, 500000, 3000000, 4000000, 5000000]
 
 
+def test_detect_recursion1():
+    # Actually, we don't detect this, this will just raise a RecursionErrors
+    data = [3, 4]
+    data.append(data)
+    with raises(RuntimeError) as err:
+        bsdf.encode(data)
+
+  
 ## Extensions
 
 
@@ -390,16 +414,17 @@ def test_custom_extensions_fail():
         bsdf.encode(None, [MyExtension4])
 
 
+class MyObject1:
+    def __init__(self, val):
+        self.val = val
+    def __repr__(self):
+        return '<%s %r>' % (self.__class__.__name__, self.val)
+
+class MyObject2(MyObject1):
+    pass
+
+
 def test_custom_extensions():
-
-    class MyObject1:
-        def __init__(self, val):
-            self.val = val
-        def __repr__(self):
-            return '<%s %r>' % (self.__class__.__name__, self.val)
-
-    class MyObject2(MyObject1):
-        pass
 
     class MyExtension(bsdf.Extension):
         name = 'myob'
@@ -431,7 +456,10 @@ def test_custom_extensions():
     # Extension 1 can only encode MyObject1
     b1 = bsdf.encode(a1, [MyExtension1])
     c1 = bsdf.decode(b1, [MyExtension1])
+    d1 = bsdf.decode(b1, [])
     assert repr(a1) == repr(c1)
+    assert repr(a1) != repr(d1)
+    assert d1 == [1, 2, 3]  # just has the undelying value
     #
     with raises(TypeError):
         b2 = bsdf.encode(a2, [MyExtension1])
@@ -459,6 +487,92 @@ def test_custom_extensions():
     c3 = bsdf.decode(b2, [MyExtension1, MyExtension3])
     assert repr(a2).replace('ct2', 'ct1') == repr(c2)
 
+
+def test_extension_recurse():
+
+    class MyExt1(bsdf.Extension):
+        name = 'myob1'
+        cls = MyObject1
+        
+        def encode(self, s, v):
+            return v.val
+        
+        def decode(self, s, v):
+            return MyObject1(v)
+    
+    class MyExt2(bsdf.Extension):
+        name = 'myob2'
+        cls = MyObject2
+        
+        def encode(self, s, v):
+            # encode a MyObject2 as MyObject1
+            return MyObject1(v.val)
+        
+        def decode(self, s, v):
+            # decode a MyObject2 from MyObject1
+            return MyObject2(v.val)
+    
+    class MyExt3(bsdf.Extension):
+        name = 'myob2'
+        cls = MyObject2
+        
+        def encode(self, s, v):
+            # encode a MyObject2 as [MyObject1]
+            return [MyObject1(v.val)]
+        
+        def decode(self, s, v):
+            # decode a MyObject2 from MyObject1
+            return MyObject2(v[0].val)
+    
+    a = MyObject2(14)
+    with raises(ValueError):
+        b = bsdf.encode(a, [MyExt1, MyExt2])
+    
+    b = bsdf.encode(a, [MyExt1, MyExt3])
+    c = bsdf.decode(b, [MyExt1, MyExt3])
+    assert repr(a) == repr(c)
+
+
+def test_extension_recurse2():
+    class MyOb:
+        pass
+    
+    class SillyExtension(bsdf.Extension):
+        name = 'silly'
+        cls = MyOb
+        
+        def encode(self, s, v):
+            return v    
+
+    with raises(ValueError) as err:
+        data = [MyOb()]
+        bsdf.encode(data, [SillyExtension])
+
+
+def test_extension_default_notimplemented():
+    
+    class MyExt1(bsdf.Extension):
+        name = 'myob1'
+        cls = MyObject1
+    
+    class MyExt2(bsdf.Extension):
+        name = 'myob1'
+        cls = MyObject1
+    
+        def encode(self, s, v):
+            return v.val
+    
+    assert 'myob1' in repr(MyExt1()) and 'BSDF extension' in repr(MyExt1())
+    
+    a = MyObject1(7)
+    
+    with raises(NotImplementedError):
+        bsdf.encode(a, [MyExt1])
+    
+    b = bsdf.encode(a, [MyExt2])
+    with raises(NotImplementedError):
+       c = bsdf.decode(b, [MyExt2]) 
+    
 
 ## Special implementation stuff - streaming, lazy loading
 
