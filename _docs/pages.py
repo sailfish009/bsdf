@@ -12,6 +12,12 @@ from pygments.lexers import get_lexer_by_name
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def get_page_name(name):
+    return dict(index='BSDF',
+                cli='CLI'
+                ).get(name, name.capitalize())
+
+
 class Page:
     """ Representation of a doc page. It takes in markdown, and can produce
     HTML or RTS (with raw html pieces).
@@ -84,7 +90,8 @@ class Page:
                 level = len(line.split(' ')[0])
                 title = line.split(' ', 1)[1]
                 headers.append((level, title))
-                parts.append((level, title))
+                title_html = title.replace('`', '<code>', 1).replace('`', '</code>', 1)
+                parts.append((level, title_html))
             else:
                 lines.append(line)
         parts.append('\n'.join(lines))
@@ -172,17 +179,17 @@ def build(pages=True, rst=False):
         # Build menu
         menu = []
         for is_imp in (False, True):
-            menu.append('<hr>' if is_imp else '')
+            menu.append('<span class="header">%s</span>' % ('Implementations' if is_imp else 'Topics'))
             for pagename in sorted(pages, key=lambda n: (n!='index', n)):
                 if is_imp != pages[pagename].is_implementation:
                     continue
-                pagenamestr = pagename  #.capitalize() if not is_imp else pagename
-                menu.append("<a href='{}.html'>{}</a>".format(pagename, 'BSDF' if pagename == 'index' else pagenamestr))
+                menu.append("<a href='{}.html'>{}</a>".format(pagename, get_page_name(pagename)))
                 if pagename == page.name:
-                    menu += ["&nbsp;&nbsp;&nbsp;<a href='#{}'>{}</a>".format(title, title)
+                    menu[-1] = menu[-1].replace('<a ', '<a class="current" ')
+                    menu += ["<a class='sub' href='#{}'>{}</a>".format(title.lower(), title)
                              for level, title in page.headers if level == 2]
             menu.append('')
-        menu.append('<hr>')
+        menu.append('<span class="header">Links</span>')
         menu.append("<a href='http://gitlab.com/almarklein/bsdf'>Source at Gitlab</a>")
         menus[page.name] = '<br />'.join(menu)
     
@@ -191,7 +198,7 @@ def build(pages=True, rst=False):
         
         # HTML
         if pages:
-            title = 'BSDF' if page.name == 'index' else 'BSDF - ' + page.name
+            title = 'BSDF' if page.name == 'index' else 'BSDF - ' + get_page_name(page.name)
             css = RESET_CSS + PYGMENTS_CSS + BSDF_CSS
             html = HTML_TEMPLATE.format(title=title, style=css, body=page.to_html(), menu=menus[page.name])
             filename2 = os.path.join(pages_dir, page.name + '.html')
@@ -248,7 +255,13 @@ the text on this page is licensed under <a href='https://creativecommons.org/lic
 BSDF_CSS = """
 /* BSDF CSS */
 body {
-    background: #ace;
+    font-family: "Lato","proxima-nova","Helvetica Neue",Arial,sans-serif;
+    background: #eee;
+    color: #404040;
+    font-weight: normal;
+}
+p {
+    line-height: 140%;
 }
 .content {
     box-sizing: border-box;
@@ -256,8 +269,7 @@ body {
     padding: 1em 2em;
     width: 100%;
     max-width: 700px;
-    background: #fff;
-    border-radius: 0.5em;
+    background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
 @media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
@@ -269,10 +281,9 @@ body {
     top: 1em;
     right: calc(50% + 350px + 10px);
     padding: 0.5em 1em;
-    width: 240px;
-    max-width: 240px;
+    width: 300px;
+    max-width: 300px;
     background: #fff;
-    border-radius: 0.5em;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     white-space: nowrap;
@@ -287,9 +298,24 @@ a:link, a:visited, a:active {
 a:hover {
     text-decoration: underline;
 }
-.menu a {
-    color: #246;
+.menu .header {
+    color: #aaa;
+    display: block;
+    border-bottom: 1px solid #ccc;
 }
+.menu a {
+    color: #404040;
+    line-height: 150%;
+    margin-left: 1em;
+}
+.menu a.current {
+    font-weight: bold;
+}
+.menu a.sub {
+    font-size: 80%;
+    margin-left: 2em;
+}
+
 a.anch:hover {
     text-decoration: none;
 }
@@ -299,39 +325,42 @@ a.anch:hover h2::after {
     font-size: 80%;
 }
 hr {
-    border: 1px solid #ace;
+    height: 1px;
+    background: #ccc;
+    border: 0px solid #ccc;
 }
 .footer {
     color: #777;
     font-size: 90%;
 }
 code {
-    font-family: dejavu sans mono, mono, monospace;
-    font-weight: bold;
+    font-family: Consolas,"Andale Mono WT","Andale Mono","Lucida Console","Lucida Sans Typewriter","DejaVu Sans Mono","Bitstream Vera Sans Mono","Liberation Mono","Nimbus Mono L",Monaco,"Courier New",Courier,monospace;
     font-size: 90%;
-    color: #444;
+    color: #000;
     background: #fff;
-    padding-left: 0.2em;
-    padding-right: 0.2em;
+    padding: 1px 5px;
+    white-space: nowrap;
+    border: solid 1px #e1e4e5;
 }
 .highlight {  /*pygments */
-    font-family: dejavu sans mono, mono, monospace;
+    font-family: dejavu sans mono,Consolas,"Andale Mono WT","Andale Mono","Lucida Console", "Courier New",Courier,monospace;
     font-size: 12px;
     color: #444;
-    background: #ddeeff;
-    border: 1px solid #ace;
+    background: #fff;
+    border: 1px solid #dddddd;
     padding: 0em 1em;
-    border-radius: 0.2em;
  }
 h1, h2, h3, h4 {
-    color: #246;
+    color: #333;
 }
 h2 {
-    border-bottom: 1px solid #ace;
+    border-bottom: 1px solid #ccc;
 }
 h3 code, h4 code {
-    color: #246;
+    color: #333;
     padding-left: 0;
+    background: #fcfcfc;
+    border: 0px;
 }
 """
 

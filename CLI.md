@@ -1,6 +1,6 @@
-# The BSDF CLI
+# The BSDF Command Line Interface
 
-BSDF has a command line interface for performing simple tasks, such as
+BSDF has a command line interface (CLI) for performing simple tasks, such as
 inspecting, converting and creating BSDF files. The CLI is part of the
 Python implementation, so `pip install bsdf` to start using it.
 
