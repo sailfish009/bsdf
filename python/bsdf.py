@@ -17,8 +17,6 @@ Note: on Legacy Python (Python 2.7), non-Unicode strings are encoded as bytes.
 
 # todo: in 2020, remove six stuff, __future__ and _isidentifier
 # todo: in 2020, remove 'utf-8' args to encode/decode; it's faster
-# todo: blob resizing
-# todo: schema validation
 
 from __future__ import absolute_import, division, print_function
 
@@ -43,7 +41,7 @@ logger = logging.getLogger(__name__)
 # introduced. An implementation must display a warning when the file
 # being read has a higher minor version. The patch version is increased
 # for subsequent releases of the implementation.
-VERSION = 2, 1, 0
+VERSION = 2, 1, 1
 __version__ = '.'.join(str(i) for i in VERSION)
 
 
@@ -768,7 +766,6 @@ def encode(ob, extensions=None, **options):
     return s.encode(ob)
 
 
-# todo: allow f and ob to be reversed
 def save(f, ob, extensions=None, **options):
     """ Save (BSDF-encode) the given object to the given filename or
     file object. See` BSDFSerializer` for details on extensions and options.
