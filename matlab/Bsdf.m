@@ -324,11 +324,9 @@ classdef Bsdf
             elseif c == 'l'
                 n = fread(f, 1, '*uint8');
                 if n == 255
-                    % Stream - may be open or closed. If its closed, we use the
-                    % Given length as a hint, but stay on our guard.
-                    n = fread(f, 1, 'uint64');  % zero if not closed
+                    % Unclosed stream. A close stream (254 is threated as normal)
+                    n = fread(f, 1, 'uint64');  % unused
                     value = {};
-                    if n > 0; value{n} = 0; end  % pre-alloc
                     count = 0;
                     try
                         while 1
@@ -340,9 +338,8 @@ classdef Bsdf
                             rethrow(e);
                         end
                     end
-                    if count < n; value = value{1:count}; end  % Truncate
                 else
-                    if n == 253; n = fread(f, 1, 'uint64'); end
+                    if n == 253 || n == 254; n = fread(f, 1, 'uint64'); end
                     % Populate heterogeneous list
                     value = {};
                     if n > 0; value{n} = 0; end  % pre-alloc

@@ -433,8 +433,10 @@ function BytesReader(buf) {
         if (s >= 253) {
             if (s == 253) {
                 s = bufdv.getUint32(pos, true) + bufdv.getUint32(pos+4, true) * 4294967296;
-            } else if (s == 255) {
-                s = -1;  // streaming
+            } else if (s == 254) { // closed stream
+                s = bufdv.getUint32(pos, true) + bufdv.getUint32(pos+4, true) * 4294967296;
+            } else if (s == 255) {  // unclosed stream
+                s = -1;
             } else {
                 throw "Invalid size";
             }
