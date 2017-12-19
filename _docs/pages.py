@@ -89,9 +89,10 @@ class Page:
                 # Process header
                 level = len(line.split(' ')[0])
                 title = line.split(' ', 1)[1]
-                headers.append((level, title))
+                title_short = title.split('(')[0].split('<')[0].strip()
                 title_html = title.replace('`', '<code>', 1).replace('`', '</code>', 1)
-                parts.append((level, title_html))
+                headers.append((level, title_short))
+                parts.append((level, title_short, title_html))
             else:
                 lines.append(line)
         parts.append('\n'.join(lines))
@@ -105,10 +106,10 @@ class Page:
         htmlparts = []
         for part in self.parts:
             if isinstance(part, tuple):
-                level, header = part
-                title = header.split('(')[0].strip().lower()  # short header
-                if part[0] == 2 and title:
-                    htmlparts.append("<a class='anch' name='{}' href='#{}'>".format(title, title))
+                level, title_short, header = part
+                ts = title_short.lower()
+                if part[0] == 2 and title_short:
+                    htmlparts.append("<a class='anch' name='{}' href='#{}'>".format(ts, ts))
                     htmlparts.append('<h%i>%s</h%i>' % (level, header, level))
                     htmlparts.append('</a>')
                 else:
@@ -121,7 +122,7 @@ class Page:
         rstparts = []
         for part in self.parts:
             if isinstance(part, tuple):
-                level, header = part
+                level, title_short, header = part
                 char = '==-~"'[level]
                 if level == 1:
                     rstparts.append(char * len(header))
@@ -356,11 +357,14 @@ h1, h2, h3, h4 {
 h2 {
     border-bottom: 1px solid #ccc;
 }
-h3 code, h4 code {
+h2 code, h3 code, h4 code {
     color: #333;
     padding-left: 0;
-    background: #fcfcfc;
+    background: none;
     border: 0px;
+}
+h2 .sig, h3 .sig {
+    font-size: 80%;
 }
 """
 

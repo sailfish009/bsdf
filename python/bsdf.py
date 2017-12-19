@@ -509,8 +509,8 @@ class ListStream(BaseStream):
         """ Append an item to the streaming list. The object is immediately
         serialized and written to the underlying file.
         """
-        #if self._mode != 'w':
-        #    raise IOError('This ListStream is not in write mode.')
+        # if self._mode != 'w':
+        #     raise IOError('This ListStream is not in write mode.')
         if self._count != self._i:
             raise IOError('Can only append items to the end of the stream.')
         if self._f is None:
@@ -565,7 +565,7 @@ class ListStream(BaseStream):
             except EOFError:
                 self._count = self._i
                 raise StopIteration()
-    
+
     def __iter__(self):
         if self._mode != 'r':
             raise IOError('Cannot iterate: ListStream in not in read mode.')
@@ -576,9 +576,7 @@ class ListStream(BaseStream):
 
 
 class Blob(object):
-    """ Blob(bytes, compression=0, extra_size=0, use_checksum=False)
-    
-    Object to represent a blob of bytes. When used to write a BSDF file,
+    """ Object to represent a blob of bytes. When used to write a BSDF file,
     it's a wrapper for bytes plus properties such as what compression to apply.
     When used to read a BSDF file, it can be used to read the data lazily, and
     also modify the data if reading in 'r+' mode and the blob isn't compressed.
@@ -587,17 +585,17 @@ class Blob(object):
     # For now, this does not allow re-sizing blobs (within the allocated size)
     # but this can be added later.
 
-    def __init__(self, f, compression=0, extra_size=0, use_checksum=False):
-        if isinstance(f, bytes):
-            self.f = None
-            self.compressed = self._from_bytes(f, compression)
+    def __init__(self, bb, compression=0, extra_size=0, use_checksum=False):
+        if isinstance(bb, bytes):
+            self._f = None
+            self.compressed = self._from_bytes(bb, compression)
             self.compression = compression
             self.allocated_size = self.used_size + extra_size
             self.use_checksum = use_checksum
-        elif isinstance(f, tuple) and len(f) == 2 and hasattr(f[0], 'read'):
-            self.f, allow_seek = f
+        elif isinstance(bb, tuple) and len(bb) == 2 and hasattr(bb[0], 'read'):
+            self._f, allow_seek = bb
             self.compressed = None
-            self._from_file(self.f, allow_seek)
+            self._from_file(self._f, allow_seek)
             self._modified = False
         else:
             raise TypeError('Wrong argument to create Blob.')
@@ -687,47 +685,47 @@ class Blob(object):
     def seek(self, p):
         """ Seek to the given position (relative to the blob start).
         """
-        if self.f is None:
+        if self._f is None:
             raise RuntimeError('Cannot seek in a blob '
                                'that is not created by the BSDF decoder.')
         if p < 0:
             p = self.allocated_size + p
         if p < 0 or p > self.allocated_size:
             raise IOError('Seek beyond blob boundaries.')
-        self.f.seek(self.start_pos + p)
+        self._f.seek(self.start_pos + p)
 
     def tell(self):
         """ Get the current file pointer position (relative to the blob start).
         """
-        if self.f is None:
+        if self._f is None:
             raise RuntimeError('Cannot tell in a blob '
                                'that is not created by the BSDF decoder.')
-        return self.f.tell() - self.start_pos
+        return self._f.tell() - self.start_pos
 
     def write(self, bb):
         """ Write bytes to the blob.
         """
-        if self.f is None:
+        if self._f is None:
             raise RuntimeError('Cannot write in a blob '
                                'that is not created by the BSDF decoder.')
         if self.compression:
             raise IOError('Cannot arbitrarily write in compressed blob.')
-        if self.f.tell() + len(bb) > self.end_pos:
+        if self._f.tell() + len(bb) > self.end_pos:
             raise IOError('Write beyond blob boundaries.')
         self._modified = True
-        return self.f.write(bb)
+        return self._f.write(bb)
 
     def read(self, n):
         """ Read n bytes from the blob.
         """
-        if self.f is None:
+        if self._f is None:
             raise RuntimeError('Cannot read in a blob '
                                'that is not created by the BSDF decoder.')
         if self.compression:
             raise IOError('Cannot arbitrarily read in compressed blob.')
-        if self.f.tell() + n > self.end_pos:
+        if self._f.tell() + n > self.end_pos:
             raise IOError('Read beyond blob boundaries.')
-        return self.f.read(n)
+        return self._f.read(n)
 
     def get_bytes(self):
         """ Get the contents of the blob as bytes.
@@ -736,7 +734,7 @@ class Blob(object):
             compressed = self.compressed
         else:
             self.seek(0)
-            compressed = self.f.read(self.used_size)
+            compressed = self._f.read(self.used_size)
         if self.compression == 0:
             value = compressed
         elif self.compression == 1:
@@ -754,9 +752,9 @@ class Blob(object):
         # or ... should the presence of a checksum mean that data is proteced?
         if self.use_checksum and self._modified:
             self.seek(0)
-            compressed = self.f.read(self.used_size)
-            self.f.seek(self.start_pos - self.alignment -1 - 16)
-            self.f.write(hashlib.md5(compressed).digest())
+            compressed = self._f.read(self.used_size)
+            self._f.seek(self.start_pos - self.alignment - 1 - 16)
+            self._f.write(hashlib.md5(compressed).digest())
 
 
 # %% High-level functions

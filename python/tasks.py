@@ -57,9 +57,6 @@ def update_readme(ctx):
         if i1 == -1:
             if line.startswith('## Reference'):
                 i1 = i
-        else:
-            if line.startswith('## '):
-                i2 = i
     # Inject reference
     if i1 > 0:
         lines = lines[:i1+1] + ['', _get_reference(), ''] + lines[i2:]
@@ -79,19 +76,21 @@ def _get_reference():
 
     parts = []
 
-    for ob in (bsdf.encode, bsdf.decode, bsdf.save, bsdf.load, bsdf.BsdfSerializer, bsdf.Extension):
+    for ob in (bsdf.encode, bsdf.decode, bsdf.save, bsdf.load,
+               bsdf.BsdfSerializer, bsdf.Extension,
+               bsdf.ListStream, bsdf.Blob):
 
         sig = str(inspect.signature(ob))
         if isinstance(ob, type):
-            parts.append('### class `{}{}`\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
+            parts.append('## class {}<span class="sig">{}</span>\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
             for name, method in ob.__dict__.items():
                 if not name.startswith('_') and getattr(method, '__doc__', None) and callable(method):
                     sig = str(inspect.signature(method))
                     sig = '(' + sig[5:].lstrip(', ') if sig.startswith('(self') else sig
-                    parts.append('#### method `{}{}`\n\n{}\n'.format(name, sig, get_doc(method, 8)))
-            parts.append('##')
+                    parts.append('### method {}<span class="sig">{}</span>\n\n{}\n'.format(name, sig, get_doc(method, 8)))
+            #parts.append('##')
         else:
-            parts.append('### function `{}{}`\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
+            parts.append('## function {}<span class="sig">{}</span>\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
 
     return '\n'.join(parts)
 
