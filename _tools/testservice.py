@@ -96,9 +96,9 @@ def invoke_runner(fname1, fname2):
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         out = out.decode(errors="replace")
-        warning_starts = 'warning: bsdf:', 'bsdf warning:', 'warning  bsdf warning:'
         err = '\n'.join([line for line in err.decode(errors="replace").splitlines()
-                         if not line.lower().startswith(warning_starts)])
+                         if not ('bsdf warning:' in line.lower() or
+                                 'warning: bsdf:' in line.lower())])
         if p.returncode != 0 or err:
             rename_as_error(fname1, fname2)
             raise RuntimeWarning('{} failed:\n{}\n{}'.format(exe_name, out, err))
