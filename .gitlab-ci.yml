@@ -61,7 +61,7 @@ job_python_py34:
     - invoke test-shared
 
 
-job_python_py36:
+job_python_py36:  # The main runner
   image: almarklein/py36
   script:
     - cd python
@@ -73,6 +73,11 @@ job_python_py36:
     - invoke lint
     - invoke test-unit
     - invoke test-shared
+    # Test installation and CLI
+    - invoke setup --install
+    - cd ~
+    - bsdf create foo.bsdf '[2, 3] * 4'
+    - bsdf view foo.bsdf
 
 
 # ---------- Octave / Matlab

@@ -14,6 +14,22 @@ def call(*cmd):
 
 
 @task
+def setup(ctx, install=False, upload=False):
+    """ Install or upl """
+    if not (install or upload) or (install and upload):
+        raise RuntimeError('provide either --install or --upload')
+    import bsdf
+    with open(os.path.join(this_dir, 'setup.py'), 'wb') as f:
+        f.write(SETUP_TEMPLATE.replace('{version}', bsdf.__version__).encode())
+    if install:
+        call(sys.executable, '-m', 'pip', 'install')
+    if upload:
+        r = input('Are you sure that you want to upload to Pypi? [y|N]: ')
+        if r.lower() == 'y':
+            call(sys.executable, 'setup.py', 'sdist', 'bdist_wheel', 'upload')
+    os.remove(os.path.join(this_dir, 'setup.py'))
+
+@task
 def lint(ctx):
     """ Run style tests with flake8. """
     # Print nice messages when all is well; flake8 does not celebrate.
@@ -102,3 +118,21 @@ def get_doc(ob, dedent):
         lines[i] = lines[i][dedent:]
     lines.append('')
     return '\n'.join(lines)
+
+
+SETUP_TEMPLATE = """
+try:
+    from setuptools import setup  # Supports wheels
+except ImportError:
+    from distutils.core import setup  # Supports anything else
+
+setup(name='bsdf',
+      version='{version}',
+      description='Python implementation of the Binary Structured Data Format (BSDF).',
+      author='Almar Klein',
+      author_email='almar.klein@gmail.com',
+      url='http://bsdf.io',
+      py_modules=['bsdf', 'bsdf_cli'],
+      entry_points={'console_scripts': ['bsdf = bsdf_cli:main']},
+     )
+"""

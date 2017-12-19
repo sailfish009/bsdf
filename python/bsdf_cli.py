@@ -329,7 +329,7 @@ def _view_decode(f, depth, maxdepth, noindent=False):
         if n == 255:
             # Streaming
             n = strunpack('<Q', f.read(8))[0]  # zero if not closed
-            printval('[ streaming list' + ' ]' * (depth < maxdepth))
+            printval('[ streaming list' + ' ]' * (depth >= maxdepth))
             try:
                 while True:
                     _view_decode(f, depth + 1, maxdepth)
@@ -338,7 +338,7 @@ def _view_decode(f, depth, maxdepth, noindent=False):
         else:
             # Normal
             if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
-            printval('[ list with %i elements' % n + ' ]' * (depth < maxdepth))
+            printval('[ list with %i elements' % n + ' ]' * (depth >= maxdepth))
             for i in range(n):
                 _view_decode(f, depth + 1, maxdepth)
         if depth < maxdepth:
@@ -346,7 +346,7 @@ def _view_decode(f, depth, maxdepth, noindent=False):
     elif c == b'm':
         n = strunpack('<B', f.read(1))[0]
         if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
-        printval('{ mapping with %i items' % n + ' }' * (depth < maxdepth))
+        printval('{ mapping with %i items' % n + ' }' * (depth >= maxdepth))
         for i in range(n):
             n_name = strunpack('<B', f.read(1))[0]
             if n_name == 253: n_name = strunpack('<Q', f.read(8))[0]  # noqa
