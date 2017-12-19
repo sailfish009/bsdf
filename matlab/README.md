@@ -21,12 +21,33 @@ addpath('/path/to/bsdf');
 Functionality is provided via a single `Bsdf` class:
 
 ```matlab
-bsdf = Bsdf()
-bsdf.save(filename, data)   % to save data to file
-data = bsdf.load(filename)  % to load data from file
-blob = bsdf.encode(data)    % to serialize data to bytes (a uint8 array)
-data = bsdf.decode(blob)    % to load data from bytes       
+>> bsdf = Bsdf()
+>> b = bsdf.encode({'just some objects', struct('foo', true, 'bar', []), 42.001});
+>> size(b)
+ans =
+   48    1
+>> bsdf.decode(b)
+ans =
+{
+  [1,1] = just some objects
+  [1,2] =
+
+    scalar structure containing the fields:
+
+      foo = 1
+      bar = [](0x0)
+
+  [1,3] =  42.001
+}
 ```
+
+
+## Reference:
+    
+
+## Class Bsdf<span class='sig'>()</span>
+
+This class represents the main API to use BSDF in Matlab.
 
 Options (for writing) are provided as object properties:
     
@@ -35,3 +56,23 @@ Options (for writing) are provided as object properties:
 * float64: whether to export floats as 64 bit (default) or 32 bit.
 * use_checksum: whether to write checksums for binary blobs, not yet
   implemented.
+
+
+### Method save<span class='sig'>(filename, data)</span>
+
+Save data to a file.
+
+
+### Method load<span class='sig'>(filename)</span>
+
+Load data from a file.
+
+
+### Method encode<span class='sig'>(data)</span>
+
+Serialize data to bytes. Returns a blob of bytes (a uint8 array).
+
+
+### Method decode<span class='sig'>(blob)</span>
+
+Load data from bytes.

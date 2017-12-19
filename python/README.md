@@ -24,7 +24,7 @@ bb = bsdf.encode(my_object)
 # Decode
 my_object2 = bsdf.decode(bb)
 ```
-Advanced use:
+Example advanced use:
 
 ```python
 import bsdf
@@ -54,6 +54,8 @@ foo2 = serializer.decode(bb)
 
 foo2()  # print 42
 ```
+
+For more examples, see the [Python example notebook](https://gitlab.com/almarklein/bsdf/blob/master/python/bsdf_example_python.ipynb).
 
 
 ## Reference:
@@ -197,7 +199,7 @@ Read and return the next element in the streaming list.
 Raises StopIteration if the stream is exhausted.
 
 
-## class Blob<span class="sig">(f, compression=0, extra_size=0, use_checksum=False)</span>
+## class Blob<span class="sig">(bb, compression=0, extra_size=0, use_checksum=False)</span>
 
 Object to represent a blob of bytes. When used to write a BSDF file,
 it's a wrapper for bytes plus properties such as what compression to apply.
