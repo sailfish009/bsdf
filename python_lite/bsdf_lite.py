@@ -160,7 +160,7 @@ class BsdfLiteSerializer(object):
             if self._extensions_by_cls[cls][0] == name:
                 self._extensions_by_cls.pop(cls)
 
-    def _encode(self, f, value, streams, ext_id):
+    def _encode(self, f, value, ext_id):
         """ Main encoder function.
         """
 
@@ -189,7 +189,7 @@ class BsdfLiteSerializer(object):
         elif isinstance(value, (list, tuple)):
             f.write(x(b'l', ext_id) + lencode(len(value)))  # L for list
             for v in value:
-                self._encode(f, v, streams, None)
+                self._encode(f, v, None)
         elif isinstance(value, dict):
             f.write(x(b'm', ext_id) + lencode(len(value)))  # M for mapping
             for key, v in value.items():
@@ -197,7 +197,7 @@ class BsdfLiteSerializer(object):
                 name_b = key.encode('UTF-8')
                 f.write(lencode(len(name_b)))
                 f.write(name_b)
-                self._encode(f, v, streams, None)
+                self._encode(f, v, None)
         elif isinstance(value, bytes):
             f.write(x(b'b', ext_id))  # B for blob
             # Compress
@@ -259,8 +259,7 @@ class BsdfLiteSerializer(object):
             # Success or fail
             if ex is not None:
                 ext_id2, extension_encode = ex
-                self._encode(f, extension_encode(self, value),
-                             streams, ext_id2)
+                self._encode(f, extension_encode(self, value), ext_id2)
             else:
                 t = ('Class %r is not a valid base BSDF type, nor is it '
                      'handled by an extension.')
@@ -304,16 +303,19 @@ class BsdfLiteSerializer(object):
             value = f.read(n_s).decode('UTF-8')
         elif c == b'l':
             n = strunpack('<B', f.read(1))[0]
-            if n == 255:
+            if n >= 254:
                 # Streaming
-                n = strunpack('<Q', f.read(8))[0]  # zero if not closed
-                # todo: if n > 0, we don't have to do the while loop
-                value = []
-                try:
-                    while True:
-                        value.append(self._decode(f))
-                except EOFError:
-                    pass
+                closed = n == 254
+                n = strunpack('<Q', f.read(8))[0]
+                if closed:
+                    value = [self._decode(f) for i in range(n)]
+                else:
+                    value = []
+                    try:
+                        while True:
+                            value.append(self._decode(f))
+                    except EOFError:
+                        pass
             else:
                 # Normal
                 if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
@@ -385,17 +387,7 @@ class BsdfLiteSerializer(object):
         f.write(struct.pack('<B', VERSION[0]))
         f.write(struct.pack('<B', VERSION[1]))
 
-        # Prepare streaming, this list will have 0 or 1 item at the end
-        streams = []
-
-        self._encode(f, ob, streams, None)
-
-        # Verify that stream object was at the end, and add initial elements
-        if len(streams) > 0:
-            stream = streams[0]
-            if stream.start_pos != f.tell():
-                raise ValueError('The stream object must be '
-                                 'the last object to be encoded.')
+        self._encode(f, ob, None)
 
     def decode(self, bb):
         """ Load the data structure that is BSDF-encoded in the given bytes.
