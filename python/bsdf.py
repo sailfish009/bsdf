@@ -57,6 +57,7 @@ if PY3:
     integer_types = int
     classtypes = type
 else:  # pragma: no cover
+    logging.basicConfig()  # avoid "no handlers found" error
     string_types = basestring  # noqa
     unicode_types = unicode  # noqa
     integer_types = (int, long)  # noqa
