@@ -1,5 +1,5 @@
 """
-Test the main ...
+Test the main working of BSDF.
 """
 
 from __future__ import absolute_import, print_function, division
@@ -572,103 +572,6 @@ def test_extension_default_notimplemented():
     b = bsdf.encode(a, [MyExt2])
     with raises(NotImplementedError):
        c = bsdf.decode(b, [MyExt2]) 
-    
-
-## Special implementation stuff - streaming, lazy loading
-
-# todo: better test streaming API
-# todo: better test lazy loading and editing blobs in-place
-
-def test_streaming1():
-    """ Writing a streamed list. """
-    f = io.BytesIO()
-
-    thelist = bsdf.ListStream()
-    a = [3, 4, thelist]
-
-    bsdf.save(f, a)
-
-    thelist.append('hi')
-    for i in range(10):
-        thelist.append(i * 101)
-    thelist.append((4, 2))
-
-    thelist.close()
-    bb = f.getvalue()
-    b = bsdf.decode(bb)
-
-    assert b[-1] == ['hi', 0, 101, 202, 303, 404, 505, 606, 707, 808, 909, [4, 2]]
-
-    # Only ListStream
-    class MyStream(bsdf.BaseStream):
-        pass
-    f = io.BytesIO()
-    a = [3, 4, MyStream()]
-    with raises(TypeError):
-        bsdf.save(f, a)
-
-    # Only one!
-    f = io.BytesIO()
-    a = [3, 4, bsdf.ListStream(), bsdf.ListStream()]
-    with raises(ValueError):
-        bsdf.save(f, a)
-
-    # Stream must be at the end
-    f = io.BytesIO()
-    a = [3, 4, bsdf.ListStream(), 5]
-    with raises(ValueError):
-        bsdf.save(f, a)
-
-
-def test_streaming2():
-    """ Writing a streamed list, closing the stream. """
-    f = io.BytesIO()
-
-    thelist = bsdf.ListStream()
-    a = [3, 4, thelist]
-
-    bsdf.save(f, a)
-
-    thelist.append('hi')
-
-    # closing here will write the length of the stream, marking the stream as closed
-    thelist.close()
-
-    for i in range(3):
-        thelist.append(i)
-
-    bb = f.getvalue()
-    b = bsdf.decode(bb)
-
-    # However, this BSDF implementation consumes the whole stream anyway
-    assert b[-1] == ['hi', 0, 1, 2]
-
-
-def test_streaming3():
-    """ Reading a streamed list. """
-    f = io.BytesIO()
-
-    thelist = bsdf.ListStream()
-    a = [3, 4, thelist]
-
-    bsdf.save(f, a)
-
-    thelist.append('hi')
-    for i in range(3):
-        thelist.append(i)
-
-    bb = f.getvalue()
-    b = bsdf.decode(bb, load_streaming=True)
-
-    x = b[-1]
-    assert isinstance(x, bsdf.ListStream)
-
-    x.get_next() == 'a'
-    x.get_next() == 0
-    x.get_next() == 1
-    x.get_next() == 2
-    with raises(StopIteration):
-        x.get_next()
 
 
 if __name__ == '__main__':

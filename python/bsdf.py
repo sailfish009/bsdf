@@ -25,6 +25,7 @@ from __future__ import absolute_import, division, print_function
 import bz2
 import hashlib
 import logging
+import os
 import re
 import struct
 import sys
@@ -270,7 +271,9 @@ class BsdfSerializer(object):
             value._to_file(f)  # noqa
         elif isinstance(value, BaseStream):
             # Initialize the stream
-            if isinstance(value, ListStream):
+            if value.mode != 'w':
+                raise ValueError('Cannot serialize a read-mode stream.')
+            elif isinstance(value, ListStream):
                 f.write(x(b'l', ext_id) + spack('<BQ', 255, 0))  # L for list
             else:
                 raise TypeError('Only ListStream is supported')
@@ -344,13 +347,15 @@ class BsdfSerializer(object):
             value = f.read(n_s).decode('UTF-8')
         elif c == b'l':
             n = strunpack('<B', f.read(1))[0]
-            if n == 255:
+            if n >= 254:
                 # Streaming
-                n = strunpack('<Q', f.read(8))[0]  # zero if not closed
-                # todo: if n > 0, we don't have to do the while loop
+                closed = n == 254
+                n = strunpack('<Q', f.read(8))[0]
                 if self._load_streaming:
-                    value = ListStream()
+                    value = ListStream(n if closed else 'r')
                     value._activate(f, self._encode, self._decode)  # noqa
+                elif closed:
+                    value = [self._decode(f) for i in range(n)]
                 else:
                     value = []
                     try:
@@ -413,7 +418,7 @@ class BsdfSerializer(object):
         # Verify that stream object was at the end, and add initial elements
         if len(streams) > 0:
             stream = streams[0]
-            if stream.start_pos != f.tell():
+            if stream._start_pos != f.tell():
                 raise ValueError('The stream object must be '
                                  'the last object to be encoded.')
 
@@ -452,58 +457,114 @@ class BsdfSerializer(object):
 class BaseStream(object):
     """ Base class for streams.
     """
-    pass
+
+    def __init__(self, mode='w'):
+        self._i = 0
+        self._count = -1
+        if isinstance(mode, int):
+            self._count = mode
+            mode = 'r'
+        elif mode == 'w':
+            self._count = 0
+        assert mode in ('r', 'w')
+        self._mode = mode
+        self._f = None
+        self._start_pos = 0
+
+    def _activate(self, file, encode_func, decode_func):
+        if self._f is not None:  # Associated with another write
+            raise IOError('Stream object cannot be activated twice?')
+        self._f = file
+        self._start_pos = self._f.tell()
+        self._encode = encode_func
+        self._decode = decode_func
+
+    @property
+    def mode(self):
+        """ The mode of this stream: 'r' or 'w'.
+        """
+        return self._mode
 
 
 class ListStream(BaseStream):
     """ A streamable list object used for writing or reading.
+    In read mode, it can also be iterated over.
     """
 
-    def __init__(self):
-        self.f = None
-        self.start_pos = 0
-        self.count = 0
+    @property
+    def count(self):
+        """ The number of elements in the stream (can be -1 for unclosed
+        streams in read-mode.
+        """
+        return self._count
 
-    def _activate(self, file, encode_func, decode_func):
-        if self.f is not None:  # This could happen if present twice in the ob
-            raise RuntimeError('Stream object cnanot be activated twice?')
-        self.f = file
-        self.start_pos = self.f.tell()
-        self._encode = encode_func
-        self._decode = decode_func
+    @property
+    def index(self):
+        """ The index of the element to read/write.
+        """
+        return self._i
 
     def append(self, item):
-        """ Append an item to the list.
+        """ Append an item to the streaming list. The object is immediately
+        serialized and written to the underlying file.
         """
-        if self.f is None:
-            raise RuntimeError('List streamer is not ready for streaming yet.')
-        # todo: this was encode, is save() correct?
-        self._encode(self.f, item, [self], None)
-        self.count += 1
+        if self._mode != 'w':
+            raise IOError('This ListStream is not in write mode.')
+        if self._f is None:
+            raise IOError('List stream is not associated with a file yet.')
+        if self._f.closed:
+            raise IOError('Cannot stream to a close file.')
+        self._encode(self._f, item, [self], None)
+        self._i += 1
+        self._count += 1
 
-    def close(self):
-        """ Close the stream, writing the size.
+    def close(self, unstream=False):
+        """ Close the stream, marking the number of written elements. New
+        elements may still be appended, but they won't be read during decoding.
+        If ``unstream`` is False, the stream is turned into a regular list
+        (not streaming).
         """
-        # todo: prevent breaking things when used for reading!
-        if self.f is None:
-            raise RuntimeError('List streamer is not opened yet.')
-        i = self.f.tell()
-        self.f.seek(self.start_pos - 8)
-        self.f.write(spack('<Q', self.count))
-        # todo: set first size byte to 254 to indicate a closed stream?
-        self.f.seek(i)
+        if self._mode != 'w':
+            raise IOError('This ListStream is not in write mode.')
+        if self._f is None:
+            raise IOError('ListStream is not associated with a file yet.')
+        if self._f.closed:
+            raise IOError('Cannot close a stream on a close file.')
+        i = self._f.tell()
+        self._f.seek(self._start_pos - 8 - 1)
+        self._f.write(spack('<B', 253 if unstream else 254))
+        self._f.write(spack('<Q', self._count))
+        self._f.seek(i)
 
-    def get_next(self):
-        """ Get the next element in the stream.
+    def next(self):
+        """ Read and return the next element in the streaming list.
+        Raises StopIteration if the stream is exhausted.
         """
-        # todo: prevent mixing write/read ops, or is that handy in a+?
-        # This raises EOFError at some point.
-        try:
-            return self._decode(self.f)
-        except EOFError:
-            raise StopIteration()
+        if self._mode != 'r':
+            raise IOError('This ListStream in not in read mode.')
+        if self._f is None:
+            raise IOError('ListStream is not associated with a file yet.')
+        if self._f.closed:
+            raise IOError('Cannot read a stream from a close file.')
+        if self._count >= 0:
+            if self._i >= self._count:
+                raise StopIteration()
+            self._i += 1
+            return self._decode(self._f)
+        else:
+            # This raises EOFError at some point.
+            try:
+                return self._decode(self._f)
+            except EOFError:
+                raise StopIteration()
 
-        # todo: allow iterating over the stream
+    def __iter__(self):
+        if self._mode != 'r':
+            raise IOError('Cannot iterate: ListStream in not in read mode.')
+        return self
+
+    def __next__(self):
+        return self.next()
 
 
 class Blob(object):
@@ -725,6 +786,8 @@ def load(f, extensions=None, **options):
     """
     s = BsdfSerializer(extensions, **options)
     if isinstance(f, string_types):
+        if f.startswith(('~/', '~\\')):
+            f = os.path.expanduser(f)
         with open(f, 'rb') as fp:
             return s.load(fp)
     else:

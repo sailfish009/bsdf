@@ -375,7 +375,7 @@ def test_bsdf_to_bsdf(**excludes):
         index = raw2.find(100)
         assert index % 8 == 0
     
-    # Test unclosed stream
+    # Test stream 1 (unclosed)
     s = bsdf.ListStream()
     data1 = [3, 4, 5, s]
     #
@@ -384,6 +384,58 @@ def test_bsdf_to_bsdf(**excludes):
         bsdf.save(f, data1)
         s.append(6)
         s.append(7)
+        s.append(8)
+        s.append(9)
+    invoke_runner(fname1, fname2)
+    data2 = bsdf.load(fname2)
+    assert data2 == [3, 4, 5, [6, 7, 8, 9]]
+    print_dot()
+    
+    # Test stream 2 (closed early)
+    s = bsdf.ListStream()
+    data1 = [3, 4, 5, s]
+    #
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    with open(fname1, 'wb') as f:
+        bsdf.save(f, data1)
+        s.append(6)
+        s.append(7)
+        s.close()
+        s.append(8)
+        s.append(9)
+    invoke_runner(fname1, fname2)
+    data2 = bsdf.load(fname2)
+    assert data2 == [3, 4, 5, [6, 7]]
+    print_dot()
+    
+    # Test stream 3 (closed twice)
+    s = bsdf.ListStream()
+    data1 = [3, 4, 5, s]
+    #
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    with open(fname1, 'wb') as f:
+        bsdf.save(f, data1)
+        s.append(6)
+        s.append(7)
+        s.close()
+        s.append(8)
+        s.append(9)
+        s.close()
+    invoke_runner(fname1, fname2)
+    data2 = bsdf.load(fname2)
+    assert data2 == [3, 4, 5, [6, 7, 8, 9]]
+    print_dot()
+    
+    # Test stream 4 (close hard)
+    s = bsdf.ListStream()
+    data1 = [3, 4, 5, s]
+    #
+    fname1, fname2 = get_filenames('.bsdf', '.bsdf')
+    with open(fname1, 'wb') as f:
+        bsdf.save(f, data1)
+        s.append(6)
+        s.append(7)
+        s.close(True)
     invoke_runner(fname1, fname2)
     data2 = bsdf.load(fname2)
     assert data2 == [3, 4, 5, [6, 7]]

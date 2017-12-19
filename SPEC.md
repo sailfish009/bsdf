@@ -68,8 +68,8 @@ Next is the data itself. All words are stored in little endian format.
 Sizes (of e.g. lists, mappings, strings, and blobs) are encoded as
 follows: if the size is smaller than 251, a single byte (uint8) is used.
 Otherwise, the first byte is 253, and the next 8 bytes represent the
-size using an unsigned 64bit integer. (The byte 255 is used to identify
-streams, and 251-254 are reserved.)
+size using an unsigned 64bit integer. (The bytes 254 and 255 are used to
+identify (closed and unclosed) streams, and 251-252 are reserved.)
 
 ### Header
 
@@ -148,13 +148,18 @@ of a string that represents the key, and the value itself.
 
 Streams allow data to be written and read in a "lazy" fashion.
 Implementations are not required to support streaming itself, but must
-be able to read data with (unclosed) streams.
+be able to read data that contains (closed and unclosed) streams.
 
 Data that is "streaming" must always be the last object in the file
 (except for its sub items). BSDF currently specifies that streaming is
 only supported for lists. It will likely also be added for blobs.
 
-Streams are identified by the size encoding which starts with 255,
-followed by an unsigned 64 bit integer. This allows to later "close"
-the stream by changing the 255 to 253 and writing the real size in the next 8
-bytes.
+Streams are identified by the size encoding which starts with 254 or 255,
+followed by an unsigned 64 bit integer. For closed streams (254), the integer
+represents the number of items in the stream. For unclosed streams (255) the
+64 bit integer must be ignored.
+
+Encoder implementations can thus close a stream by changing the 255 to 254
+and writing the real size in the next 8 bytes. Alternatively, an implementaion
+can turn it into a regular encoded list (not streamed) by writing 253 instead.
+Note that in the latter case the list can not be read as a stream anymore.
