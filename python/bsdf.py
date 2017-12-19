@@ -495,13 +495,13 @@ class ListStream(BaseStream):
     @property
     def count(self):
         """ The number of elements in the stream (can be -1 for unclosed
-        streams in read-mode.
+        streams in read-mode).
         """
         return self._count
 
     @property
     def index(self):
-        """ The index of the element to read/write.
+        """ The current index of the element to read/write.
         """
         return self._i
 
@@ -509,8 +509,10 @@ class ListStream(BaseStream):
         """ Append an item to the streaming list. The object is immediately
         serialized and written to the underlying file.
         """
-        if self._mode != 'w':
-            raise IOError('This ListStream is not in write mode.')
+        #if self._mode != 'w':
+        #    raise IOError('This ListStream is not in write mode.')
+        if self._count != self._i:
+            raise IOError('Can only append items to the end of the stream.')
         if self._f is None:
             raise IOError('List stream is not associated with a file yet.')
         if self._f.closed:
@@ -525,8 +527,10 @@ class ListStream(BaseStream):
         If ``unstream`` is False, the stream is turned into a regular list
         (not streaming).
         """
-        if self._mode != 'w':
-            raise IOError('This ListStream is not in write mode.')
+        # if self._mode != 'w':
+        #     raise IOError('This ListStream is not in write mode.')
+        if self._count != self._i:
+            raise IOError('Can only close when at the end of the stream.')
         if self._f is None:
             raise IOError('ListStream is not associated with a file yet.')
         if self._f.closed:
@@ -555,10 +559,13 @@ class ListStream(BaseStream):
         else:
             # This raises EOFError at some point.
             try:
-                return self._decode(self._f)
+                res = self._decode(self._f)
+                self._i += 1
+                return res
             except EOFError:
+                self._count = self._i
                 raise StopIteration()
-
+    
     def __iter__(self):
         if self._mode != 'r':
             raise IOError('Cannot iterate: ListStream in not in read mode.')
@@ -569,10 +576,12 @@ class ListStream(BaseStream):
 
 
 class Blob(object):
-    """ Object to represent a blob of bytes. When used to write a BSDF file,
+    """ Blob(bytes, compression=0, extra_size=0, use_checksum=False)
+    
+    Object to represent a blob of bytes. When used to write a BSDF file,
     it's a wrapper for bytes plus properties such as what compression to apply.
     When used to read a BSDF file, it can be used to read the data lazily, and
-    also modify the data if reading in 'a+' mode and the blob isn't compressed.
+    also modify the data if reading in 'r+' mode and the blob isn't compressed.
     """
 
     # For now, this does not allow re-sizing blobs (within the allocated size)
@@ -591,7 +600,7 @@ class Blob(object):
             self._from_file(self.f, allow_seek)
             self._modified = False
         else:
-            raise RuntimeError('Wrong argument to create Blob.')
+            raise TypeError('Wrong argument to create Blob.')
 
     def _from_bytes(self, value, compression):
         """ When used to wrap bytes in a blob.
@@ -602,7 +611,7 @@ class Blob(object):
             compressed = zlib.compress(value)
         elif compression == 2:
             compressed = bz2.compress(value)
-        else:
+        else:  # pragma: no cover
             assert False, 'Unknown compression identifier'
 
         self.data_size = len(value)
@@ -682,9 +691,9 @@ class Blob(object):
             raise RuntimeError('Cannot seek in a blob '
                                'that is not created by the BSDF decoder.')
         if p < 0:
-            p = self.end_pos - p
-        if p < 0 or p > self.used_size:
-            raise IndexError('Seek beyond blob boundaries.')
+            p = self.allocated_size + p
+        if p < 0 or p > self.allocated_size:
+            raise IOError('Seek beyond blob boundaries.')
         self.f.seek(self.start_pos + p)
 
     def tell(self):
@@ -693,7 +702,7 @@ class Blob(object):
         if self.f is None:
             raise RuntimeError('Cannot tell in a blob '
                                'that is not created by the BSDF decoder.')
-        self.f.tell() - self.start_pos
+        return self.f.tell() - self.start_pos
 
     def write(self, bb):
         """ Write bytes to the blob.
@@ -702,9 +711,9 @@ class Blob(object):
             raise RuntimeError('Cannot write in a blob '
                                'that is not created by the BSDF decoder.')
         if self.compression:
-            raise IndexError('Cannot arbitrarily write in compressed blob.')
+            raise IOError('Cannot arbitrarily write in compressed blob.')
         if self.f.tell() + len(bb) > self.end_pos:
-            raise IndexError('Write beyond blob boundaries.')
+            raise IOError('Write beyond blob boundaries.')
         self._modified = True
         return self.f.write(bb)
 
@@ -715,9 +724,9 @@ class Blob(object):
             raise RuntimeError('Cannot read in a blob '
                                'that is not created by the BSDF decoder.')
         if self.compression:
-            raise IndexError('Cannot arbitrarily read in compressed blob.')
+            raise IOError('Cannot arbitrarily read in compressed blob.')
         if self.f.tell() + n > self.end_pos:
-            raise IndexError('Read beyond blob boundaries.')
+            raise IOError('Read beyond blob boundaries.')
         return self.f.read(n)
 
     def get_bytes(self):
@@ -734,18 +743,19 @@ class Blob(object):
             value = zlib.decompress(compressed)
         elif self.compression == 2:
             value = bz2.decompress(compressed)
-        else:
+        else:  # pragma: no cover
             raise RuntimeError('Invalid compression %i' % self.compression)
         return value
 
-    def close(self):
-        """ Reset the checksum if present.
+    def update_checksum(self):
+        """ Reset the blob's checksum if present. Call this after modifying
+        the data.
         """
         # or ... should the presence of a checksum mean that data is proteced?
-        if self.checksum is not None and self._modified:
+        if self.use_checksum and self._modified:
             self.seek(0)
             compressed = self.f.read(self.used_size)
-            self.f.seek(self.start_pos - self.alignment - 16)
+            self.f.seek(self.start_pos - self.alignment -1 - 16)
             self.f.write(hashlib.md5(compressed).digest())
 
 
@@ -787,7 +797,7 @@ def load(f, extensions=None, **options):
     """
     s = BsdfSerializer(extensions, **options)
     if isinstance(f, string_types):
-        if f.startswith(('~/', '~\\')):
+        if f.startswith(('~/', '~\\')):  # pragma: no cover
             f = os.path.expanduser(f)
         with open(f, 'rb') as fp:
             return s.load(fp)

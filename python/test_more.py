@@ -21,6 +21,9 @@ if not os.path.isdir(os.path.dirname(tempfilename)):
     os.makedirs(os.path.dirname(tempfilename))
 
 
+## Streaming
+
+
 def test_liststreaming1():
     """ Writing a streamed list. """
     f = io.BytesIO()
@@ -205,9 +208,202 @@ def test_liststreaming_reading1():
     ls = bsdf.ListStream('r')
     with raises(IOError):
         ls.next()
+
+
+def test_liststream_modding():
+    
+    # Create a file
+    ls = bsdf.ListStream()
+    with open(tempfilename, 'wb') as f:
+        bsdf.save(f, ls)
+        ls.append('foo')
+        ls.append('bar')
+    
+    assert bsdf.load(tempfilename) == ['foo', 'bar']
+    
+    # Append items hard-core more
+    with open(tempfilename, 'ab') as f:
+        f.write(b'v')
+        f.write(b'h*\x00')  # ord('*') == 42
+    
+    assert bsdf.load(tempfilename) == ['foo', 'bar', None, 42]
+    
+    # Append items using the BSDF API
+    with open(tempfilename, 'r+b') as f:
+        ls = bsdf.load(f, load_streaming=True)
+        for i in ls:
+            pass
+        ls.append(4)
+        ls.append(5)
+        ls.close()  # also close here
+    
+    assert bsdf.load(tempfilename) == ['foo', 'bar', None, 42, 4, 5]
+    
+    # Try adding more items
+    with open(tempfilename, 'ab') as f:
+        f.write(b'v')
+        f.write(b'h*\x00')  # ord('*') == 42
+    
+    # But no effect
+    assert bsdf.load(tempfilename) == ['foo', 'bar', None, 42, 4, 5]
+
+
+## Blobs
+
+def test_blob_writing1():
+    
+    # Use blob to specify bytes
+    blob = bsdf.Blob(b'xxxx')
+    bb1 = bsdf.encode([2, 3, blob, 5])
+    
+    # Again, with extra size
+    blob = bsdf.Blob(b'xxxx', extra_size=100)
+    bb2 = bsdf.encode([2, 3, blob, 5])
+    
+    # Again, with checksum
+    blob = bsdf.Blob(b'xxxx', use_checksum=True)
+    bb3 = bsdf.encode([2, 3, blob, 5])
     
     
+    assert len(bb2) == len(bb1) + 100
+    assert len(bb3) == len(bb1) + 16
     
+    assert bsdf.decode(bb1) == [2, 3, b'xxxx', 5]
+    assert bsdf.decode(bb2) == [2, 3, b'xxxx', 5]
+    assert bsdf.decode(bb3) == [2, 3, b'xxxx', 5]
+
+    # Fail
+    with raises(TypeError):
+        bsdf.Blob([1, 2, 3])
+    with raises(RuntimeError):
+        blob.tell()
+    with raises(RuntimeError):
+        blob.seek(0)
+    with raises(RuntimeError):
+        blob.read(1)
+    with raises(RuntimeError):
+        blob.write(b'xx')
+
+
+def test_blob_reading1():
+    
+    blob = bsdf.Blob(b'xxxx')
+    bb1 = bsdf.encode([2, 3, blob, 5])
+    
+    res1 = bsdf.decode(bb1)
+    assert isinstance(res1[2], bytes)
+    
+    res1 = bsdf.decode(bb1, lazy_blob=True)
+    assert not isinstance(res1[2], bytes) and isinstance(res1[2], bsdf.Blob)
+    
+    res1[2].get_bytes() == b'xxxx'
+
+
+def test_blob_reading2():
+    bb = bsdf.encode(bsdf.Blob(b'xxyyzz', extra_size=2))
+    f = io.BytesIO(bb)
+    blob = bsdf.load(f, lazy_blob=True)
+    
+    # Always seek first
+    blob.seek(0)
+    assert blob.read(2) == b'xx'
+    assert blob.tell() == 2
+    assert blob.read(2) == b'yy'
+    
+    # We can overwrite, but changes an internal file that we cannot use :P
+    blob.write(b'aa')
+    
+    blob.seek(0)
+    assert blob.read(2) == b'xx'
+    
+    blob.seek(-2) # relative to allocated size
+    assert blob.tell() == 6
+    
+    # can just about do this, due to extra size
+    blob.seek(8)
+    # But this is too far
+    with raises(IOError):
+        blob.seek(9)
+    # And so is this
+    blob.seek(6)
+    with raises(IOError):
+        blob.write(b'xxx')
+    # And this
+    blob.seek(6)
+    with raises(IOError):
+        blob.read(3)
+
+
+def test_blob_reading3():  # compression
+    # ZLib
+    bb = bsdf.encode(bsdf.Blob(b'xxyyzz', compression=1))
+    f = io.BytesIO(bb)
+    blob = bsdf.load(f, lazy_blob=True)
+    #
+    blob.get_bytes() == b'xxyyzz'
+    
+    # BZ2
+    bb = bsdf.encode(bsdf.Blob(b'xxyyzz', compression=2))
+    f = io.BytesIO(bb)
+    blob = bsdf.load(f, lazy_blob=True)
+    #
+    blob.get_bytes() == b'xxyyzz'
+    
+    # But we cannot read or write
+    blob.seek(0)
+    with raises(IOError):
+        blob.read(2)
+    with raises(IOError):
+        blob.write(b'aa')
+
+
+def test_blob_modding1():  # plain
+    
+    bb = bsdf.encode(bsdf.Blob(b'xxyyzz', extra_size=2))
+    f = io.BytesIO(bb)
+    blob = bsdf.load(f, lazy_blob=True)
+    
+    blob.seek(4)
+    blob.write(b'aa')
+    blob.update_checksum()
+    assert bsdf.decode(f.getvalue()) == b'xxyyaa'
+
+
+def test_blob_modding2():  # with checksum
+    
+    bb = bsdf.encode(bsdf.Blob(b'xxyyzz', extra_size=2, use_checksum=True))
+    f = io.BytesIO(bb)
+    blob = bsdf.load(f, lazy_blob=True)
+    
+    blob.seek(4)
+    blob.write(b'aa')
+    blob.update_checksum()
+    assert bsdf.decode(f.getvalue()) == b'xxyyaa'
+
+
+def test_blob_modding3():  # actual files
+    bsdf.save(tempfilename, bsdf.Blob(b'xxyyzz', extra_size=2))
+    
+    # Can read, but not modify in rb mode
+    with open(tempfilename, 'rb') as f:
+        blob = bsdf.load(f, lazy_blob=True)
+        
+        blob.seek(0)
+        assert blob.read(2) == b'xx'
+        blob.seek(4)
+        with raises(IOError):
+            blob.write(b'aa')
+    
+    # But we can in a+ mode
+    with open(tempfilename, 'r+b') as f:
+        blob = bsdf.load(f, lazy_blob=True)
+        
+        blob.seek(0)
+        assert blob.read(2) == b'xx'
+        blob.seek(4)
+        blob.write(b'aa')
+    
+    assert bsdf.load(tempfilename) == b'xxyyaa'
 
 
 if __name__ == '__main__':
