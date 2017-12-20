@@ -329,7 +329,7 @@ def _view_decode(f, depth, maxdepth, noindent=False):
         if n == 255:
             # Streaming
             n = strunpack('<Q', f.read(8))[0]  # zero if not closed
-            printval('[ streaming list' + ' ]' * (depth >= maxdepth))
+            printval('[ open list stream ' + ' ]' * (depth >= maxdepth))
             try:
                 while True:
                     _view_decode(f, depth + 1, maxdepth)
@@ -337,8 +337,13 @@ def _view_decode(f, depth, maxdepth, noindent=False):
                 pass
         else:
             # Normal
-            if n == 253: n = strunpack('<Q', f.read(8))[0]  # noqa
-            printval('[ list with %i elements' % n + ' ]' * (depth >= maxdepth))
+            t = 'list with %i elements'
+            if n == 253:
+                n = strunpack('<Q', f.read(8))[0]  # noqa
+            elif n == 254:
+                n = strunpack('<Q', f.read(8))[0]
+                t = 'closed list stream with %i elements'
+            printval('[ ' + t % n + ' ]' * (depth >= maxdepth))
             for i in range(n):
                 _view_decode(f, depth + 1, maxdepth)
         if depth < maxdepth:
