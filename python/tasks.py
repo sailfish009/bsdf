@@ -22,7 +22,7 @@ def setup(ctx, install=False, upload=False):
     with open(os.path.join(this_dir, 'setup.py'), 'wb') as f:
         f.write(SETUP_TEMPLATE.replace('{version}', bsdf.__version__).encode())
     if install:
-        call(sys.executable, '-m', 'pip', 'install')
+        call(sys.executable, '-m', 'pip', 'install', '.')
     if upload:
         r = input('Are you sure that you want to upload to Pypi? [y|N]: ')
         if r.lower() == 'y':
