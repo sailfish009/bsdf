@@ -74,7 +74,7 @@ job_python_py36:  # The main runner
     - invoke test-unit
     - invoke test-shared
     # Test installation and CLI
-    - invoke setup --install
+    - python setup.py install .
     - cd ~
     - bsdf create foo.bsdf '[2, 3] * 4'
     - bsdf view foo.bsdf
