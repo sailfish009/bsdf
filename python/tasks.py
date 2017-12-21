@@ -98,15 +98,15 @@ def _get_reference():
 
         sig = str(inspect.signature(ob))
         if isinstance(ob, type):
-            parts.append('## class {}<span class="sig">{}</span>\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
+            parts.append('## class ``{}{}``\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
             for name, method in ob.__dict__.items():
                 if not name.startswith('_') and getattr(method, '__doc__', None) and callable(method):
                     sig = str(inspect.signature(method))
                     sig = '(' + sig[5:].lstrip(', ') if sig.startswith('(self') else sig
-                    parts.append('### method {}<span class="sig">{}</span>\n\n{}\n'.format(name, sig, get_doc(method, 8)))
+                    parts.append('### method ``{}{}``\n\n{}\n'.format(name, sig, get_doc(method, 8)))
             #parts.append('##')
         else:
-            parts.append('## function {}<span class="sig">{}</span>\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
+            parts.append('## function ``{}{}``\n\n{}\n'.format(ob.__name__, sig, get_doc(ob, 4)))
 
     return '\n'.join(parts)
 

@@ -60,31 +60,31 @@ For more examples, see the [Python example notebook](https://gitlab.com/almarkle
 
 ## Reference:
 
-## function encode<span class="sig">(ob, extensions=None, **options)</span>
+## function ``encode(ob, extensions=None, **options)``
 
 Save (BSDF-encode) the given object to bytes.
 See `BSDFSerializer` for details on extensions and options.
 
 
-## function decode<span class="sig">(bb, extensions=None, **options)</span>
+## function ``decode(bb, extensions=None, **options)``
 
 Load a (BSDF-encoded) structure from bytes.
 See `BSDFSerializer` for details on extensions and options.
 
 
-## function save<span class="sig">(f, ob, extensions=None, **options)</span>
+## function ``save(f, ob, extensions=None, **options)``
 
 Save (BSDF-encode) the given object to the given filename or
 file object. See` BSDFSerializer` for details on extensions and options.
 
 
-## function load<span class="sig">(f, extensions=None, **options)</span>
+## function ``load(f, extensions=None, **options)``
 
 Load a (BSDF-encoded) structure from the given filename or file object.
 See `BSDFSerializer` for details on extensions and options.
 
 
-## class BsdfSerializer<span class="sig">(extensions=None, **options)</span>
+## class ``BsdfSerializer(extensions=None, **options)``
 
 Instances of this class represent a BSDF encoder/decoder.
 
@@ -116,38 +116,38 @@ Options for decoding:
   file is open in a+ mode.
 
 
-### method add_extension<span class="sig">(extension_class)</span>
+### method ``add_extension(extension_class)``
 
 Add an extension to this serializer instance, which must be
 a subclass of Extension.
 
 
-### method remove_extension<span class="sig">(name)</span>
+### method ``remove_extension(name)``
 
 Remove a converted by its unique name.
 
 
-### method encode<span class="sig">(ob)</span>
+### method ``encode(ob)``
 
 Save the given object to bytes.
 
 
-### method save<span class="sig">(f, ob)</span>
+### method ``save(f, ob)``
 
 Write the given object to the given file object.
 
 
-### method decode<span class="sig">(bb)</span>
+### method ``decode(bb)``
 
 Load the data structure that is BSDF-encoded in the given bytes.
 
 
-### method load<span class="sig">(f)</span>
+### method ``load(f)``
 
 Load a BSDF-encoded object from the given file object.
 
 
-## class Extension<span class="sig">()</span>
+## class ``Extension()``
 
 Base class to implement BSDF extensions for special data types.
 
@@ -173,19 +173,19 @@ Further, it needs 3 methods:
   encoded value back to its intended representation.
 
 
-## class ListStream<span class="sig">(mode='w')</span>
+## class ``ListStream(mode='w')``
 
 A streamable list object used for writing or reading.
 In read mode, it can also be iterated over.
 
 
-### method append<span class="sig">(item)</span>
+### method ``append(item)``
 
 Append an item to the streaming list. The object is immediately
 serialized and written to the underlying file.
 
 
-### method close<span class="sig">(unstream=False)</span>
+### method ``close(unstream=False)``
 
 Close the stream, marking the number of written elements. New
 elements may still be appended, but they won't be read during decoding.
@@ -193,13 +193,13 @@ If ``unstream`` is False, the stream is turned into a regular list
 (not streaming).
 
 
-### method next<span class="sig">()</span>
+### method ``next()``
 
 Read and return the next element in the streaming list.
 Raises StopIteration if the stream is exhausted.
 
 
-## class Blob<span class="sig">(bb, compression=0, extra_size=0, use_checksum=False)</span>
+## class ``Blob(bb, compression=0, extra_size=0, use_checksum=False)``
 
 Object to represent a blob of bytes. When used to write a BSDF file,
 it's a wrapper for bytes plus properties such as what compression to apply.
@@ -207,32 +207,32 @@ When used to read a BSDF file, it can be used to read the data lazily, and
 also modify the data if reading in 'r+' mode and the blob isn't compressed.
 
 
-### method seek<span class="sig">(p)</span>
+### method ``seek(p)``
 
 Seek to the given position (relative to the blob start).
 
 
-### method tell<span class="sig">()</span>
+### method ``tell()``
 
 Get the current file pointer position (relative to the blob start).
 
 
-### method write<span class="sig">(bb)</span>
+### method ``write(bb)``
 
 Write bytes to the blob.
 
 
-### method read<span class="sig">(n)</span>
+### method ``read(n)``
 
 Read n bytes from the blob.
 
 
-### method get_bytes<span class="sig">()</span>
+### method ``get_bytes()``
 
 Get the contents of the blob as bytes.
 
 
-### method update_checksum<span class="sig">()</span>
+### method ``update_checksum()``
 
 Reset the blob's checksum if present. Call this after modifying
 the data.

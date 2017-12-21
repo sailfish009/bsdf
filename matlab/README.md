@@ -45,7 +45,7 @@ ans =
 ## Reference:
     
 
-## Class Bsdf<span class='sig'>()</span>
+## Class ``Bsdf()``
 
 This class represents the main API to use BSDF in Matlab.
 
@@ -58,21 +58,21 @@ Options (for writing) are provided as object properties:
   implemented.
 
 
-### Method save<span class='sig'>(filename, data)</span>
+### Method ``save(filename, data)``
 
 Save data to a file.
 
 
-### Method load<span class='sig'>(filename)</span>
+### Method ``load(filename)``
 
 Load data from a file.
 
 
-### Method encode<span class='sig'>(data)</span>
+### Method ``encode(data)``
 
 Serialize data to bytes. Returns a blob of bytes (a uint8 array).
 
 
-### Method decode<span class='sig'>(blob)</span>
+### Method ``decode(blob)``
 
 Load data from bytes.

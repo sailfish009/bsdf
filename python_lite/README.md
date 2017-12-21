@@ -28,7 +28,7 @@ my_object2 = serializer.decode(bb)
 
 ## Reference:
 
-## class BsdfLiteSerializer<span class="sig">(extensions=None, **options)</span>
+## class ``BsdfLiteSerializer(extensions=None, **options)``
 
 Instances of this class represent a BSDF encoder/decoder.
 
@@ -48,38 +48,38 @@ options. Options for encoding:
 * float64 (bool): Whether to write floats as 64 bit (default) or 32 bit.
 
 
-### method add_extension<span class="sig">(extension_class)</span>
+### method ``add_extension(extension_class)``
 
 Add an extension to this serializer instance, which must be
 a subclass of Extension.
 
 
-### method remove_extension<span class="sig">(name)</span>
+### method ``remove_extension(name)``
 
 Remove a converted by its unique name.
 
 
-### method encode<span class="sig">(ob)</span>
+### method ``encode(ob)``
 
 Save the given object to bytes.
 
 
-### method save<span class="sig">(f, ob)</span>
+### method ``save(f, ob)``
 
 Write the given object to the given file object.
 
 
-### method decode<span class="sig">(bb)</span>
+### method ``decode(bb)``
 
 Load the data structure that is BSDF-encoded in the given bytes.
 
 
-### method load<span class="sig">(f)</span>
+### method ``load(f)``
 
 Load a BSDF-encoded object from the given file object.
 
 
-## class Extension<span class="sig">()</span>
+## class ``Extension()``
 
 Base class to implement BSDF extensions for special data types.
 

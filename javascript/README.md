@@ -43,36 +43,36 @@ var data3 = bsdf.decode(bytes, extensions);  // a MyOb instance with value 42
 ## Reference:
 
 
-## Function encode<span class='sig'>(data, extensions)</span>
+## Function ``encode(data, extensions)``
 
 Encode the data, using the provided extensions (or the standard extensions
 if not given). Returns an `ArrayBuffer` representing the encoded data.
 See `BsdfSerializer.encode()` for details.
 
 
-## Function decode<span class='sig'>(blob, extensions)</span>
+## Function ``decode(blob, extensions)``
 
 Decode the blob, using the provided extensions (or the standard extensions
 if not given). Returns the decoded data.
 See `BsdfSerializer.decode()` for details.
 
 
-## Class BsdfSerializer<span class='sig'>(extensions)</span>
+## Class ``BsdfSerializer(extensions)``
 
 Provides a BSDF serializer object with a particular set of extension.
 
 
-### Method add_extension<span class='sig'>(extension)</span>
+### Method ``add_extension(extension)``
 
 Add an extension object to the the serializer.
 
 
-### Method remove_extension<span class='sig'>(extension)</span>
+### Method ``remove_extension(extension)``
 
 Remove an extension instance (and any extension with the same name).
 
 
-### Method encode<span class='sig'>(data)</span>
+### Method ``encode(data)``
 
 Encode the data and returns an `ArrayBuffer` representing the encoded data.
 
@@ -80,7 +80,7 @@ Any `ArrayBuffer` and `DataView` objects present in the data are interpreted
 as byte blobs, while `Uint8Array` objects are interpreted as typed arrays.
 
 
-### Method decode<span class='sig'>(blob)</span>
+### Method ``decode(blob)``
 
 Decode the blob and returns the decoded data.
 

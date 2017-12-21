@@ -89,10 +89,9 @@ class Page:
                 # Process header
                 level = len(line.split(' ')[0])
                 title = line.split(' ', 1)[1]
-                title_short = title.split('(')[0].split('<')[0].strip()
-                title_html = title.replace('`', '<code>', 1).replace('`', '</code>', 1)
+                title_short = title.split('(')[0].split('<')[0].strip().replace('`', '')
                 headers.append((level, title_short))
-                parts.append((level, title_short, title_html))
+                parts.append((level, title_short, title))
             else:
                 lines.append(line)
         parts.append('\n'.join(lines))
@@ -106,14 +105,15 @@ class Page:
         htmlparts = []
         for part in self.parts:
             if isinstance(part, tuple):
-                level, title_short, header = part
+                level, title_short, title = part
+                title_html = title.replace('``', '`').replace('`', '<code>', 1).replace('`', '</code>', 1)
                 ts = title_short.lower()
                 if part[0] == 2 and title_short:
                     htmlparts.append("<a class='anch' name='{}' href='#{}'>".format(ts, ts))
-                    htmlparts.append('<h%i>%s</h%i>' % (level, header, level))
+                    htmlparts.append('<h%i>%s</h%i>' % (level, title_html, level))
                     htmlparts.append('</a>')
                 else:
-                    htmlparts.append('<h%i>%s</h%i>' % (level, header, level))
+                    htmlparts.append('<h%i>%s</h%i>' % (level, title_html, level))
             else:
                 htmlparts.append(part)
         return '\n'.join(htmlparts)
@@ -362,9 +362,7 @@ h2 code, h3 code, h4 code {
     padding-left: 0;
     background: none;
     border: 0px;
-}
-h2 .sig, h3 .sig {
-    font-size: 80%;
+    font-size: 85%;
 }
 """
 
