@@ -31,10 +31,9 @@ of the box, supporting e.g. nd-arrays and complex numbers.
 
 ## Status
 
-Things are taking shape quickly, but at this point I still take the right to change
-the spec without notice. Once I've collected some initial feedback, the spec
-will be stable (before 2018). There are a few tasks left (#7) before I consider
-it "mature".
+The format is complete, except for a few details such us how to deal with
+blob checksums. All implementations comply with the format and are well-tested.
+We could do with implementatations in additional languages though!
 
 
 ## Implementations
