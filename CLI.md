@@ -24,7 +24,7 @@ $ bsdf help
 which yields:
 ```
 Command line interface for the Binary Structured Data Format.
-See http://bsdf.readthedocs.io for more information on BSDF.
+See http://bsdf.io for more information on BSDF.
 
 usage: bsdf command [options]
 

@@ -95,7 +95,7 @@ def cmd_help(command=None):
     longest = max([len(c[0]) for c in commands])
 
     lines = ['Command line interface for the Binary Structured Data Format.',
-             'See http://bsdf.readthedocs.io for more information on BSDF.',
+             'See http://bsdf.io for more information on BSDF.',
              '',
              'usage: bsdf command [options]',
              '',

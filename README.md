@@ -1,6 +1,6 @@
 # Binary Structured Data Format
 
-The [Binary Structured Data Format](http://bsdf.readthedocs.io) (BSDF)
+The [Binary Structured Data Format](http://bsdf.io) (BSDF)
 is an open specification for serializing (scientific) data, for the
 purpose of storage and (inter process) communication.
 
