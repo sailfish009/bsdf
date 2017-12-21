@@ -1,11 +1,11 @@
-% This file is freely distributed under the terms of the 2-clause BSD License.
+% This file is distributed under the terms of the 2-clause BSD License.
 % Copyright (C) 2017 Almar Klein
 
 classdef Bsdf
     % Bsdf class for encoding/decoding data with the BSDF format.
     %   Matlab/Octave implementation of the Binary Structured Data Format (BSDF).
     %   BSDF is a binary format for serializing structured (scientific) data.
-    %   Read more at https://gitlab.com/almarklein/bsdf.
+    %   See http://bsdf.io for more information.
     %
     %   This is a well tested, but relatively minimal implementation: it does
     %   not (yet) support custom extensions, and (zlib) compression is only

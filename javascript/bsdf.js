@@ -1,8 +1,11 @@
-
 /* JavaScript implementation of the Binary Structured Data Format (BSDF)
  *
- * bsdf_encode(data) -> ArrayBuffer
- * bsdf_decode(bytes) -> data (bytes can be ArrayBuffer, DataView or Uint8Array)
+ * BSDF is a binary format for serializing structured (scientific) data.
+ * See http://bsdf.io for more information.
+ *
+ * var bsdf = require('bsdf.js');
+ * bsdf.encode(data) -> ArrayBuffer
+ * bsdf.decode(bytes) -> data (bytes can be ArrayBuffer, DataView or Uint8Array)
  *
  * The data is any data structure supported by BSDF and available extensions.
  * ArrayBuffer and DataView are consumed as bytes, and Uint8Array as a typed array.
@@ -10,9 +13,8 @@
  * `a = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)`, if needed
  * make a copy with `a = new Uint8Array(a)`.
  *
- * See http://gitlab.com/almarklein/bsdf for more information.
  * This code is distributed under the terms of the 2-clause BSD license.
- *
+ * Copyright (C) 2017 Almar Klein
  */
 
 /* Developer notes:

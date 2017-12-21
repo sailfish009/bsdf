@@ -1,6 +1,11 @@
+#!/usr/bin/env python
+# This file is distributed under the terms of the 2-clause BSD License.
+# Copyright (c) 2017, Almar Klein
+
 """
 Implements the command line interface for BSDF,
 which is generally invoked when running bsdf.py as a script.
+See http://bsdf.io for more information.
 """
 
 

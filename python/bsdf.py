@@ -1,11 +1,12 @@
+#!/usr/bin/env python
+# This file is distributed under the terms of the 2-clause BSD License.
 # Copyright (c) 2017, Almar Klein
-# This file is freely distributed under the terms of the 2-clause BSD License.
 
 """
 Python implementation of the Binary Structured Data Format (BSDF).
 
 BSDF is a binary format for serializing structured (scientific) data.
-Read more at https://gitlab.com/almarklein/bsdf.
+See http://bsdf.io for more information.
 
 This is the reference implementation, which is relatively relatively
 sophisticated, providing e.g. lazy loading of blobs and streamed

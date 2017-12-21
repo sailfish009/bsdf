@@ -26,15 +26,19 @@ def collect_files():
             continue
         # Try name that exactly matches bsdf
         for fname in os.listdir(os.path.join(ROOT_DIR, dname)):
-            if fname.split('.')[0].lower() == 'bsdf':
-                files.append(os.path.join(ROOT_DIR, dname, fname))
-                break
+            filename = os.path.join(ROOT_DIR, dname, fname)
+            if os.path.isfile(filename):
+                if fname.split('.')[0].lower() == 'bsdf':
+                    files.append(filename)
+                    break
         else:
             # Maybe it has a suffix then?
             for fname in os.listdir(os.path.join(ROOT_DIR, dname)):
-                if fname.split('_')[0].lower() == 'bsdf':
-                    files.append(os.path.join(ROOT_DIR, dname, fname))
-                    break
+                filename = os.path.join(ROOT_DIR, dname, fname)
+                if os.path.isfile(filename):
+                    if fname.split('_')[0].lower() == 'bsdf':
+                        files.append(os.path.join(ROOT_DIR, dname, fname))
+                        break
             else:
                 # Not found!
                 raise RuntimeError('Could not find BSDF implementation file for ' + dname)

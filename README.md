@@ -56,6 +56,8 @@ instances hold extensions and options, and has `encode()`, `decode()`,
 `save()`,`load()`, and `add_extension()` methods. Optionally, an implementation
 can provide convenience functions.
 
+There is also a [command line interface](CLI.md) that can be used to e.g.
+create and view BSDF files.
 
 ## Installation
 
