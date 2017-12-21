@@ -39,17 +39,18 @@ A minimal BSDF implementation must support:
 
 * the basic data types: null, bool, int, float, string, list, mapping,
   and uncompressed binary blobs.
-* reading unclosed streams (at the end of a data structure).
+* reading (closed and unclosed) streams (at the end of a data structure).
 * preferably most standard extensions.
 
 Implementations are encouraged to support:
 
-* support user-defined extensions.
+* user-defined extensions.
 * compressed binary blobs (zlib and bz2).
 
-Further implementations can be made more powerful by supporting:
+Further, implementations can be made more powerful by supporting:
 
 * Lazy loading of blobs.
+* Editing of (uncompressed) blobs.
 * Lazy loading of streams.
 * Deferred writing of streams.
 
@@ -77,8 +78,7 @@ Data encoded with BSDF starts with the following 6-byte header:
 
 * 4 Identifier bytes: ASCII `BSDF`, equivalent to 1178882882 little endian.
 * Two variable size unsigned integers (uint8 in practice, assuming version
-  number are smaller than 251) indicating major and minor version
-  numbers. Currently 2 and 0.
+  numbers smaller than 251) indicating the major and minor version numbers.
 
 ### null
 
@@ -121,14 +121,20 @@ Binary data is encoded as follows:
 * used_size: the amount of used space for the blob, in bytes.
 * data_size: the size of the blob when decompressed, in bytes. If compression
   is off, it must be equal to used_size.
-* Optonal checksum: a single byte `0x00` means no hash, a byte `0xFF` means that
+* checksum: a single byte `0x00` means no hash, a byte `0xFF` means that
   there is, and is followed by a 16-byte md5 hash of the used (compressed) bytes.
-* Byte alignment indicator: a uint8 number (0-7) indicating the number of bytes
-  to skip before the data starts. 
-* Empty space: n empty bytes, as indicated by the byte alignment indicator.
+* Byte alignment indicator: a uint8 number indicating the number of bytes
+  to skip before the data starts. Implementations must align the data to 8-byte
+  boundaries, but larger boundaries (up to 256) are allowed.
+* Empty space: a number of empty bytes, as indicated by the byte alignment indicator.
 * The binary blob, used_size bytes.
-* Empty space, allocated_size minus used_size bytes.
+* Empty space, allocated_size minus used_size bytes. This space may have been
+  caused by a reducion of size of the blob, or may be allocated to allow
+  increasing the size of the blob.
 
+Note: at this moment, some implementations can write checksums, but none
+actually use it to validate the data. A policy w.r.t. checksums will have
+to be made and implementations will have to implement this.
 
 ### lists
 
@@ -152,7 +158,7 @@ be able to read data that contains (closed and unclosed) streams.
 
 Data that is "streaming" must always be the last object in the file
 (except for its sub items). BSDF currently specifies that streaming is
-only supported for lists. It will likely also be added for blobs.
+only supported for lists. It will likely also be supported for blobs.
 
 Streams are identified by the size encoding which starts with 254 or 255,
 followed by an unsigned 64 bit integer. For closed streams (254), the integer

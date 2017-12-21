@@ -81,6 +81,8 @@ b'BSDF\x02\x00l\x03s\x11just some objectsm\x02\x03fooy\x03barvd\xe3\xa5\x9b\xc4 
 ['just some objects', {'foo': True, 'bar': None}, 42.001]
 ```
 
+See more Python examples, see the [Python example notebook](https://gitlab.com/almarklein/bsdf/blob/master/python/bsdf_example_python.ipynb).
+
 In JavaScript:
 
 ```js

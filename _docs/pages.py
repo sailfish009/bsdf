@@ -191,7 +191,11 @@ def build(pages=True, rst=False):
                              for level, title in page.headers if level == 2]
             menu.append('')
         menu.append('<span class="header">Links</span>')
-        menu.append("<a href='http://gitlab.com/almarklein/bsdf'>Source at Gitlab</a>")
+        menu.append('<a href="http://gitlab.com/almarklein/bsdf">Source at Gitlab</a>')
+        menu.append('<a href="http://bsdf.readthedocs.io">Docs mirror at readthedocs</a>')
+        menu.append('<br /><a href="https://gitlab.com/almarklein/bsdf/pipelines">'
+                    '<img alt="pipeline status" src="https://gitlab.com/almarklein/bsdf/badges/master/pipeline.svg">'
+                    '</a>')
         menus[page.name] = '<br />'.join(menu)
     
     # Generate pages
@@ -237,10 +241,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class='menu'>
 {menu}
-<br /><br />
-<a href="https://gitlab.com/almarklein/bsdf/pipelines">
-<img alt="pipeline status" src="https://gitlab.com/almarklein/bsdf/badges/master/pipeline.svg" />
-</a>
+
+
 </div>
 <div class='content'>
 {body}
