@@ -7,7 +7,15 @@ reading and writing, and lazy loading of binary blobs. See also the
 
 ## Installation
 
-At this point, copy [bsdf.py](bsdf.py) to a place where Python can find it.
+Installing via `pip` will install `bsdf.py` as well as the CLI:
+
+```
+$ pip install bsdf
+```
+
+Alternatively, one can copy [bsdf.py](bsdf.py) to a directory on your `PYTHONPATH`.
+Copy [bsdf_cli.py](bsdf_cli.py) along to be able to use the CLI.
+
 There are no dependencies except Python 2.7 or Python 3.4+.
 
 
