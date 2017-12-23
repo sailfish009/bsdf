@@ -285,19 +285,19 @@ p {
     box-sizing: border-box;
     position: fixed;
     top: 1em;
-    left: calc(50% - 350px - 10px - 250px);
+    left: calc(50% - 350px - 10px - 300px);
     padding: 0.5em 1em;
     width: 100%;
-    max-width: 250px;
+    max-width: 300px;
     background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     white-space: nowrap;
 }
-@media screen and (max-width: 1250px) {
+@media screen and (max-width: 1350px) {
     /* position the menu below the content */
     .content { left: calc(62% - 350px); }
-    .menu { left: calc(62% - 350px - 10px - 250px); }
+    .menu { left: calc(62% - 350px - 10px - 250px); max-width: 250px; }
 }
 @media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
     .content {

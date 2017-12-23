@@ -24,8 +24,8 @@ and floats represent 64 bit numbers, but can be encoded using less
 bytes. Binary blobs can optionally be compressed (zlib or bz2), can have
 checksums, and can be resized.
 
-Via an efficient extension mechanism, other data types (including custom
-ones), can be serialized. The standard [extensions](EXTENSIONS.md) work out
+Via an efficient [extension mechanism](EXTENSIONS.md), other data types (including custom
+ones), can be serialized. The standard extensions work out
 of the box, supporting e.g. nd-arrays and complex numbers.
 
 
