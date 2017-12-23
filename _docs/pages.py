@@ -239,17 +239,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
+<div class='content'>
+
+{body}
+
 <div class='menu'>
 {menu}
-
-
 </div>
-<div class='content'>
-{body}
+
 <hr />
 <div class='footer'>© Copyright 2017, Almar Klein -
 the text on this page is licensed under <a href='https://creativecommons.org/licenses/by/4.0/'>CC BY 4.0</a>
 </div>
+
 </div>
 </body>
 </html>
@@ -268,31 +270,47 @@ p {
 }
 .content {
     box-sizing: border-box;
-    margin: 1em auto;
+    margin: 1em 0;
     padding: 1em 2em;
     width: 100%;
     max-width: 700px;
+    
+    position: absolute;
+    left: calc(50% - 350px);
+    
     background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
-}
-@media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
-    .content { max-width: 100%; margin:0; }
 }
 .menu {
     box-sizing: border-box;
     position: fixed;
     top: 1em;
-    right: calc(50% + 350px + 10px);
+    left: calc(50% - 350px - 10px - 250px);
     padding: 0.5em 1em;
-    width: 300px;
-    max-width: 300px;
-    background: #fff;
+    width: 100%;
+    max-width: 250px;
+    background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     white-space: nowrap;
 }
-@media screen and (max-width: 1200px) {
-    .menu { display: none;}
+@media screen and (max-width: 1250px) {
+    /* position the menu below the content */
+    .content { left: calc(62% - 350px); }
+    .menu { left: calc(62% - 350px - 10px - 250px); }
+}
+@media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
+    .content {
+        position: static;
+        max-width: none;
+        margin:0;
+    }
+    .menu {
+        position: static;
+        max-width: none;
+        margin-top: 16px;
+        box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.5);
+        }
 }
 a:link, a:visited, a:active {
     color: #48C;
@@ -309,14 +327,14 @@ a:hover {
 .menu a {
     color: #404040;
     line-height: 150%;
-    margin-left: 1em;
+    margin-left: 0.5em;
 }
 .menu a.current {
     font-weight: bold;
 }
 .menu a.sub {
     font-size: 80%;
-    margin-left: 2em;
+    margin-left: 1.5em;
 }
 
 a.anch:hover {

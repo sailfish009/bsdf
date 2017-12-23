@@ -132,7 +132,5 @@ format can be seen as its successor, being both simpler and more
 extensible. This is also why BSDF's version number starts at 2.
 
 I am currently of the opinion that a format that is good at binary data
-can not also be good at being a human readable config format. Therefore
-I created [ZON](https://bitbucket.org/pyzo/pyzolib/src/tip/zon), which
-is completely compatible with SSDF, except that it does not support
-binary data.
+can not also be good at being a human readable (config) format. See e.g.
+[toml](https://github.com/toml-lang/toml) for a well-readable format.
