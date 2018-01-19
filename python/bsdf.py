@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # introduced. An implementation must display a warning when the file
 # being read has a higher minor version. The patch version is increased
 # for subsequent releases of the implementation.
-VERSION = 2, 1, 1
+VERSION = 2, 1, 2
 __version__ = '.'.join(str(i) for i in VERSION)
 
 
@@ -175,7 +175,7 @@ class BsdfSerializer(object):
 
     def add_extension(self, extension_class):
         """ Add an extension to this serializer instance, which must be
-        a subclass of Extension.
+        a subclass of Extension. Can be used as a decorator.
         """
         # Check class
         if not (isinstance(extension_class, type) and
@@ -210,6 +210,7 @@ class BsdfSerializer(object):
         for cls in clss:
             self._extensions_by_cls[cls] = name, extension.encode
         self._extensions[name] = extension
+        return extension_class
 
     def remove_extension(self, name):
         """ Remove a converted by its unique name.
