@@ -248,7 +248,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </div>
 
 <hr />
-<div class='footer'>© Copyright 2017, Almar Klein -
+<div class='footer'>© Copyright 2017-2018, Almar Klein -
 the text on this page is licensed under <a href='https://creativecommons.org/licenses/by/4.0/'>CC BY 4.0</a>
 </div>
 

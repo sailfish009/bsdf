@@ -29,7 +29,7 @@ pages.build(False, True)
 
 # General information about the project.
 project = 'BSDF'
-copyright = '2017, Almar Klein'
+copyright = '2017-2018, Almar Klein'
 author = 'Almar Klein'
 
 # The version info for the project you're documenting

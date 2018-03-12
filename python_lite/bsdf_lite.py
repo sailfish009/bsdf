@@ -206,9 +206,9 @@ class BsdfLiteSerializer(object):
             if compression == 0:
                 compressed = value
             elif compression == 1:
-                compressed = zlib.compress(value)
+                compressed = zlib.compress(value, 9)
             elif compression == 2:
-                compressed = bz2.compress(value)
+                compressed = bz2.compress(value, 9)
             else:
                 assert False, 'Unknown compression identifier'
             # Get sizes
