@@ -73,14 +73,20 @@ be assumed where it matters.
 ### 2D image data
 
 * name: 'image2d'
-* encoding: a 2D or 3D ndarray
+* encoding: a dict with elements:
+    * array: an ndarray with 2 or 3 dimensions
+    * meta: a dict with arbitrary data
 
-If the data is 3D, it has shape[-1] channels.
+If the data is 3D, the 3d dimension represents the color channels
+(1: L, 2: LA , 3: RGB or 4: RGBA).
 
 
 ### 3D image data
 
 * name: 'image3d'
-* encoding: a 3D or 4D ndarray
+* encoding: a dict with elements:
+    * array: an ndarray with 3 or 4 dimensions
+    * meta: a dict with arbitrary data
 
-If the data is 4D, it has shape[-1] channels.
+If the data is 4D, the 3d dimension represents the color channels
+(1: L, 2: LA , 3: RGB or 4: RGBA).
