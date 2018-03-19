@@ -8,6 +8,7 @@ import os
 import io
 import sys
 import array
+import logging
 import tempfile
 
 from pytest import raises
@@ -58,7 +59,7 @@ def test_length_encoding():
     assert bsdf_lite.lendecode(io.BytesIO(b'\xfd\x00\x00\x00\x00\x01\x00\x00\x00')) == 2**32
 
 
-def test_parse_errors():
+def test_parse_errors1():
 
     s = bsdf_lite.BsdfLiteSerializer()
 
@@ -83,7 +84,16 @@ def test_parse_errors():
         s.decode(b'BSDF\x02\x00r\x07')
         #                         \ r is not a known type
 
-def test_parse_errors(capsys):
+
+def test_parse_errors2():
+    
+    msgs = []
+    class MyHandler(logging.Handler):
+        def emit(self, record):
+            msgs.append(record.getMessage())
+    myHandler = MyHandler()
+    logger = bsdf_lite.logger.addHandler(myHandler)
+    
     V = bsdf_lite.VERSION
     assert V[0] > 0 and V[0] < 255  # or our tests will fail
     assert V[1] > 0 and V[1] < 255
@@ -111,12 +121,12 @@ def test_parse_errors(capsys):
         assert bsdf_lite.__version__ in str(err)
     
     # Smaller minor version is ok, larger minor version displays warning
-    capsys.readouterr()
+    out = ''; err = ''.join(msgs); msgs[:] = []
     s.decode(header(V[0], V[1] - 1) + b'v')
-    out, err = capsys.readouterr()
+    out = ''; err = ''.join(msgs); msgs[:] = []
     assert not out and not err
-    s.decode(header(V[0], V[1] + 1) + b'v')
-    out, err = capsys.readouterr()
+    s.decode(header(V[0], V[1] + 2) + b'v')
+    out = ''; err = ''.join(msgs); msgs[:] = []
     assert not out and 'higher minor version' in err
     
     # Wrong types

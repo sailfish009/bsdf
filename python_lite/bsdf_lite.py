@@ -25,7 +25,7 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
-VERSION = 2, 1, 1
+VERSION = 2, 1, 2
 __version__ = '.'.join(str(i) for i in VERSION)
 
 
@@ -409,11 +409,11 @@ class BsdfLiteSerializer(object):
         if major_version != VERSION[0]:  # major version should be 2
             t = ('Reading file with different major version (%s) '
                  'from the implementation (%s).')
-            raise RuntimeError(t % (__version__, file_version))
+            raise RuntimeError(t % (file_version, __version__))
         if minor_version > VERSION[1]:  # minor should be < ours
             t = ('BSDF warning: reading file with higher minor version (%s) '
                  'than the implementation (%s).')
-            logger.warn(t % (__version__, file_version))
+            logger.warn(t % (file_version, __version__))
 
         return self._decode(f)
 

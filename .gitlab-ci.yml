@@ -16,6 +16,21 @@ job_python_lite_py34:
     - invoke test-shared
 
 
+job_python_lite_py37:
+  image: almarklein/py37
+  variables:
+    BSDF_TEST_EXCLUDES: 'ndarray'
+  script:
+    - cd python_lite
+    - pip install invoke pytest pytest-cov
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke test-unit
+    - invoke test-shared
+
+
 # ---------- Python
 
 job_python_py27:
@@ -50,6 +65,21 @@ job_python_pypy3:
 
 job_python_py34:
   image: almarklein/py34
+  script:
+    - cd python
+    - pip install invoke pytest pytest-cov
+    #
+    - python --version
+    - invoke -l
+    #
+    - invoke test-unit
+    - invoke test-shared
+
+
+job_python_py37:
+  image: almarklein/py37
+  variables:
+    BSDF_TEST_EXCLUDES: 'ndarray,recursion1'
   script:
     - cd python
     - pip install invoke pytest pytest-cov

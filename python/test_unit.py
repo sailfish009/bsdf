@@ -264,13 +264,15 @@ def test_float32():
 
 
 def test_detect_recursion1():
-    # Actually, we don't detect this, this will just raise a RecursionErrors
+    # Actually, we don't detect this, this will just raise a RecursionError
+    if 'recursion1' in os.getenv('BSDF_TEST_EXCLUDES', ''):
+        skip('recursion test explicitly skipped')
     data = [3, 4]
     data.append(data)
     with raises(RuntimeError) as err:
         bsdf.encode(data)
 
-  
+
 ## Extensions
 
 
