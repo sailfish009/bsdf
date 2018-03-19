@@ -234,6 +234,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <title>{title}</title>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 {style}
 </style>
@@ -270,48 +271,55 @@ p {
 }
 .content {
     box-sizing: border-box;
-    margin: 1em 0;
     padding: 1em 2em;
     width: 100%;
-    max-width: 700px;
     
-    position: absolute;
-    left: calc(50% - 350px);
+    position: static;
+    max-width: none;
+    margin:0;
     
     background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
 .menu {
     box-sizing: border-box;
-    position: fixed;
-    top: 1em;
-    left: calc(50% - 350px - 10px - 300px);
-    padding: 0.5em 1em;
+    position: static;
     width: 100%;
-    max-width: 300px;
+    max-width: none;
+    margin-top: 16px;
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.5);
+    padding: 0.5em 1em;
     background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     white-space: nowrap;
 }
-@media screen and (max-width: 1350px) {
-    /* position the menu below the content */
-    .content { left: calc(62% - 350px); }
-    .menu { left: calc(62% - 350px - 10px - 250px); max-width: 250px; }
-}
-@media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
+
+@media screen and (min-width:  1000px) {
     .content {
-        position: static;
-        max-width: none;
-        margin:0;
+        position: absolute;
+        left: calc(62% - 350px);
+        max-width: 700px;
+        margin: 1em 0;
     }
     .menu {
-        position: static;
-        max-width: none;
-        margin-top: 16px;
-        box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.5);
-        }
+        position: fixed;
+        top: 1em;
+        left: calc(62% - 350px - 10px - 250px);
+        max-width: 250px;
+        margin-top: 0;
+    }
 }
+@media screen and (min-width: 1350px) {
+    .content {
+        left: calc(50% - 350px);
+    }
+    .menu {
+        left: calc(50% - 350px - 10px - 300px);
+        max-width: 300px;
+    }
+}
+
 a:link, a:visited, a:active {
     color: #48C;
     text-decoration: none;
