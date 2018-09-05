@@ -51,7 +51,7 @@ options. Options for encoding:
 ### method ``add_extension(extension_class)``
 
 Add an extension to this serializer instance, which must be
-a subclass of Extension.
+a subclass of Extension. Can be used as a decorator.
 
 
 ### method ``remove_extension(name)``

@@ -234,6 +234,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <title>{title}</title>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 {style}
 </style>
@@ -270,48 +271,55 @@ p {
 }
 .content {
     box-sizing: border-box;
-    margin: 1em 0;
     padding: 1em 2em;
     width: 100%;
-    max-width: 700px;
     
-    position: absolute;
-    left: calc(50% - 350px);
+    position: static;
+    max-width: none;
+    margin:0;
     
     background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
 }
 .menu {
     box-sizing: border-box;
-    position: fixed;
-    top: 1em;
-    left: calc(50% - 350px - 10px - 300px);
-    padding: 0.5em 1em;
+    position: static;
     width: 100%;
-    max-width: 300px;
+    max-width: none;
+    margin-top: 16px;
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.5);
+    padding: 0.5em 1em;
     background: #fcfcfc;
     box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     white-space: nowrap;
 }
-@media screen and (max-width: 1350px) {
-    /* position the menu below the content */
-    .content { left: calc(62% - 350px); }
-    .menu { left: calc(62% - 350px - 10px - 250px); max-width: 250px; }
-}
-@media screen and (max-width:  1000px) { /* some browser dont trigger for smaller numbers */
+
+@media screen and (min-width:  1000px) {
     .content {
-        position: static;
-        max-width: none;
-        margin:0;
+        position: absolute;
+        left: calc(62% - 350px);
+        max-width: 700px;
+        margin: 1em 0;
     }
     .menu {
-        position: static;
-        max-width: none;
-        margin-top: 16px;
-        box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.5);
-        }
+        position: fixed;
+        top: 1em;
+        left: calc(62% - 350px - 10px - 250px);
+        max-width: 250px;
+        margin-top: 0;
+    }
 }
+@media screen and (min-width: 1350px) {
+    .content {
+        left: calc(50% - 350px);
+    }
+    .menu {
+        left: calc(50% - 350px - 10px - 300px);
+        max-width: 300px;
+    }
+}
+
 a:link, a:visited, a:active {
     color: #48C;
     text-decoration: none;
@@ -387,52 +395,39 @@ h2 code, h3 code, h4 code {
 """
 
 RESET_CSS = """
-/*! normalize.css v3.0.3 | MIT License | github.com/necolas/normalize.css */
-html
-{font-family:sans-serif;}
+/*! normalize.css v8.0.0 | MIT License | github.com/necolas/normalize.css */
+html{line-height:1.15;-webkit-text-size-adjust:100%}
 body{margin:0}
-article,aside,details,figcaption,figure,footer,header,hgroup,main,menu,nav,
-section,summary{display:block}
-audio,canvas,progress,video{display:inline-block;vertical-align:baseline}
-audio:not([controls]){display:none;height:0}
-[hidden],template{display:none}
-a{background-color:transparent}
-a:active,a:hover{outline:0}
-abbr[title]{border-bottom:1px dotted}
-b,strong{font-weight:bold}
-dfn{font-style:italic}
 h1{font-size:2em;margin:.67em 0}
-mark{background:#ff0;color:#000}
+hr{box-sizing:content-box;height:0;overflow:visible}
+pre{font-family:monospace,monospace;font-size:1em}
+a{background-color:transparent}
+abbr[title]{border-bottom:none;text-decoration:underline;text-decoration:underline dotted}
+b,strong{font-weight:bolder}
+code,kbd,samp{font-family:monospace,monospace;font-size:1em}
 small{font-size:80%}
 sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}
-sup{top:-0.5em}
-sub{bottom:-0.25em}
-img{border:0}
-svg:not(:root){overflow:hidden}
-figure{margin:1em 40px}
-hr{box-sizing:content-box;height:0}
-pre{overflow:auto}
-code,kbd,pre,samp{font-family:monospace,monospace;font-size:1em}
-button,input,optgroup,select,textarea{color:inherit;font:inherit;margin:0}
-button{overflow:visible}
+sub{bottom:-.25em}
+sup{top:-.5em}
+img{border-style:none}
+button,input,optgroup,select,textarea{font-family:inherit;font-size:100%;line-height:1.15;margin:0}button,input{overflow:visible}
 button,select{text-transform:none}
-button,html input[type="button"],input[type="reset"],input[type="submit"]
-{-webkit-appearance:button;cursor:pointer}
-button[disabled],html input[disabled]{cursor:default}
-button::-moz-focus-inner,input::-moz-focus-inner{border:0;padding:0}
-input{line-height:normal}
-input[type="checkbox"],input[type="radio"]{box-sizing:border-box;padding:0}
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button{height:auto}
-input[type="search"]{-webkit-appearance:textfield;box-sizing:content-box}
-input[type="search"]::-webkit-search-cancel-button,
-input[type="search"]::-webkit-search-decoration{-webkit-appearance:none}
-fieldset{border:1px solid #c0c0c0;margin:0 2px;padding:.35em .625em .75em}
-legend{border:0;padding:0}
+button,[type="button"],[type="reset"],[type="submit"]{-webkit-appearance:button}
+button::-moz-focus-inner,[type="button"]::-moz-focus-inner,[type="reset"]::-moz-focus-inner,[type="submit"]::-moz-focus-inner{border-style:none;padding:0}
+button:-moz-focusring,[type="button"]:-moz-focusring,[type="reset"]:-moz-focusring,[type="submit"]:-moz-focusring{outline:1px dotted ButtonText}
+fieldset{padding:.35em .75em .625em}
+legend{box-sizing:border-box;color:inherit;display:table;max-width:100%;padding:0;white-space:normal}
+progress{vertical-align:baseline}
 textarea{overflow:auto}
-optgroup{font-weight:bold}
-table{border-collapse:collapse;border-spacing:0}
-td,th{padding:0}
+[type="checkbox"],[type="radio"]{box-sizing:border-box;padding:0}
+[type="number"]::-webkit-inner-spin-button,[type="number"]::-webkit-outer-spin-button{height:auto}
+[type="search"]{-webkit-appearance:textfield;outline-offset:-2px}
+[type="search"]::-webkit-search-decoration{-webkit-appearance:none}
+::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}
+details{display:block}
+summary{display:list-item}
+template{display:none}
+[hidden]{display:none}
 """.lstrip()
 
 PYGMENTS_CSS = '/* Pygments CSS */\n' + HtmlFormatter(style='vs').get_style_defs('.highlight')
