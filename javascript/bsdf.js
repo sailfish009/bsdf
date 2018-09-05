@@ -615,7 +615,7 @@ var complex_extension = {
 var ndarray_extension = {
     name: 'ndarray',
     match: function(s, v) {
-        return v.BYTES_PER_ELEMENT !== undefined && v.constructor.name.endsWith('Array');
+        return v.BYTES_PER_ELEMENT !== undefined && v.constructor.name.slice(-5) == 'Array';
     },
     encode: function(s, v) {
         return {shape: v.shape || [v.length],
