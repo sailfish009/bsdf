@@ -244,6 +244,7 @@ JSON_ABLE_OBJECTS = [
     [1,2,3, 4.2, 5.6, 6.001],
     dict(foo=7.2, bar=42, a=False),
     ["hello", 3, None, True, 'there', 'x'],
+    {'foo bar': 7, '/-€': 8},  # dict keys do not have to be identifiers
     
     # Singletons - note that some (e.g. Matlab's) json implementations have trouble having
     # anything else than list/dict as root element, and with empty dicts/structs.

@@ -25,7 +25,7 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
-VERSION = 2, 1, 2
+VERSION = 2, 2, 0
 __version__ = '.'.join(str(i) for i in VERSION)
 
 
@@ -194,7 +194,7 @@ class BsdfLiteSerializer(object):
         elif isinstance(value, dict):
             f.write(x(b'm', ext_id) + lencode(len(value)))  # M for mapping
             for key, v in value.items():
-                assert key.isidentifier()
+                assert isinstance(key, str)
                 name_b = key.encode('UTF-8')
                 f.write(lencode(len(name_b)))
                 f.write(name_b)

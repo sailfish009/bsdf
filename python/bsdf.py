@@ -18,7 +18,7 @@ This module has no dependencies and works on Python 2.7 and 3.4+.
 Note: on Legacy Python (Python 2.7), non-Unicode strings are encoded as bytes.
 """
 
-# todo: in 2020, remove six stuff, __future__ and _isidentifier
+# todo: in 2020, remove six stuff, __future__
 # todo: in 2020, remove 'utf-8' args to encode/decode; it's faster
 
 from __future__ import absolute_import, division, print_function
@@ -27,7 +27,6 @@ import bz2
 import hashlib
 import logging
 import os
-import re
 import struct
 import sys
 import types
@@ -44,7 +43,7 @@ logger = logging.getLogger(__name__)
 # introduced. An implementation must display a warning when the file
 # being read has a higher minor version. The patch version is increased
 # for subsequent releases of the implementation.
-VERSION = 2, 1, 3
+VERSION = 2, 2, 0
 __version__ = '.'.join(str(i) for i in VERSION)
 
 
@@ -103,15 +102,6 @@ def encode_type_id(b, ext_id):
         return b.upper() + lencode(len(bb)) + bb  # noqa
     else:
         return b  # noqa
-
-
-def _isidentifier(s):  # pragma: no cover
-    """ Use of str.isidentifier() for Legacy Python, but slower.
-    """
-    # http://stackoverflow.com/questions/2544972/
-    return (isinstance(s, string_types) and
-            re.match(r'^\w+$', s, re.UNICODE) and
-            re.match(r'^[0-9]', s) is None)
 
 
 class BsdfSerializer(object):
@@ -257,10 +247,7 @@ class BsdfSerializer(object):
         elif isinstance(value, dict):
             f.write(x(b'm', ext_id) + lencode(len(value)))  # M for mapping
             for key, v in value.items():
-                if PY3:
-                    assert key.isidentifier()  # faster
-                else:  # pragma: no cover
-                    assert _isidentifier(key)
+                assert isinstance(key, str)
                 # yield ' ' * indent + key
                 name_b = key.encode('UTF-8')
                 f.write(lencode(len(name_b)))

@@ -1,7 +1,7 @@
 # The BSDF format specification
 
 This document applies to BSDF format
-VERSION = 2.1.
+VERSION = 2.2.
 
 ## Purpose and features
 
@@ -147,7 +147,7 @@ can be of any type.
 Mappings, a.k.a. dictionaries or structs, consists of the identifier
 `m` (for mapping), followed by a size item that represents the length
 of the mapping n. After that, n items follow, each time a combination
-of a string that represents the key, and the value itself.
+of a string (the key) and the value.
 
 
 ## Streaming

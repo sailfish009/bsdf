@@ -42,7 +42,7 @@ classdef Bsdf
     methods (Access = public)
 
         function serializer = Bsdf()
-            VERSION = [2, 1, 0];  % Write such that the BSDF tooling can detect
+            VERSION = [2, 2, 0];  % Write such that the BSDF tooling can detect
             serializer.VERSION = VERSION;
             serializer.compression = 0;
             serializer.float64 = true;
@@ -159,8 +159,9 @@ classdef Bsdf
                 for i=1:length(keys)
                     key = keys{i};
                     val = value.(key);
-                    Bsdf.write_length(f, length(key));  % assume ASCII key names
-                    fwrite(f, key);
+                    key_b = Bsdf.string_encode(key);
+                    Bsdf.write_length(f, length(key_b));
+                    fwrite(f, key_b);
                     serializer.bsdf_encode(f, val);
                 end
 
@@ -354,7 +355,7 @@ classdef Bsdf
                 for i=1:n
                     n_name = fread(f, 1, '*uint8');
                     if n_name == 253; n_name = fread(f, 1, 'uint64'); end
-                    name = fread(f, n_name, '*char')';
+                    name = Bsdf.string_decode(fread(f, n_name, '*uint8'));
                     value.(name) = serializer.bsdf_decode(f);
                 end
             elseif c == 'b'

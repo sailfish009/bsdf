@@ -121,7 +121,8 @@ function object = parse_object(inStr, esc, varargin)
             end
             parse_char(inStr, ':');
             val = parse_value(inStr, esc, varargin{:});
-            object.(valid_field(str))=val;
+            # object.(valid_field(str))=val;  # Matlab meh?
+            object.(str)=val;
             if next_char(inStr) == '}'
                 break;
             end
