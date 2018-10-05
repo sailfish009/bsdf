@@ -20,7 +20,7 @@ for line in open(fname, 'rb').read().decode('utf-8').splitlines():
             doc = doc.strip(' \t\n\r"')
     elif doc and doc.startswith('"""'):
         doc += line + '\n'
-        
+
 assert version, 'could not find version'
 assert doc, 'could not find docs'
 

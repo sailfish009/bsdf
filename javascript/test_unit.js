@@ -26,7 +26,7 @@ function test_basics_floats() {
 
 
 function test_fail_good() {
-    
+
     // We want to catch use of undefined nicely
     var caught = '';
     try {
@@ -35,7 +35,7 @@ function test_fail_good() {
         caught = e.message;
     }
     assert(caught.includes('cannot encode undefined'), caught);  // String.includes() not for IE
-    
+
     // Dito, but nested
     var caught = '';
     try {
@@ -195,11 +195,11 @@ function test_integer_encoding(){
 
 
 function test_extensions1() {
-    
+
     function MyUndefined() {
     }
     myundefined = new MyUndefined();
-    
+
     var data1 = [3, 4, myundefined];
     var serializer;
 

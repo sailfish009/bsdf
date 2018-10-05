@@ -73,6 +73,10 @@ def fail(msg):
     sys.exit(m)
 
 
+def _print(*args, **kwargs):
+    print(*args, **kwargs)  # noqa
+
+
 def cmd_help(command=None):
     """ Show the help text.
 
@@ -87,7 +91,7 @@ def cmd_help(command=None):
         func = globals().get('cmd_' + command, None)
         if func is None:
             fail('Cannot give help for invalid command: %r' % command)
-        print(func.__doc__.strip())
+        _print(func.__doc__.strip())
         return
 
     # Otherwise, show generic help
@@ -112,7 +116,7 @@ def cmd_help(command=None):
     lines.append("Run 'bsdf help command' "
                  "or 'bsdf command --help' to learn more.")
 
-    print('\n'.join(lines))
+    _print('\n'.join(lines))
 
 
 def cmd_version():
@@ -122,7 +126,7 @@ def cmd_version():
     """
     module_name = bsdf.__name__ + '.py'
     version_string = '.'.join([str(i) for i in bsdf.VERSION])
-    print('%s version %s' % (module_name, version_string))
+    _print('%s version %s' % (module_name, version_string))
 
 
 def cmd_info(filename):
@@ -161,7 +165,7 @@ def cmd_info(filename):
     # Print info
     lines = ['  ' + line for line in lines]
     lines.insert(0, 'BSDF info for: ' + os.path.abspath(filename))
-    print('\n'.join(lines))
+    _print('\n'.join(lines))
 
 
 def cmd_create(filename, code):
@@ -222,7 +226,7 @@ def cmd_convert(filename1, filename2):
             pass
         raise
 
-    print('Wrote', filename2)
+    _print('Wrote', filename2)
 
 
 def cmd_view(filename, depth=1e9, info=False):
@@ -250,7 +254,7 @@ def cmd_view(filename, depth=1e9, info=False):
 
     if info:
         cmd_info(filename)
-        print('')
+        _print('')
 
     with open(filename, 'rb') as f:
 
@@ -268,7 +272,7 @@ def cmd_view(filename, depth=1e9, info=False):
         if minor_version > bsdf.VERSION[1]:  # minor should be < ours
             t = ('Warning: reading file with higher minor version (%s) '
                  'than the implementation (%s).')
-            print(t % (bsdf.__version__, file_version))
+            _print(t % (bsdf.__version__, file_version))
 
         _view_decode(f, 0, int(depth))
 
@@ -297,12 +301,12 @@ def _view_decode(f, depth, maxdepth, noindent=False):
     def printval(s):
         if depth <= maxdepth:
             indent = '' if noindent else '  ' * depth
-            print(indent + s + ext_id)
+            _print(indent + s + ext_id)
 
     def printraw(s, **kwargs):
         if depth <= maxdepth:
             indent = '  ' * depth
-            print(indent + s, **kwargs)
+            _print(indent + s, **kwargs)
 
     if c == b'v':
         printval('null')

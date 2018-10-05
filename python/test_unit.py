@@ -60,21 +60,21 @@ def test_length_encoding():
 
 
 def test_parse_errors1():
-    
+
     msgs = []
     class MyHandler(logging.Handler):
         def emit(self, record):
             msgs.append(record.getMessage())
     myHandler = MyHandler()
     logger = bsdf.logger.addHandler(myHandler)
-    
+
     V = bsdf.VERSION
     assert V[0] > 0 and V[0] < 255  # or our tests will fail
     assert V[1] > 0 and V[1] < 255
-    
+
     def header(*version):
         return ('BSDF' + chr(version[0]) + chr(version[1])).encode()
-    
+
     assert bsdf.decode(header(*V) + b'v') == None
     assert bsdf.decode(header(*V) + b'h\x07\x00') == 7
 
@@ -82,7 +82,7 @@ def test_parse_errors1():
     with raises(RuntimeError) as err:
         assert bsdf.decode(b'BZDF\x02\x00v')
     assert ' not ' in str(err) and 'BSDF' in str(err)
-    
+
     # Major version mismatch
     with raises(RuntimeError) as err1:
         assert bsdf.decode(header(V[0] - 1, V[1]) + b'v')
@@ -91,7 +91,7 @@ def test_parse_errors1():
     for err in (err1, err2):
         assert 'different major version' in str(err)
         assert bsdf.__version__ in str(err)
-    
+
     # Smaller minor version is ok, larger minor version displays warning
     out = ''; err = ''.join(msgs); msgs[:] = []
     bsdf.decode(header(V[0], V[1] - 1) + b'v')
@@ -100,12 +100,12 @@ def test_parse_errors1():
     bsdf.decode(header(V[0], V[1] + 1) + b'v')
     out = ''; err = ''.join(msgs); msgs[:] = []
     assert not out and 'higher minor version' in err
-    
+
     # Wrong types
     with raises(RuntimeError):
         bsdf.decode(b'BSDF\x02\x00r\x07')
         #                         \ r is not a known type
-    
+
     logger = bsdf.logger.removeFilter(myHandler)
 
 
@@ -261,6 +261,46 @@ def test_float32():
     #
     assert bsdf.decode(b1) == [3, 4, 5, 300, 400, 500]
     assert bsdf.decode(b2) == [300000, 400000, 500000, 3000000, 4000000, 5000000]
+
+
+def test_autoconvert_numpy_scalars():
+
+    try:
+        import numpy as np
+    except ImportError:
+        skip('need numpy')
+
+    serializer = bsdf.BsdfSerializer([])
+
+    # Reference
+    r1 = [2, -2, 4, -4, 8, -8]
+    r2 = [2.0, 4.0, 8.0]
+
+    # Same data, as numpy scalars
+    a1 = [np.uint16(2), np.int16(-2), np.uint32(4), np.int32(-4), np.uint64(8), np.int64(-8)]
+    a2 = [np.float16(2.0), np.float32(4.0), np.float64(8.0)]
+
+    assert a1 == r1
+    assert a2 == r2
+
+    # Encode
+    b1 = serializer.encode(a1)
+    b2 = serializer.encode(a2)
+
+    assert b1 == serializer.encode(r1)
+    assert b2 == serializer.encode(r2)
+
+    # Decode
+    c1 = serializer.decode(b1)
+    c2 = serializer.decode(b2)
+
+    assert c1 == r1
+    assert c2 == r2
+
+    assert not any([isinstance(x, int) for x in a1])
+    assert not all([isinstance(x, float) for x in a2])  # bc True for np.float64
+    assert all([isinstance(x, int) for x in c1])
+    assert all([isinstance(x, float) for x in c2])
 
 
 def test_detect_recursion1():
@@ -506,41 +546,41 @@ def test_extension_recurse():
     class MyExt1(bsdf.Extension):
         name = 'myob1'
         cls = MyObject1
-        
+
         def encode(self, s, v):
             return v.val
-        
+
         def decode(self, s, v):
             return MyObject1(v)
-    
+
     class MyExt2(bsdf.Extension):
         name = 'myob2'
         cls = MyObject2
-        
+
         def encode(self, s, v):
             # encode a MyObject2 as MyObject1
             return MyObject1(v.val)
-        
+
         def decode(self, s, v):
             # decode a MyObject2 from MyObject1
             return MyObject2(v.val)
-    
+
     class MyExt3(bsdf.Extension):
         name = 'myob2'
         cls = MyObject2
-        
+
         def encode(self, s, v):
             # encode a MyObject2 as [MyObject1]
             return [MyObject1(v.val)]
-        
+
         def decode(self, s, v):
             # decode a MyObject2 from MyObject1
             return MyObject2(v[0].val)
-    
+
     a = MyObject2(14)
     with raises(ValueError):
         b = bsdf.encode(a, [MyExt1, MyExt2])
-    
+
     b = bsdf.encode(a, [MyExt1, MyExt3])
     c = bsdf.decode(b, [MyExt1, MyExt3])
     assert repr(a) == repr(c)
@@ -549,13 +589,13 @@ def test_extension_recurse():
 def test_extension_recurse2():
     class MyOb:
         pass
-    
+
     class SillyExtension(bsdf.Extension):
         name = 'silly'
         cls = MyOb
-        
+
         def encode(self, s, v):
-            return v    
+            return v
 
     with raises(ValueError) as err:
         data = [MyOb()]
@@ -563,28 +603,28 @@ def test_extension_recurse2():
 
 
 def test_extension_default_notimplemented():
-    
+
     class MyExt1(bsdf.Extension):
         name = 'myob1'
         cls = MyObject1
-    
+
     class MyExt2(bsdf.Extension):
         name = 'myob1'
         cls = MyObject1
-    
+
         def encode(self, s, v):
             return v.val
-    
+
     assert 'myob1' in repr(MyExt1()) and 'BSDF extension' in repr(MyExt1())
-    
+
     a = MyObject1(7)
-    
+
     with raises(NotImplementedError):
         bsdf.encode(a, [MyExt1])
-    
+
     b = bsdf.encode(a, [MyExt2])
     with raises(NotImplementedError):
-       c = bsdf.decode(b, [MyExt2]) 
+       c = bsdf.decode(b, [MyExt2])
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ def call(*cmd):
 def lint(ctx):
     """ Run style tests with flake8. """
     # Print nice messages when all is well; flake8 does not celebrate.
-    ret_code = subprocess.call(['flake8', 'bsdf_lite.py'], cwd=this_dir)
+    ret_code = subprocess.call(['flake8', 'bsdf_lite.py', '--ignore=S1'], cwd=this_dir)
     if ret_code == 0:
         print('No style errors found')
     sys.exit(ret_code)

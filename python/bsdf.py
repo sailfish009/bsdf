@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 # introduced. An implementation must display a warning when the file
 # being read has a higher minor version. The patch version is increased
 # for subsequent releases of the implementation.
-VERSION = 2, 2, 0
+VERSION = 2, 2, 1
 __version__ = '.'.join(str(i) for i in VERSION)
 
 
@@ -275,6 +275,22 @@ class BsdfSerializer(object):
                 raise ValueError('Can only have one stream per file.')
             streams.append(value)
             value._activate(f, self._encode, self._decode)  # noqa
+        elif getattr(value, "shape", None) == () and str(
+            getattr(value, "dtype", "")
+        ).startswith(("uint", "int", "float")):
+            # Implicit conversion of numpy scalars
+            if 'int' in str(value.dtype):
+                value = int(value)
+                if -32768 <= value <= 32767:
+                    f.write(x(b'h', ext_id) + spack('h', value))
+                else:
+                    f.write(x(b'i', ext_id) + spack('<q', value))
+            else:
+                value = float(value)
+                if self._float64:
+                    f.write(x(b'd', ext_id) + spack('<d', value))
+                else:
+                    f.write(x(b'f', ext_id) + spack('<f', value))
         else:
             if ext_id is not None:
                 raise ValueError(
